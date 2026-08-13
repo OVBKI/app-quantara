@@ -1,0 +1,528 @@
+/* Quantara — English */
+
+/* MARK: Tabs and actions */
+"tab.home" = "Home";
+"tab.budget" = "Budget";
+"tab.transactions" = "Transactions";
+"tab.goals" = "Goals";
+"tab.advisor" = "AI";
+"tab.settings" = "Settings";
+
+"action.add" = "Add";
+"action.save" = "Save";
+"action.cancel" = "Cancel";
+"action.delete" = "Delete";
+"action.edit" = "Edit";
+"action.close" = "Close";
+"action.continue" = "Continue";
+"action.send" = "Send";
+"action.stop" = "Stop";
+
+/* MARK: Frequencies */
+"frequency.daily" = "Daily";
+"frequency.weekly" = "Weekly";
+"frequency.biweekly" = "Every 2 weeks";
+"frequency.monthly" = "Monthly";
+"frequency.quarterly" = "Quarterly";
+"frequency.semiannual" = "Twice a year";
+"frequency.annual" = "Yearly";
+"frequency.oneOff" = "One-off";
+
+/* MARK: Income categories */
+"income.category.salary" = "Salary";
+"income.category.allowances" = "Benefits";
+"income.category.freelance" = "Self-employed income";
+"income.category.rental" = "Rental income";
+"income.category.financial" = "Investment income";
+"income.category.bonus" = "Bonus";
+"income.category.other" = "Other income";
+
+/* MARK: Fixed expenses */
+"expense.fixed.rent" = "Rent";
+"expense.fixed.mortgage" = "Mortgage";
+"expense.fixed.charges" = "Building charges";
+"expense.fixed.electricity" = "Electricity";
+"expense.fixed.gas" = "Gas";
+"expense.fixed.water" = "Water";
+"expense.fixed.internet" = "Internet";
+"expense.fixed.phone" = "Phone";
+"expense.fixed.carLoan" = "Car loan";
+"expense.fixed.carInsurance" = "Car insurance";
+"expense.fixed.homeInsurance" = "Home insurance";
+"expense.fixed.healthInsurance" = "Health insurance";
+"expense.fixed.subscriptions" = "Subscriptions";
+"expense.fixed.school" = "School / childcare";
+"expense.fixed.taxes" = "Taxes";
+"expense.fixed.otherLoans" = "Other loans";
+"expense.fixed.otherFixed" = "Other fixed expenses";
+
+/* MARK: Variable expenses */
+"expense.variable.groceries" = "Groceries";
+"expense.variable.fuel" = "Fuel";
+"expense.variable.restaurants" = "Restaurants";
+"expense.variable.shopping" = "Shopping";
+"expense.variable.leisure" = "Leisure";
+"expense.variable.videoGames" = "Video games";
+"expense.variable.travel" = "Travel";
+"expense.variable.health" = "Health";
+"expense.variable.transport" = "Transport";
+"expense.variable.gifts" = "Gifts";
+"expense.variable.children" = "Children";
+"expense.variable.pets" = "Pets";
+"expense.variable.personal" = "Personal spending";
+"expense.variable.other" = "Other";
+
+/* MARK: Transaction and account kinds */
+"transaction.kind.income" = "Income";
+"transaction.kind.expense" = "Expense";
+"transaction.kind.savings" = "Savings";
+"transaction.kind.transfer" = "Transfer";
+"transaction.kind.debtPayment" = "Loan repayment";
+
+"account.kind.checking" = "Current account";
+"account.kind.savings" = "Savings";
+"account.kind.investment" = "Investment";
+"account.kind.cash" = "Cash";
+"account.kind.credit" = "Credit";
+
+/* MARK: Debts */
+"debt.kind.mortgage" = "Mortgage";
+"debt.kind.carLoan" = "Car loan";
+"debt.kind.consumerLoan" = "Consumer loan";
+"debt.kind.studentLoan" = "Student loan";
+"debt.kind.creditCard" = "Credit card";
+"debt.kind.overdraft" = "Overdraft";
+"debt.kind.personal" = "Personal loan";
+"debt.kind.other" = "Other debt";
+"debt.strategy.avalanche" = "Avalanche (highest rate first)";
+"debt.strategy.snowball" = "Snowball (smallest balance first)";
+"debt.new" = "New debt";
+"debt.edit" = "Edit debt";
+
+/* MARK: Goals */
+"goal.kind.emergencyFund" = "Emergency fund";
+"goal.kind.vacation" = "Holiday";
+"goal.kind.car" = "Car";
+"goal.kind.home" = "Home";
+"goal.kind.downPayment" = "Down payment";
+"goal.kind.education" = "Education";
+"goal.kind.retirement" = "Retirement";
+"goal.kind.investment" = "Investing";
+"goal.kind.personalProject" = "Personal project";
+"goal.kind.custom" = "Custom goal";
+
+/* MARK: Allocation */
+"allocation.safetyBuffer" = "Safety buffer";
+"allocation.highInterestDebt" = "High-interest debt";
+"allocation.emergencyFund" = "Emergency fund";
+"allocation.goals" = "Goals";
+"allocation.investment" = "Investing";
+"allocation.freeMoney" = "Free spending";
+
+/* MARK: Risk profiles and assets */
+"risk.conservative" = "Conservative";
+"risk.balanced" = "Balanced";
+"risk.dynamic" = "Growth";
+"risk.aggressive" = "Aggressive";
+
+"asset.cash" = "Cash";
+"asset.bonds" = "Bonds";
+"asset.equityETF" = "Equity ETFs";
+"asset.stocks" = "Stocks";
+"asset.funds" = "Funds";
+"asset.realEstate" = "Real estate";
+"asset.other" = "Other assets";
+
+/* MARK: Optimisation */
+"optimization.categoryAboveUsual" = "Above your usual level";
+"optimization.subscriptionAudit" = "Subscription review";
+"optimization.duplicateSubscription" = "Duplicate subscription";
+"optimization.dormantSubscription" = "Dormant subscription";
+"optimization.discretionaryExcess" = "Non-essential spending";
+"optimization.costlyDebtInterest" = "Loan interest";
+"optimization.unusualExpense" = "Unusual expense";
+"optimization.effort.easy" = "Easy";
+"optimization.effort.moderate" = "Moderate";
+"optimization.effort.demanding" = "Demanding";
+
+/* MARK: Privacy */
+"privacy.localOnly" = "On-device only";
+"privacy.aggregated" = "Advanced AI — aggregates";
+"privacy.detailed" = "Advanced AI — detailed";
+
+/* MARK: Home */
+"home.safeToSpend" = "Safe to spend today";
+"home.safeToSpend.detail" = "%@ left over %d days";
+"home.projectedNotice" = "Variable spending for the current month is projected.";
+"home.optimize" = "✨ Optimise my budget";
+"home.optimize.found" = "%@ of monthly savings identified";
+"home.thisMonth" = "This month";
+"home.topExpenses" = "Top category";
+"home.insights" = "Worth knowing";
+"home.goals" = "Your goals";
+"home.cashFlow" = "Cash flow";
+"home.cashFlow.overdraft" = "Lowest balance around %@: %@";
+"home.cashFlow.accessibility" = "Lowest balance %@, end-of-month balance %@";
+"home.canIAfford" = "Can I afford this?";
+"home.quickAdd" = "Add an expense";
+
+/* MARK: Budget */
+"budget.income" = "Income";
+"budget.expenses" = "Expenses";
+"budget.fixed" = "Fixed expenses";
+"budget.variable" = "Variable expenses";
+"budget.savings" = "Savings";
+"budget.disposable" = "Left to allocate";
+"budget.savingsRate" = "Savings rate";
+"budget.allocation" = "Suggested allocation";
+"budget.allocation.subtitle" = "Every allocation is explained.";
+"budget.allocation.empty" = "Nothing left to allocate this month.";
+"budget.incomes" = "Income";
+"budget.incomes.empty" = "No income entered yet.";
+"budget.fixedExpenses" = "Fixed expenses";
+"budget.fixedExpenses.empty" = "No fixed expenses entered yet.";
+"budget.totalMonthly" = "Monthly total";
+"budget.monthlyEquivalent" = "%@ per month";
+"budget.monthlyPayment" = "%@ per month";
+"budget.essential" = "essential";
+"budget.debts" = "Loans and debts";
+"budget.debtRatio" = "Debt-to-income ratio";
+"budget.envelopes" = "Envelopes";
+"budget.envelopes.subtitle" = "A monthly cap per category, tracked live.";
+"budget.envelopes.empty" = "No envelopes set.";
+"budget.previousMonth" = "Previous month";
+"budget.nextMonth" = "Next month";
+
+/* MARK: Fields */
+"field.name" = "Name";
+"field.amount" = "Amount";
+"field.frequency" = "Frequency";
+"field.category" = "Category";
+"field.kind" = "Type";
+"field.label" = "Description";
+"field.date" = "Date";
+"field.note" = "Note";
+"field.goal" = "Goal";
+"field.goal.none" = "None";
+"field.goalKind" = "Goal type";
+"field.targetAmount" = "Target amount";
+"field.currentAmount" = "Current amount";
+"field.hasTargetDate" = "Set a deadline";
+"field.targetDate" = "Deadline";
+"field.priority" = "Priority";
+"field.monthlyEquivalent" = "Monthly equivalent";
+"field.monthlyEquivalent.explanation" = "Non-monthly amounts are converted to a monthly equivalent: amount × occurrences per year ÷ 12.";
+"field.hasReceiptDay" = "I know the payment day";
+"field.receiptDay" = "Day of month";
+"field.receiptDay.explanation" = "The day is used to project your cash flow and warn you before a due date.";
+"field.hasDebitDay" = "I know the debit day";
+"field.debitDay" = "Day of month";
+"field.isSubscription" = "Subscription";
+"field.isEssential" = "Essential expense";
+"field.isEssential.explanation" = "Essential expenses form the basis of your emergency fund: what you still have to pay if your income stops.";
+"field.isVariableIncome" = "Irregular income";
+"field.isVariableIncome.explanation" = "Your budget will use the median of recent months rather than the latest amount, so it isn't built on one good month.";
+"field.debtKind" = "Loan type";
+"field.outstanding" = "Outstanding balance";
+"field.annualRate" = "Annual rate";
+"field.monthlyPayment" = "Monthly payment";
+"field.debt.explanation" = "The rate lets us compare paying down the loan against investing, and compute your debt-to-income ratio.";
+"field.debtHint" = "If this is a loan, enter it as a debt instead: the debt ratio and repayment strategies depend on it.";
+
+"income.new" = "New income";
+"income.edit" = "Edit income";
+"expense.new" = "New fixed expense";
+"expense.edit" = "Edit expense";
+
+/* MARK: Transactions */
+"transactions.search" = "Search";
+"transactions.filter" = "Filter";
+"transactions.filter.all" = "Show all";
+"transactions.import" = "Import a CSV file";
+"transactions.detectRecurrences" = "Detect recurring payments";
+"transactions.empty.title" = "No transactions";
+"transactions.empty.message" = "Add expenses as they happen, or import a bank statement in CSV format.";
+"transactions.recurrence.title" = "Recurring payments detected";
+"transactions.recurrence.detail" = "%@ · %@ · %d occurrences";
+"transactions.recurrence.convert" = "Make it a fixed expense";
+"transactions.recurrence.ignore" = "Ignore";
+
+"quickAdd.title" = "New transaction";
+"quickAdd.autoCategorized" = "Category suggested automatically, with no data sent.";
+
+/* MARK: Import */
+"import.explanation" = "Import a CSV statement. Expected columns: date, description, amount. A negative amount is an expense.";
+"import.dateFormat" = "Date format";
+"import.hasHeader" = "File has a header row";
+"import.chooseFile" = "Choose a file";
+"import.preview" = "Preview";
+"import.found" = "Transactions found";
+"import.categorized" = "Categorised automatically";
+"import.skipped" = "Rows skipped";
+"import.skipped.explanation" = "These rows could not be read: check the date format and column order.";
+"import.confirm" = "Import";
+"import.error.empty" = "The file is empty.";
+"import.error.noRows" = "No usable rows. Check the date format and column order.";
+"import.error.access" = "File access denied.";
+
+/* MARK: Goals */
+"goals.new" = "New goal";
+"goals.edit" = "Edit goal";
+"goals.empty.title" = "No goals yet";
+"goals.empty.message" = "A goal with a number and a date turns an intention into a plan.";
+"goals.emergencyFund" = "Emergency fund";
+"goals.emergencyFund.subtitle" = "Your first protection against the unexpected.";
+"goals.emergencyFund.coverage" = "%@ months of essential expenses covered";
+"goals.emergencyFund.tier" = "%d months";
+"goals.emergencyFund.required" = "%@ per month to reach %d months of cover.";
+"goals.current" = "Current";
+"goals.remaining" = "Remaining";
+"goals.target" = "Target";
+"goals.recommendedMonthly" = "Recommended monthly";
+"goals.yourCapacity" = "Your current capacity";
+"goals.estimatedDate" = "Estimated completion";
+"goals.contribute" = "Add a contribution";
+"goals.feasibility" = "Feasibility";
+"goals.feasible" = "Reachable with your current capacity";
+"goals.notFeasible" = "Out of reach as it stands";
+"goals.shortfall" = "%@ per month short.";
+"goals.alternative.extend" = "Put aside %@ per month for %d months.";
+"goals.alternative.reduce" = "Aim for %@ by the same date (%d months).";
+"goals.alternative.effort" = "Free up %@ more per month through budget optimisation.";
+
+/* MARK: Advisor */
+"advisor.welcome.title" = "Your financial adviser";
+"advisor.welcome.message" = "Ask anything about your budget. Every figure comes from your real data.";
+"advisor.suggestion.balanced" = "Is my budget balanced?";
+"advisor.suggestion.save" = "How much can I save each month?";
+"advisor.suggestion.invest" = "How much could I invest?";
+"advisor.suggestion.spending" = "Why am I spending so much this month?";
+"advisor.placeholder" = "Your question…";
+"advisor.changePrivacy" = "Change";
+"advisor.clear" = "Clear conversation";
+"advisor.computing" = "Computing: %@";
+"advisor.action.plan" = "Show me my financial plan";
+"advisor.action.report" = "Comment on my monthly report";
+"advisor.action.investment" = "Explain my investment options";
+"advisor.error.notConfigured" = "The advanced adviser is not configured.";
+"advisor.error.privacy" = "On-device mode is active: nothing is sent. Change the mode in Settings to chat freely.";
+"advisor.error.refused" = "This request could not be handled.";
+"advisor.error.network" = "Connection problem.";
+"advisor.error.decoding" = "Unreadable response.";
+"advisor.error.rateLimited" = "Too many requests. Try again shortly.";
+
+/* MARK: Advisor tools */
+"tool.simulate_savings" = "savings projection";
+"tool.time_to_reach_amount" = "time to reach an amount";
+"tool.plan_goal" = "goal plan";
+"tool.simulate_income_change" = "income change impact";
+"tool.simulate_expense_reduction" = "spending reduction impact";
+"tool.debt_payoff_plan" = "repayment plan";
+"tool.emergency_fund_plan" = "emergency fund plan";
+"tool.category_breakdown" = "category history";
+"tool.affordability_check" = "affordability check";
+
+/* MARK: Optimisation */
+"optimization.headline" = "I found %@ of potential savings per month.";
+"optimization.annual" = "That's %@ over a year.";
+"optimization.details" = "The detail";
+"optimization.confidence" = "confidence %@";
+"optimization.currentCapacity" = "Current savings capacity";
+"optimization.newCapacity" = "New savings capacity";
+"optimization.tenYears" = "Kept up for ten years at the assumed rate, these savings would come to %@. That is a return assumption, not a promise.";
+"optimization.assumptions" = "Assumptions";
+"optimization.empty.title" = "Nothing to optimise";
+"optimization.empty.message" = "Your spending is in line with your habits this month. That's good news.";
+
+/* MARK: Affordability */
+"affordability.question" = "What are you thinking of buying?";
+"affordability.hasDate" = "For a specific date";
+"affordability.alternatives" = "Other options";
+"affordability.comfortable" = "Yes, with no real impact";
+"affordability.tight" = "Possible, but it will be felt";
+"affordability.risky" = "Risky for your safety net";
+"affordability.unaffordable" = "Out of reach without a trade-off";
+
+/* MARK: Simulation */
+"simulation.title" = "Simulator";
+"simulation.monthly" = "Monthly contribution";
+"simulation.years" = "%d years";
+"simulation.final" = "Final amount";
+"simulation.contributed" = "Total contributed";
+"simulation.interest" = "Interest";
+"simulation.realValue" = "Value in today's money";
+"simulation.chart" = "Savings projection";
+"simulation.disclaimer" = "These projections rest on return assumptions and are in no way a guarantee. All investing carries a risk of capital loss.";
+
+/* MARK: Lock */
+"lock.title" = "Quantara is locked";
+"lock.subtitle" = "Your financial data is protected.";
+"lock.unlock" = "Unlock";
+"lock.usePIN" = "Use passcode";
+"lock.reason" = "Unlock Quantara";
+"lock.pinPlaceholder" = "Passcode";
+"lock.validate" = "Confirm";
+"lock.failed" = "Authentication failed.";
+"lock.wrongPIN" = "Wrong passcode.";
+
+/* MARK: Settings */
+"settings.section.subscription" = "Subscription";
+"settings.section.security" = "Security";
+"settings.section.privacy" = "Privacy";
+"settings.section.preferences" = "Preferences";
+"settings.section.notifications" = "Notifications";
+"settings.section.data" = "Data";
+"settings.section.legal" = "About";
+
+"settings.premium.active" = "Premium subscription active";
+"settings.premium.upgrade" = "Upgrade to Premium";
+"settings.premium.restore" = "Restore purchases";
+
+"settings.appLock" = "Lock the app";
+"settings.autoLock" = "Auto-lock";
+"settings.autoLock.immediate" = "Immediately";
+"settings.autoLock.1" = "After 1 minute";
+"settings.autoLock.5" = "After 5 minutes";
+"settings.autoLock.15" = "After 15 minutes";
+"settings.setPIN" = "Set a passcode";
+"settings.changePIN" = "Change passcode";
+"settings.security.footer" = "Face ID or Touch ID where available, passcode as a fallback. The passcode itself is never stored — only a salted hash.";
+"settings.pin.new" = "New passcode";
+"settings.pin.confirm" = "Confirm passcode";
+"settings.pin.footer" = "At least 4 digits.";
+"settings.pin.mismatch" = "The two passcodes don't match.";
+
+"settings.advisorPrivacy" = "AI mode";
+"settings.privacy.localOnly.detail" = "Nothing leaves your device. The financial plan, alerts and optimisation stay available, computed locally.";
+"settings.privacy.aggregated.detail" = "Only aggregates are sent: category totals and ratios. No transaction descriptions, no merchants, no exact dates.";
+"settings.privacy.detailed.detail" = "Transaction descriptions are sent as well, solely for automatic categorisation. Enable this only if you're comfortable with it.";
+"settings.allowTraining" = "Allow use for model improvement";
+"settings.privacy.footer" = "You can change your mind at any time. No financial data is used to train a model without your explicit consent.";
+
+"settings.currency" = "Currency";
+"settings.emergencyMonths" = "Emergency fund target";
+"settings.months" = "%d months";
+"settings.riskProfile" = "Risk profile";
+"settings.irregularIncome" = "Irregular income";
+"settings.irregularIncome.footer" = "If your income varies a lot month to month, the budget will use the median of recent months rather than the latest amount.";
+
+"settings.notifications" = "Enable notifications";
+"settings.notify.debits" = "Upcoming due dates";
+"settings.notify.overrun" = "Overruns and overdrafts";
+"settings.notify.goals" = "Goal milestones";
+"settings.notify.report" = "Monthly report";
+
+"settings.exportCSV" = "Export transactions (CSV)";
+"settings.exportJSON" = "Export all my data (JSON)";
+"settings.deleteAll" = "Delete all my data";
+"settings.deleteAll.title" = "Delete all your data?";
+"settings.deleteAll.message" = "This permanently erases your income, expenses, goals, debts and conversations, on this device and in iCloud.";
+"settings.deleteAll.confirm" = "Final confirmation";
+"settings.deleteAll.confirmMessage" = "This cannot be undone. Export your data first if you want to keep a copy.";
+"settings.deleteAll.action" = "Delete permanently";
+"settings.data.footer" = "Exports use standard formats, in line with your right to data portability.";
+
+"settings.legal.privacy" = "Privacy";
+"settings.legal.terms" = "Terms of use";
+"settings.legal.investment" = "Investment disclaimer";
+"settings.version" = "Version";
+
+/* MARK: Legal texts */
+"legal.privacy.body" = "Your financial data is stored on your device and, if you enabled it, in your private iCloud account. Neither Quantara nor any third party can access it.\n\nThe AI adviser runs in on-device mode by default: nothing is sent. If you enable the advanced AI, only aggregates are transmitted — category totals and ratios — with no transaction descriptions, no merchants and no exact dates. Detailed mode adds descriptions, solely for automatic categorisation, and must be enabled explicitly.\n\nNo financial data is used to train a model without your explicit consent. You can export all your data at any time, and delete it permanently from Settings.";
+"legal.terms.body" = "Quantara is a budgeting tool. It does not provide investment, tax or legal advice.\n\nAnalyses and recommendations are based on the information you enter, so their accuracy depends on yours. Projections rest on stated assumptions and are not forecasts.\n\nYou remain solely responsible for your financial decisions.";
+"legal.investment.body" = "Investment information in Quantara is provided for educational purposes and does not constitute personalised investment advice within the meaning of applicable regulation.\n\nAll investing carries a risk of capital loss, up to the full amount. Past performance does not predict future performance. No return is guaranteed.\n\nQuantara recommends no product, issuer or intermediary. For advice suited to your situation, consult a licensed financial adviser.";
+
+/* MARK: Paywall */
+"paywall.title" = "Quantara Premium";
+"paywall.headline" = "A financial adviser in your pocket";
+"paywall.subheadline" = "The AI analyses your real budget and proposes concrete, quantified actions.";
+"paywall.feature.advisor" = "AI adviser and unlimited chat";
+"paywall.feature.optimization" = "Automatic budget optimisation";
+"paywall.feature.goals" = "Unlimited goals and savings plans";
+"paywall.feature.simulations" = "Advanced simulations";
+"paywall.feature.reports" = "Full monthly analyses";
+"paywall.feature.investment" = "Educational investment guide";
+"paywall.freeTier.title" = "The free version stays complete";
+"paywall.freeTier.detail" = "Budget tracking, income, expenses, statistics, three goals and locally computed alerts remain free, with no time limit.";
+"paywall.subscribe" = "Subscribe";
+"paywall.legal" = "The subscription renews automatically unless cancelled at least 24 hours before the end of the period. Manage it any time in your App Store settings.";
+
+/* MARK: Notifications */
+"notification.debit.title" = "Payment due in 3 days";
+"notification.debit.body" = "%@: %@ will be debited.";
+"notification.overdraft.title" = "Overdraft risk";
+"notification.overdraft.body" = "At the current pace, your balance would drop to %@.";
+"notification.goal.title" = "Goal on track";
+"notification.goal.body" = "%@ has reached %@.";
+"notification.report.title" = "Your monthly report is ready";
+"notification.report.body" = "See what changed last month.";
+
+/* MARK: Onboarding */
+"onboarding.welcome.title" = "Welcome";
+"onboarding.welcome.message" = "A few questions to build your financial plan. Everything stays editable afterwards.";
+"onboarding.welcome.privacy" = "Your data stays on your device. Nothing is sent without your consent.";
+"onboarding.welcome.calculations" = "Every figure is computed, never estimated.";
+"onboarding.welcome.time" = "Three minutes is enough. Every step is optional.";
+"onboarding.income.title" = "What do you earn?";
+"onboarding.income.subtitle" = "Your main income. You can add more later.";
+"onboarding.income.equivalent" = "That's %@ per month.";
+"onboarding.fixed.title" = "What are your fixed expenses?";
+"onboarding.fixed.subtitle" = "The charges that come back every month.";
+"onboarding.fixed.suggestions" = "Add the ones that apply:";
+"onboarding.variable.title" = "And your variable spending?";
+"onboarding.variable.subtitle" = "Groceries, fuel, restaurants, leisure…";
+"onboarding.variable.field" = "Monthly estimate";
+"onboarding.variable.hint" = "A rough figure is fine: it will be adjusted automatically from your real spending.";
+"onboarding.debts.title" = "Do you have any loans?";
+"onboarding.debts.subtitle" = "The rate tells us whether paying down beats investing.";
+"onboarding.debts.has" = "I have a loan or debt";
+"onboarding.savings.title" = "How much have you set aside?";
+"onboarding.savings.subtitle" = "Your savings available today.";
+"onboarding.savings.field" = "Current savings";
+"onboarding.goals.title" = "What's your goal?";
+"onboarding.goals.subtitle" = "A project with a number and a date.";
+"onboarding.goals.months" = "In %d months";
+"onboarding.goals.monthly" = "That's %@ per month.";
+"onboarding.risk.title" = "Your risk tolerance";
+"onboarding.risk.subtitle" = "It shapes the educational investment content.";
+"onboarding.risk.horizon" = "Horizon of at least %d years";
+"onboarding.plan.title" = "Your financial plan";
+"onboarding.plan.allocation" = "Suggested allocation";
+"onboarding.plan.footer" = "This plan adjusts automatically as your budget changes.";
+"onboarding.next" = "Continue";
+"onboarding.skip" = "Skip";
+"onboarding.start" = "Get started";
+
+/* MARK: Premium features */
+"feature.advisorChat" = "AI adviser";
+"feature.budgetOptimization" = "Budget optimisation";
+"feature.savingsPlans" = "Savings plans";
+"feature.advancedSimulations" = "Advanced simulations";
+"feature.monthlyAnalysis" = "Monthly analyses";
+"feature.unlimitedGoals" = "Unlimited goals";
+"feature.investmentEducation" = "Investment guide";
+"feature.bankSync" = "Bank sync";
+
+/* MARK: Missing data */
+"missing.income" = "No income entered";
+"missing.fixedExpenses" = "No fixed expenses entered";
+"missing.variableExpenses" = "No variable spending entered";
+"missing.savingsBalance" = "Current savings not entered";
+"missing.goals" = "No goals set";
+"missing.debts" = "No debts entered";
+"missing.accounts" = "No accounts entered";
+
+/* MARK: Insights */
+"insight.categoryDrift" = "Category drift";
+"insight.surplusAvailable" = "Surplus available";
+"insight.goalAhead" = "Ahead on a goal";
+"insight.goalBehind" = "Behind on a goal";
+"insight.savingsRateChange" = "Savings rate change";
+"insight.subscriptionLoad" = "Subscription load";
+"insight.fixedExpenseLoad" = "Fixed expense load";
+"insight.debtLoad" = "Debt-to-income ratio";
+"insight.overdraftRisk" = "Overdraft risk";
+"insight.budgetOverrun" = "Envelope exceeded";
+"insight.emergencyFundMilestone" = "Emergency fund milestone";
+"insight.unusualExpense" = "Unusual expense";
+"insight.duplicateDebtEntry" = "Loan counted twice";

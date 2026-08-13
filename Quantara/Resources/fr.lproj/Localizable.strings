@@ -1,0 +1,528 @@
+/* Quantara — français */
+
+/* MARK: Onglets et actions */
+"tab.home" = "Accueil";
+"tab.budget" = "Budget";
+"tab.transactions" = "Transactions";
+"tab.goals" = "Objectifs";
+"tab.advisor" = "IA";
+"tab.settings" = "Réglages";
+
+"action.add" = "Ajouter";
+"action.save" = "Enregistrer";
+"action.cancel" = "Annuler";
+"action.delete" = "Supprimer";
+"action.edit" = "Modifier";
+"action.close" = "Fermer";
+"action.continue" = "Continuer";
+"action.send" = "Envoyer";
+"action.stop" = "Arrêter";
+
+/* MARK: Fréquences */
+"frequency.daily" = "Quotidien";
+"frequency.weekly" = "Hebdomadaire";
+"frequency.biweekly" = "Toutes les 2 semaines";
+"frequency.monthly" = "Mensuel";
+"frequency.quarterly" = "Trimestriel";
+"frequency.semiannual" = "Semestriel";
+"frequency.annual" = "Annuel";
+"frequency.oneOff" = "Ponctuel";
+
+/* MARK: Catégories de revenus */
+"income.category.salary" = "Salaire";
+"income.category.allowances" = "Allocations";
+"income.category.freelance" = "Revenus indépendants";
+"income.category.rental" = "Revenus locatifs";
+"income.category.financial" = "Revenus financiers";
+"income.category.bonus" = "Bonus / primes";
+"income.category.other" = "Autres revenus";
+
+/* MARK: Dépenses fixes */
+"expense.fixed.rent" = "Loyer";
+"expense.fixed.mortgage" = "Crédit hypothécaire";
+"expense.fixed.charges" = "Charges";
+"expense.fixed.electricity" = "Électricité";
+"expense.fixed.gas" = "Gaz";
+"expense.fixed.water" = "Eau";
+"expense.fixed.internet" = "Internet";
+"expense.fixed.phone" = "Téléphone";
+"expense.fixed.carLoan" = "Crédit voiture";
+"expense.fixed.carInsurance" = "Assurance voiture";
+"expense.fixed.homeInsurance" = "Assurance habitation";
+"expense.fixed.healthInsurance" = "Assurance santé";
+"expense.fixed.subscriptions" = "Abonnements";
+"expense.fixed.school" = "École / crèche";
+"expense.fixed.taxes" = "Impôts";
+"expense.fixed.otherLoans" = "Autres crédits";
+"expense.fixed.otherFixed" = "Autres dépenses fixes";
+
+/* MARK: Dépenses variables */
+"expense.variable.groceries" = "Courses alimentaires";
+"expense.variable.fuel" = "Essence / carburant";
+"expense.variable.restaurants" = "Restaurants";
+"expense.variable.shopping" = "Shopping";
+"expense.variable.leisure" = "Loisirs";
+"expense.variable.videoGames" = "Jeux vidéo";
+"expense.variable.travel" = "Voyages";
+"expense.variable.health" = "Santé";
+"expense.variable.transport" = "Transport";
+"expense.variable.gifts" = "Cadeaux";
+"expense.variable.children" = "Enfants";
+"expense.variable.pets" = "Animaux";
+"expense.variable.personal" = "Dépenses personnelles";
+"expense.variable.other" = "Autres";
+
+/* MARK: Types de transaction et de compte */
+"transaction.kind.income" = "Revenu";
+"transaction.kind.expense" = "Dépense";
+"transaction.kind.savings" = "Épargne";
+"transaction.kind.transfer" = "Virement";
+"transaction.kind.debtPayment" = "Remboursement";
+
+"account.kind.checking" = "Compte courant";
+"account.kind.savings" = "Épargne";
+"account.kind.investment" = "Investissement";
+"account.kind.cash" = "Espèces";
+"account.kind.credit" = "Crédit";
+
+/* MARK: Dettes */
+"debt.kind.mortgage" = "Crédit immobilier";
+"debt.kind.carLoan" = "Crédit auto";
+"debt.kind.consumerLoan" = "Crédit à la consommation";
+"debt.kind.studentLoan" = "Prêt étudiant";
+"debt.kind.creditCard" = "Carte de crédit";
+"debt.kind.overdraft" = "Découvert";
+"debt.kind.personal" = "Prêt personnel";
+"debt.kind.other" = "Autre dette";
+"debt.strategy.avalanche" = "Avalanche (taux le plus élevé d'abord)";
+"debt.strategy.snowball" = "Boule de neige (solde le plus faible d'abord)";
+"debt.new" = "Nouvelle dette";
+"debt.edit" = "Modifier la dette";
+
+/* MARK: Objectifs */
+"goal.kind.emergencyFund" = "Fonds d'urgence";
+"goal.kind.vacation" = "Vacances";
+"goal.kind.car" = "Voiture";
+"goal.kind.home" = "Maison";
+"goal.kind.downPayment" = "Apport immobilier";
+"goal.kind.education" = "Études";
+"goal.kind.retirement" = "Retraite";
+"goal.kind.investment" = "Investissement";
+"goal.kind.personalProject" = "Projet personnel";
+"goal.kind.custom" = "Objectif personnalisé";
+
+/* MARK: Répartition */
+"allocation.safetyBuffer" = "Coussin de sécurité";
+"allocation.highInterestDebt" = "Dette coûteuse";
+"allocation.emergencyFund" = "Fonds d'urgence";
+"allocation.goals" = "Objectifs";
+"allocation.investment" = "Investissement";
+"allocation.freeMoney" = "Argent libre";
+
+/* MARK: Profils de risque et actifs */
+"risk.conservative" = "Prudent";
+"risk.balanced" = "Équilibré";
+"risk.dynamic" = "Dynamique";
+"risk.aggressive" = "Offensif";
+
+"asset.cash" = "Liquidités";
+"asset.bonds" = "Obligations";
+"asset.equityETF" = "ETF actions";
+"asset.stocks" = "Actions";
+"asset.funds" = "Fonds";
+"asset.realEstate" = "Immobilier";
+"asset.other" = "Autres placements";
+
+/* MARK: Optimisation */
+"optimization.categoryAboveUsual" = "Catégorie au-dessus de l'habitude";
+"optimization.subscriptionAudit" = "Audit des abonnements";
+"optimization.duplicateSubscription" = "Abonnement en double";
+"optimization.dormantSubscription" = "Abonnement dormant";
+"optimization.discretionaryExcess" = "Dépenses non essentielles";
+"optimization.costlyDebtInterest" = "Intérêts de crédit";
+"optimization.unusualExpense" = "Dépense inhabituelle";
+"optimization.effort.easy" = "Facile";
+"optimization.effort.moderate" = "Modéré";
+"optimization.effort.demanding" = "Exigeant";
+
+/* MARK: Confidentialité */
+"privacy.localOnly" = "Local uniquement";
+"privacy.aggregated" = "IA avancée — agrégats";
+"privacy.detailed" = "IA avancée — détaillé";
+
+/* MARK: Accueil */
+"home.safeToSpend" = "Disponible par jour";
+"home.safeToSpend.detail" = "%@ restants sur %d jours";
+"home.projectedNotice" = "Les dépenses variables du mois en cours sont projetées.";
+"home.optimize" = "✨ Optimiser mon budget";
+"home.optimize.found" = "%@ d'économies identifiées par mois";
+"home.thisMonth" = "Ce mois-ci";
+"home.topExpenses" = "Premier poste";
+"home.insights" = "À savoir";
+"home.goals" = "Vos objectifs";
+"home.cashFlow" = "Trésorerie du mois";
+"home.cashFlow.overdraft" = "Solde au plus bas autour du %@ : %@";
+"home.cashFlow.accessibility" = "Solde minimum %@, solde de fin de mois %@";
+"home.canIAfford" = "Puis-je me le permettre ?";
+"home.quickAdd" = "Ajouter une dépense";
+
+/* MARK: Budget */
+"budget.income" = "Revenus";
+"budget.expenses" = "Dépenses";
+"budget.fixed" = "Dépenses fixes";
+"budget.variable" = "Dépenses variables";
+"budget.savings" = "Épargne";
+"budget.disposable" = "Reste disponible";
+"budget.savingsRate" = "Taux d'épargne";
+"budget.allocation" = "Répartition proposée";
+"budget.allocation.subtitle" = "Chaque affectation est expliquée.";
+"budget.allocation.empty" = "Aucun reste disponible à répartir ce mois-ci.";
+"budget.incomes" = "Revenus";
+"budget.incomes.empty" = "Aucun revenu renseigné.";
+"budget.fixedExpenses" = "Dépenses fixes";
+"budget.fixedExpenses.empty" = "Aucune dépense fixe renseignée.";
+"budget.totalMonthly" = "Total mensuel";
+"budget.monthlyEquivalent" = "soit %@ par mois";
+"budget.monthlyPayment" = "%@ par mois";
+"budget.essential" = "essentiel";
+"budget.debts" = "Crédits et dettes";
+"budget.debtRatio" = "Taux d'endettement";
+"budget.envelopes" = "Enveloppes";
+"budget.envelopes.subtitle" = "Un plafond par catégorie, suivi en temps réel.";
+"budget.envelopes.empty" = "Aucune enveloppe définie.";
+"budget.previousMonth" = "Mois précédent";
+"budget.nextMonth" = "Mois suivant";
+
+/* MARK: Champs */
+"field.name" = "Nom";
+"field.amount" = "Montant";
+"field.frequency" = "Fréquence";
+"field.category" = "Catégorie";
+"field.kind" = "Type";
+"field.label" = "Libellé";
+"field.date" = "Date";
+"field.note" = "Note";
+"field.goal" = "Objectif";
+"field.goal.none" = "Aucun";
+"field.goalKind" = "Type d'objectif";
+"field.targetAmount" = "Montant cible";
+"field.currentAmount" = "Montant actuel";
+"field.hasTargetDate" = "Définir une échéance";
+"field.targetDate" = "Échéance";
+"field.priority" = "Priorité";
+"field.monthlyEquivalent" = "Équivalent mensuel";
+"field.monthlyEquivalent.explanation" = "Les montants non mensuels sont convertis en équivalent mensuel : montant × occurrences annuelles ÷ 12.";
+"field.hasReceiptDay" = "Jour de réception connu";
+"field.receiptDay" = "Jour du mois";
+"field.receiptDay.explanation" = "Le jour permet de projeter la trésorerie et de vous prévenir avant une échéance.";
+"field.hasDebitDay" = "Jour de prélèvement connu";
+"field.debitDay" = "Jour du mois";
+"field.isSubscription" = "Abonnement";
+"field.isEssential" = "Dépense essentielle";
+"field.isEssential.explanation" = "Les dépenses essentielles servent de base au calcul du fonds d'urgence : ce qu'il faut continuer de payer si les revenus s'arrêtent.";
+"field.isVariableIncome" = "Revenu irrégulier";
+"field.isVariableIncome.explanation" = "Le budget se basera sur la médiane de vos derniers mois plutôt que sur le dernier montant, afin de ne pas bâtir un budget sur un bon mois.";
+"field.debtKind" = "Type de crédit";
+"field.outstanding" = "Capital restant dû";
+"field.annualRate" = "Taux annuel";
+"field.monthlyPayment" = "Mensualité";
+"field.debt.explanation" = "Le taux permet de comparer le gain d'un remboursement anticipé à celui d'un placement, et de calculer votre taux d'endettement.";
+"field.debtHint" = "S'il s'agit d'un crédit, saisissez-le plutôt comme une dette : le taux d'endettement et les stratégies de remboursement en dépendent.";
+
+"income.new" = "Nouveau revenu";
+"income.edit" = "Modifier le revenu";
+"expense.new" = "Nouvelle dépense fixe";
+"expense.edit" = "Modifier la dépense";
+
+/* MARK: Transactions */
+"transactions.search" = "Rechercher";
+"transactions.filter" = "Filtrer";
+"transactions.filter.all" = "Tout afficher";
+"transactions.import" = "Importer un fichier CSV";
+"transactions.detectRecurrences" = "Détecter les récurrences";
+"transactions.empty.title" = "Aucune transaction";
+"transactions.empty.message" = "Ajoutez vos dépenses au fil de l'eau, ou importez un relevé bancaire au format CSV.";
+"transactions.recurrence.title" = "Récurrences détectées";
+"transactions.recurrence.detail" = "%@ · %@ · %d occurrences";
+"transactions.recurrence.convert" = "En faire une dépense fixe";
+"transactions.recurrence.ignore" = "Ignorer";
+
+"quickAdd.title" = "Nouvelle transaction";
+"quickAdd.autoCategorized" = "Catégorie proposée automatiquement, sans envoi de données.";
+
+/* MARK: Import */
+"import.explanation" = "Importez un relevé au format CSV. Les colonnes attendues sont : date, libellé, montant. Un montant négatif est une dépense.";
+"import.dateFormat" = "Format de date";
+"import.hasHeader" = "Le fichier a une ligne d'en-tête";
+"import.chooseFile" = "Choisir un fichier";
+"import.preview" = "Aperçu";
+"import.found" = "Transactions trouvées";
+"import.categorized" = "Catégorisées automatiquement";
+"import.skipped" = "Lignes ignorées";
+"import.skipped.explanation" = "Ces lignes n'ont pas pu être lues : vérifiez le format de date et l'ordre des colonnes.";
+"import.confirm" = "Importer";
+"import.error.empty" = "Le fichier est vide.";
+"import.error.noRows" = "Aucune ligne exploitable. Vérifiez le format de date et l'ordre des colonnes.";
+"import.error.access" = "Accès au fichier refusé.";
+
+/* MARK: Objectifs */
+"goals.new" = "Nouvel objectif";
+"goals.edit" = "Modifier l'objectif";
+"goals.empty.title" = "Aucun objectif";
+"goals.empty.message" = "Un objectif chiffré et daté transforme une intention en plan.";
+"goals.emergencyFund" = "Fonds d'urgence";
+"goals.emergencyFund.subtitle" = "Votre première protection contre l'imprévu.";
+"goals.emergencyFund.coverage" = "%@ mois de dépenses essentielles couverts";
+"goals.emergencyFund.tier" = "%d mois";
+"goals.emergencyFund.required" = "%@ par mois pour atteindre %d mois de couverture.";
+"goals.current" = "Actuel";
+"goals.remaining" = "Restant";
+"goals.target" = "Cible";
+"goals.recommendedMonthly" = "Mensualité recommandée";
+"goals.yourCapacity" = "Votre capacité actuelle";
+"goals.estimatedDate" = "Date d'atteinte estimée";
+"goals.contribute" = "Ajouter un versement";
+"goals.feasibility" = "Faisabilité";
+"goals.feasible" = "Objectif atteignable avec votre capacité actuelle";
+"goals.notFeasible" = "Objectif hors de portée en l'état";
+"goals.shortfall" = "Il manque %@ par mois.";
+"goals.alternative.extend" = "Verser %@ par mois pendant %d mois.";
+"goals.alternative.reduce" = "Viser %@ à la même échéance (%d mois).";
+"goals.alternative.effort" = "Dégager %@ de plus par mois, via l'optimisation du budget.";
+
+/* MARK: Conseiller */
+"advisor.welcome.title" = "Votre conseiller financier";
+"advisor.welcome.message" = "Posez une question sur votre budget. Les chiffres cités proviennent tous de vos données réelles.";
+"advisor.suggestion.balanced" = "Est-ce que mon budget est équilibré ?";
+"advisor.suggestion.save" = "Combien puis-je économiser par mois ?";
+"advisor.suggestion.invest" = "Combien puis-je investir ?";
+"advisor.suggestion.spending" = "Pourquoi je dépense autant ce mois-ci ?";
+"advisor.placeholder" = "Votre question…";
+"advisor.changePrivacy" = "Modifier";
+"advisor.clear" = "Effacer la conversation";
+"advisor.computing" = "Calcul en cours : %@";
+"advisor.action.plan" = "Présente-moi mon plan financier";
+"advisor.action.report" = "Commente mon rapport mensuel";
+"advisor.action.investment" = "Explique-moi mes options d'investissement";
+"advisor.error.notConfigured" = "Le conseiller avancé n'est pas configuré.";
+"advisor.error.privacy" = "Le mode « local uniquement » est actif : aucune donnée n'est transmise. Changez de mode dans les réglages pour dialoguer librement.";
+"advisor.error.refused" = "Cette demande n'a pas pu être traitée.";
+"advisor.error.network" = "Problème de connexion.";
+"advisor.error.decoding" = "Réponse illisible.";
+"advisor.error.rateLimited" = "Trop de demandes. Réessayez dans quelques instants.";
+
+/* MARK: Outils du conseiller */
+"tool.simulate_savings" = "projection d'épargne";
+"tool.time_to_reach_amount" = "délai pour atteindre un montant";
+"tool.plan_goal" = "plan d'objectif";
+"tool.simulate_income_change" = "impact d'une variation de revenu";
+"tool.simulate_expense_reduction" = "impact d'une réduction de dépenses";
+"tool.debt_payoff_plan" = "plan de remboursement";
+"tool.emergency_fund_plan" = "plan de fonds d'urgence";
+"tool.category_breakdown" = "historique d'une catégorie";
+"tool.affordability_check" = "capacité à financer un achat";
+
+/* MARK: Optimisation */
+"optimization.headline" = "J'ai trouvé %@ d'optimisation potentielle par mois.";
+"optimization.annual" = "Soit %@ sur un an.";
+"optimization.details" = "Le détail";
+"optimization.confidence" = "confiance %@";
+"optimization.currentCapacity" = "Capacité d'épargne actuelle";
+"optimization.newCapacity" = "Nouvelle capacité d'épargne";
+"optimization.tenYears" = "Maintenue dix ans et placée au taux supposé, cette économie représenterait %@. Il s'agit d'une hypothèse de rendement, pas d'une promesse.";
+"optimization.assumptions" = "Hypothèses";
+"optimization.empty.title" = "Rien à optimiser";
+"optimization.empty.message" = "Vos dépenses restent dans vos habitudes ce mois-ci. C'est une bonne nouvelle.";
+
+/* MARK: Puis-je me le permettre */
+"affordability.question" = "Quel achat envisagez-vous ?";
+"affordability.hasDate" = "Pour une date précise";
+"affordability.alternatives" = "Autres possibilités";
+"affordability.comfortable" = "Oui, sans conséquence notable";
+"affordability.tight" = "Possible, mais avec un impact réel";
+"affordability.risky" = "Risqué pour votre équilibre";
+"affordability.unaffordable" = "Hors de portée sans arbitrage";
+
+/* MARK: Simulation */
+"simulation.title" = "Simulateur";
+"simulation.monthly" = "Versement mensuel";
+"simulation.years" = "%d ans";
+"simulation.final" = "Montant final";
+"simulation.contributed" = "Total versé";
+"simulation.interest" = "Intérêts";
+"simulation.realValue" = "Valeur en pouvoir d'achat d'aujourd'hui";
+"simulation.chart" = "Projection d'épargne";
+"simulation.disclaimer" = "Ces projections reposent sur des hypothèses de rendement et ne constituent en aucun cas une garantie. Tout investissement comporte un risque de perte en capital.";
+
+/* MARK: Verrouillage */
+"lock.title" = "Quantara est verrouillée";
+"lock.subtitle" = "Vos données financières sont protégées.";
+"lock.unlock" = "Déverrouiller";
+"lock.usePIN" = "Utiliser le code";
+"lock.reason" = "Déverrouiller Quantara";
+"lock.pinPlaceholder" = "Code";
+"lock.validate" = "Valider";
+"lock.failed" = "Authentification échouée.";
+"lock.wrongPIN" = "Code incorrect.";
+
+/* MARK: Réglages */
+"settings.section.subscription" = "Abonnement";
+"settings.section.security" = "Sécurité";
+"settings.section.privacy" = "Confidentialité";
+"settings.section.preferences" = "Préférences";
+"settings.section.notifications" = "Notifications";
+"settings.section.data" = "Données";
+"settings.section.legal" = "À propos";
+
+"settings.premium.active" = "Abonnement Premium actif";
+"settings.premium.upgrade" = "Passer à Premium";
+"settings.premium.restore" = "Restaurer mes achats";
+
+"settings.appLock" = "Verrouiller l'application";
+"settings.autoLock" = "Verrouillage automatique";
+"settings.autoLock.immediate" = "Immédiat";
+"settings.autoLock.1" = "Après 1 minute";
+"settings.autoLock.5" = "Après 5 minutes";
+"settings.autoLock.15" = "Après 15 minutes";
+"settings.setPIN" = "Définir un code";
+"settings.changePIN" = "Modifier le code";
+"settings.security.footer" = "Face ID ou Touch ID quand c'est disponible, code en repli. Le code n'est jamais enregistré : seule une empreinte salée l'est.";
+"settings.pin.new" = "Nouveau code";
+"settings.pin.confirm" = "Confirmer le code";
+"settings.pin.footer" = "Au moins 4 chiffres.";
+"settings.pin.mismatch" = "Les deux codes ne correspondent pas.";
+
+"settings.advisorPrivacy" = "Mode de l'IA";
+"settings.privacy.localOnly.detail" = "Aucune donnée ne quitte votre appareil. Le plan financier, les alertes et l'optimisation restent disponibles, calculés localement.";
+"settings.privacy.aggregated.detail" = "Seuls des agrégats sont transmis : totaux par catégorie et ratios. Aucun libellé de transaction, aucun marchand, aucune date précise.";
+"settings.privacy.detailed.detail" = "Les libellés de transaction sont également transmis, uniquement pour la catégorisation automatique. À n'activer que si cela vous convient.";
+"settings.allowTraining" = "Autoriser l'utilisation pour l'amélioration des modèles";
+"settings.privacy.footer" = "Vous pouvez changer d'avis à tout moment. Aucune donnée financière n'est utilisée pour entraîner un modèle sans votre accord explicite.";
+
+"settings.currency" = "Devise";
+"settings.emergencyMonths" = "Objectif de fonds d'urgence";
+"settings.months" = "%d mois";
+"settings.riskProfile" = "Profil de risque";
+"settings.irregularIncome" = "Revenus irréguliers";
+"settings.irregularIncome.footer" = "Si vos revenus varient fortement d'un mois à l'autre, le budget se basera sur la médiane de vos derniers mois plutôt que sur le dernier montant.";
+
+"settings.notifications" = "Activer les notifications";
+"settings.notify.debits" = "Échéances à venir";
+"settings.notify.overrun" = "Dépassements et découverts";
+"settings.notify.goals" = "Jalons des objectifs";
+"settings.notify.report" = "Rapport mensuel";
+
+"settings.exportCSV" = "Exporter les transactions (CSV)";
+"settings.exportJSON" = "Exporter toutes mes données (JSON)";
+"settings.deleteAll" = "Supprimer toutes mes données";
+"settings.deleteAll.title" = "Supprimer toutes vos données ?";
+"settings.deleteAll.message" = "Cette action efface définitivement vos revenus, dépenses, objectifs, dettes et conversations, sur cet appareil et dans iCloud.";
+"settings.deleteAll.confirm" = "Dernière confirmation";
+"settings.deleteAll.confirmMessage" = "Cette suppression est irréversible. Pensez à exporter vos données auparavant si vous souhaitez les conserver.";
+"settings.deleteAll.action" = "Supprimer définitivement";
+"settings.data.footer" = "L'export est fourni au format standard, conformément à votre droit à la portabilité des données.";
+
+"settings.legal.privacy" = "Confidentialité";
+"settings.legal.terms" = "Conditions d'utilisation";
+"settings.legal.investment" = "Avertissement investissement";
+"settings.version" = "Version";
+
+/* MARK: Textes légaux */
+"legal.privacy.body" = "Vos données financières sont stockées sur votre appareil et, si vous l'avez activé, dans votre espace iCloud privé. Elles ne sont accessibles ni à Quantara ni à un tiers.\n\nLe conseiller IA fonctionne par défaut en mode « local uniquement » : aucune donnée n'est transmise. Si vous activez l'IA avancée, seuls des agrégats sont envoyés — totaux par catégorie et ratios — sans libellé de transaction, sans marchand et sans date précise. Le mode détaillé ajoute les libellés, uniquement pour la catégorisation automatique, et doit être activé explicitement.\n\nAucune donnée financière n'est utilisée pour entraîner un modèle sans votre consentement explicite. Vous pouvez exporter l'intégralité de vos données à tout moment, et les supprimer définitivement depuis les réglages.";
+"legal.terms.body" = "Quantara est un outil de gestion budgétaire. Il ne fournit ni conseil en investissement, ni conseil fiscal, ni conseil juridique.\n\nLes analyses et recommandations reposent sur les informations que vous saisissez. Leur exactitude dépend donc de celle de vos saisies. Les projections reposent sur des hypothèses explicitées et ne constituent pas des prévisions.\n\nVous restez seul responsable de vos décisions financières.";
+"legal.investment.body" = "Les informations relatives à l'investissement présentées dans Quantara sont fournies à titre éducatif et ne constituent pas un conseil en investissement personnalisé au sens de la réglementation applicable.\n\nTout investissement comporte un risque de perte en capital, y compris totale. Les performances passées ne préjugent pas des performances futures. Aucun rendement n'est garanti.\n\nQuantara ne recommande aucun produit, aucun émetteur et aucun intermédiaire. Pour une recommandation adaptée à votre situation, adressez-vous à un conseiller financier agréé.";
+
+/* MARK: Paywall */
+"paywall.title" = "Quantara Premium";
+"paywall.headline" = "Un conseiller financier dans votre poche";
+"paywall.subheadline" = "L'IA analyse votre budget réel et propose des actions chiffrées.";
+"paywall.feature.advisor" = "Conseiller IA et chat illimité";
+"paywall.feature.optimization" = "Optimisation automatique du budget";
+"paywall.feature.goals" = "Objectifs illimités et plans d'épargne";
+"paywall.feature.simulations" = "Simulations avancées";
+"paywall.feature.reports" = "Analyses mensuelles complètes";
+"paywall.feature.investment" = "Guide d'investissement éducatif";
+"paywall.freeTier.title" = "La version gratuite reste complète";
+"paywall.freeTier.detail" = "Suivi du budget, revenus, dépenses, statistiques, trois objectifs et alertes calculées localement : tout cela reste gratuit, sans limite de durée.";
+"paywall.subscribe" = "S'abonner";
+"paywall.legal" = "L'abonnement se renouvelle automatiquement sauf annulation au moins 24 heures avant la fin de la période. Gérable à tout moment dans les réglages de l'App Store.";
+
+/* MARK: Notifications */
+"notification.debit.title" = "Échéance dans 3 jours";
+"notification.debit.body" = "%@ : %@ seront prélevés.";
+"notification.overdraft.title" = "Risque de découvert";
+"notification.overdraft.body" = "Au rythme actuel, votre solde descendrait à %@.";
+"notification.goal.title" = "Objectif en bonne voie";
+"notification.goal.body" = "%@ atteint %@.";
+"notification.report.title" = "Votre rapport mensuel est prêt";
+"notification.report.body" = "Découvrez ce qui a changé le mois dernier.";
+
+/* MARK: Onboarding */
+"onboarding.welcome.title" = "Bienvenue";
+"onboarding.welcome.message" = "Quelques questions pour construire votre plan financier. Tout reste modifiable ensuite.";
+"onboarding.welcome.privacy" = "Vos données restent sur votre appareil. Rien n'est transmis sans votre accord.";
+"onboarding.welcome.calculations" = "Tous les chiffres sont calculés, jamais estimés.";
+"onboarding.welcome.time" = "Trois minutes suffisent. Chaque étape est facultative.";
+"onboarding.income.title" = "Combien gagnez-vous ?";
+"onboarding.income.subtitle" = "Votre revenu principal. Vous pourrez en ajouter d'autres ensuite.";
+"onboarding.income.equivalent" = "Soit %@ par mois.";
+"onboarding.fixed.title" = "Quelles sont vos dépenses fixes ?";
+"onboarding.fixed.subtitle" = "Les charges qui reviennent chaque mois.";
+"onboarding.fixed.suggestions" = "Ajoutez les postes concernés :";
+"onboarding.variable.title" = "Et vos dépenses variables ?";
+"onboarding.variable.subtitle" = "Courses, essence, restaurants, loisirs…";
+"onboarding.variable.field" = "Estimation mensuelle";
+"onboarding.variable.hint" = "Une approximation suffit : l'estimation sera ajustée automatiquement à partir de vos dépenses réelles.";
+"onboarding.debts.title" = "Avez-vous des crédits ?";
+"onboarding.debts.subtitle" = "Le taux permet de savoir s'il vaut mieux rembourser ou placer.";
+"onboarding.debts.has" = "J'ai un crédit ou une dette";
+"onboarding.savings.title" = "Combien avez-vous de côté ?";
+"onboarding.savings.subtitle" = "Votre épargne disponible aujourd'hui.";
+"onboarding.savings.field" = "Épargne actuelle";
+"onboarding.goals.title" = "Quel est votre objectif ?";
+"onboarding.goals.subtitle" = "Un projet chiffré et daté.";
+"onboarding.goals.months" = "Dans %d mois";
+"onboarding.goals.monthly" = "Soit %@ par mois.";
+"onboarding.risk.title" = "Votre tolérance au risque";
+"onboarding.risk.subtitle" = "Elle oriente les informations d'investissement, à titre éducatif.";
+"onboarding.risk.horizon" = "Horizon d'au moins %d ans";
+"onboarding.plan.title" = "Votre plan financier";
+"onboarding.plan.allocation" = "Répartition proposée";
+"onboarding.plan.footer" = "Ce plan s'ajustera automatiquement à mesure que votre budget évolue.";
+"onboarding.next" = "Continuer";
+"onboarding.skip" = "Passer";
+"onboarding.start" = "Commencer";
+
+/* MARK: Fonctionnalités Premium */
+"feature.advisorChat" = "Conseiller IA";
+"feature.budgetOptimization" = "Optimisation du budget";
+"feature.savingsPlans" = "Plans d'épargne";
+"feature.advancedSimulations" = "Simulations avancées";
+"feature.monthlyAnalysis" = "Analyses mensuelles";
+"feature.unlimitedGoals" = "Objectifs illimités";
+"feature.investmentEducation" = "Guide d'investissement";
+"feature.bankSync" = "Synchronisation bancaire";
+
+/* MARK: Données manquantes */
+"missing.income" = "Revenus non renseignés";
+"missing.fixedExpenses" = "Dépenses fixes non renseignées";
+"missing.variableExpenses" = "Dépenses variables non renseignées";
+"missing.savingsBalance" = "Épargne actuelle non renseignée";
+"missing.goals" = "Aucun objectif défini";
+"missing.debts" = "Dettes non renseignées";
+"missing.accounts" = "Aucun compte renseigné";
+
+/* MARK: Insights */
+"insight.categoryDrift" = "Dérive d'une catégorie";
+"insight.surplusAvailable" = "Surplus disponible";
+"insight.goalAhead" = "Avance sur un objectif";
+"insight.goalBehind" = "Retard sur un objectif";
+"insight.savingsRateChange" = "Variation du taux d'épargne";
+"insight.subscriptionLoad" = "Poids des abonnements";
+"insight.fixedExpenseLoad" = "Poids des charges fixes";
+"insight.debtLoad" = "Taux d'endettement";
+"insight.overdraftRisk" = "Risque de découvert";
+"insight.budgetOverrun" = "Enveloppe dépassée";
+"insight.emergencyFundMilestone" = "Palier du fonds d'urgence";
+"insight.unusualExpense" = "Dépense inhabituelle";
+"insight.duplicateDebtEntry" = "Crédit compté deux fois";
