@@ -2,10 +2,11 @@
 
 Application iOS de gestion de budget avec conseiller financier IA.
 
-> **État du dépôt** — Le code n'a pas encore été compilé : l'environnement de
-> développement utilisé pour l'écrire ne dispose ni d'Xcode ni de la chaîne d'outils
-> Swift. La première compilation doit se faire sur un Mac. Voir « Avant la première
-> compilation » plus bas.
+> **État du dépôt** — Le projet compile et les 76 tests unitaires du cœur métier
+> passent, vérifiés par l'intégration continue sur un runner macOS (Xcode 16.4,
+> SDK iOS 18.5). L'application n'a en revanche **jamais été exécutée sur un appareil** :
+> rien n'a encore été validé à l'usage. Voir « Tester sans Mac » et « Avant la première
+> exécution » plus bas.
 
 ---
 
@@ -110,7 +111,7 @@ contraires aux conditions d'utilisation d'Apple et instables — je ne les recom
 
 ---
 
-## Avant la première compilation
+## Avant la première exécution
 
 1. **Ouvrir le projet**
 
@@ -121,8 +122,8 @@ contraires aux conditions d'utilisation d'Apple et instables — je ne les recom
    Le projet utilise un *dossier synchronisé* (Xcode 16+) : les fichiers sont repris
    automatiquement depuis le dossier `Quantara/`, sans référence à maintenir.
 
-2. **Compiler d'abord le package seul** — c'est là que se trouve toute la logique, et
-   ses tests valident les exemples du cahier des charges :
+2. **Lancer les tests du package** — toute la logique s'y trouve, et ses tests valident
+   les exemples chiffrés du cahier des charges :
 
    ```sh
    cd QuantaraCore && swift test
@@ -157,7 +158,7 @@ contraires aux conditions d'utilisation d'Apple et instables — je ne les recom
 
 ## Points restant à traiter avant une mise en production
 
-- Compilation et exécution sur appareil (jamais faites depuis cet environnement).
+- Exécution sur appareil réel (jamais faite : seule la compilation est vérifiée).
 - Relais serveur pour l'API du conseiller (non inclus : hors périmètre de l'app).
 - Validation serveur des achats StoreKit.
 - Icône d'application (le catalogue ne contient qu'un emplacement vide).
