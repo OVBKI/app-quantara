@@ -69,10 +69,15 @@ final class StoreKitEntitlementStore: EntitlementStore {
     private(set) var isPremium: Bool = false
     private(set) var isLoading: Bool = false
     private(set) var products: [Product] = []
-    /// Constante, et non variable : le `deinit` d'une classe `@MainActor` s'exécute hors
-    /// de l'acteur et ne peut donc pas lire une propriété isolée. Une propriété `let` de
-    /// type `Sendable` — ce qu'est `Task` — reste lisible depuis n'importe quel contexte.
-    private let updatesTask: Task<Void, Never>
+    /// `nonisolated(unsafe)` : le `deinit` d'une classe `@MainActor` s'exécute hors de
+    /// l'acteur et ne peut pas lire une propriété isolée. La propriété doit rester une
+    /// variable optionnelle — la tâche capture `self`, donc elle ne peut être créée
+    /// qu'une fois l'objet entièrement initialisé. L'accès concurrent est sûr en
+    /// pratique : seules l'initialisation et la libération y touchent, jamais en même temps.
+    /// `@ObservationIgnored` : ce n'est pas un état d'interface, et la macro
+    /// `@Observable` transformerait sinon la propriété en propriété calculée.
+    @ObservationIgnored
+    private nonisolated(unsafe) var updatesTask: Task<Void, Never>?
 
     init() {
         // L'écoute des transactions doit démarrer immédiatement : une transaction
@@ -86,7 +91,7 @@ final class StoreKitEntitlementStore: EntitlementStore {
         }
     }
 
-    deinit { updatesTask.cancel() }
+    deinit { updatesTask?.cancel() }
 
     func refresh() async {
         isLoading = true
