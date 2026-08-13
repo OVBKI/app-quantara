@@ -119,7 +119,7 @@ struct QuickAddTransactionView: View {
 
     private func save() {
         let currency = store.profile.currency
-        let transaction = Transaction(
+        let transaction = BudgetTransaction(
             date: date,
             amount: Money(amount, currency),
             kind: kind,

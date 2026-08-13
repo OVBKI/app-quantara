@@ -139,7 +139,7 @@ struct TransactionsView: View {
 
     // MARK: Données
 
-    private var filteredTransactions: [Transaction] {
+    private var filteredTransactions: [BudgetTransaction] {
         store.profile.transactions.filter { transaction in
             if let selectedKind, transaction.kind != selectedKind { return false }
             guard !searchText.isEmpty else { return true }
@@ -152,7 +152,7 @@ struct TransactionsView: View {
         }
     }
 
-    private var groupedTransactions: [(key: Date, value: [Transaction])] {
+    private var groupedTransactions: [(key: Date, value: [BudgetTransaction])] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: filteredTransactions) {
             calendar.startOfDay(for: $0.date)
@@ -160,7 +160,7 @@ struct TransactionsView: View {
         return grouped.sorted { $0.key > $1.key }
     }
 
-    private func dayTotal(_ transactions: [Transaction]) -> Money {
+    private func dayTotal(_ transactions: [BudgetTransaction]) -> Money {
         let currency = store.profile.currency
         return transactions.reduce(Money(.zero, currency)) { partial, transaction in
             switch transaction.kind {
@@ -220,7 +220,7 @@ struct DetectedRecurrence: Identifiable {
 // MARK: - Ligne de transaction
 
 struct TransactionRow: View {
-    let transaction: Transaction
+    let transaction: BudgetTransaction
 
     var body: some View {
         HStack(spacing: Theme.Spacing.small) {

@@ -177,7 +177,7 @@ struct AdvisorView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, Theme.Spacing.medium)
         .padding(.vertical, 8)
-        .background(.background.secondary)
+        .background(Color(.secondarySystemGroupedBackground))
     }
 
     private var welcome: some View {
@@ -214,7 +214,7 @@ struct AdvisorView: View {
             .padding(Theme.Spacing.small)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
-                    .fill(.background.tertiary)
+                    .fill(Color(.tertiarySystemGroupedBackground))
             )
         }
         .buttonStyle(.plain)
@@ -299,7 +299,7 @@ struct MessageBubble: View {
                         RoundedRectangle(cornerRadius: Theme.Radius.control, style: .continuous)
                             .fill(message.isFromUser
                                   ? AnyShapeStyle(Theme.Palette.accent.opacity(0.15))
-                                  : AnyShapeStyle(.background.secondary))
+                                  : AnyShapeStyle(Color(.secondarySystemGroupedBackground)))
                     )
             }
             .frame(maxWidth: .infinity, alignment: message.isFromUser ? .trailing : .leading)

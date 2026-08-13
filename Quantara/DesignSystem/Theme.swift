@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import QuantaraCore
 
 /// Système de design.
@@ -88,7 +89,7 @@ struct Card<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.background.secondary)
+                    .fill(Color(.secondarySystemGroupedBackground))
             )
     }
 }
@@ -100,7 +101,7 @@ extension View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.background.secondary)
+                    .fill(Color(.secondarySystemGroupedBackground))
             )
     }
 }
