@@ -83,9 +83,10 @@ public struct Money: Hashable, Sendable, Codable {
         Money(lhs.amount * rhs, lhs.currency)
     }
 
-    public static func * (lhs: Decimal, rhs: Money) -> Money {
-        Money(lhs * rhs.amount, rhs.currency)
-    }
+    // Pas de surcharge symétrique `Decimal * Money` : `Money` est
+    // `ExpressibleByIntegerLiteral`, si bien qu'une expression aussi banale que
+    // `ratio * 100` deviendrait ambiguë (le littéral pouvant être lu comme un
+    // `Money`). La multiplication s'écrit donc toujours montant en premier.
 
     public static func / (lhs: Money, rhs: Decimal) -> Money {
         guard rhs != .zero else { return Money.zero(lhs.currency) }
@@ -98,7 +99,7 @@ public struct Money: Hashable, Sendable, Codable {
     /// Ratio sans unité entre deux montants. `nil` si le dénominateur est nul —
     /// on ne renvoie pas 0, qui se confondrait avec un ratio réellement nul.
     public func ratio(to other: Money) -> Decimal? {
-        assertSameCurrency(self, other)
+        Money.assertSameCurrency(self, other)
         guard other.amount != .zero else { return nil }
         return amount / other.amount
     }
