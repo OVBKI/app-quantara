@@ -93,7 +93,10 @@ struct GoalsView: View {
             ForEach(plan.tiers) { tier in
                 HStack {
                     Image(systemName: tier.isReached ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(tier.isReached ? Theme.Palette.positive : .tertiary)
+                        // Les deux branches doivent avoir le même type : `.tertiary` est
+                        // un style hiérarchique, pas une `Color`. On passe par la couleur
+                        // système équivalente.
+                        .foregroundStyle(tier.isReached ? Theme.Palette.positive : Color(.tertiaryLabel))
                     Text(
                         String(
                             format: String(localized: "goals.emergencyFund.tier"),
