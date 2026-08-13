@@ -1,0 +1,65 @@
+name: Build & Tests
+
+# Compile le projet sur un Mac fourni par GitHub. Utile pour valider le code
+# depuis un poste Windows ou Linux, où la chaîne d'outils iOS n'existe pas.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Cœur métier (tests unitaires)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version d'Xcode
+        run: xcodebuild -version
+
+      # Le cœur métier ne dépend ni de SwiftUI ni d'iOS : il se teste directement
+      # avec Swift Package Manager, sans simulateur.
+      - name: Tests QuantaraCore
+        run: swift test --package-path QuantaraCore
+
+  app:
+    name: Application iOS (compilation simulateur)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Simulateurs disponibles
+        run: xcrun simctl list devices available | head -40
+
+      # CODE_SIGNING_ALLOWED=NO : une compilation pour le simulateur n'a besoin
+      # d'aucun certificat, donc d'aucun compte développeur.
+      - name: Compilation
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Quantara.xcodeproj \
+            -scheme Quantara \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -200
+
+      # L'archive produite est un binaire de simulateur : elle peut être déposée
+      # sur un service de streaming (Appetize.io par exemple) pour manipuler
+      # l'application depuis un navigateur, sans Mac.
+      - name: Empaquetage du binaire simulateur
+        if: success()
+        run: |
+          cd build/Build/Products/Debug-iphonesimulator
+          zip -r -y "$GITHUB_WORKSPACE/Quantara-simulator.zip" Quantara.app
+
+      - name: Publication de l'artefact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Quantara-simulator
+          path: Quantara-simulator.zip
+          retention-days: 14

@@ -78,6 +78,38 @@ cette application.
 
 ---
 
+## Tester sans Mac (Windows / Linux)
+
+Une application iOS ne se compile pas hors de macOS. Deux contournements, dans l'ordre :
+
+**1. Compiler via GitHub Actions (gratuit, aucun Mac requis)**
+
+Le workflow `.github/workflows/ci.yml` s'exécute à chaque `push` sur un Mac fourni par
+GitHub. Onglet **Actions** du dépôt :
+
+- le job *Cœur métier* lance les tests unitaires — c'est là qu'est toute la logique
+  financière, et c'est ce qui valide les calculs ;
+- le job *Application iOS* compile pour le simulateur et publie un artefact
+  `Quantara-simulator.zip`.
+
+Les erreurs de compilation apparaissent dans le journal du job. C'est le moyen le plus
+rapide d'obtenir un retour depuis Windows.
+
+**2. Manipuler l'application dans un navigateur**
+
+Téléchargez l'artefact `Quantara-simulator.zip` depuis l'onglet Actions, puis déposez-le
+sur un service de streaming de simulateur (Appetize.io propose une offre gratuite
+limitée). L'application s'exécute alors dans le navigateur, cliquable, sans machine
+Apple. C'est suffisant pour parcourir l'onboarding, saisir un budget et vérifier les
+écrans ; ce n'est pas suffisant pour tester Face ID, les notifications ou les achats
+intégrés.
+
+**Autres options** : louer un Mac à l'heure (Scaleway Mac mini, MacinCloud, MacStadium),
+ou emprunter un Mac le temps d'une session. Les machines virtuelles macOS sur PC sont
+contraires aux conditions d'utilisation d'Apple et instables — je ne les recommande pas.
+
+---
+
 ## Avant la première compilation
 
 1. **Ouvrir le projet**
