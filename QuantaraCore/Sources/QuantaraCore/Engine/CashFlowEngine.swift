@@ -100,7 +100,7 @@ public enum CashFlowEngine {
 
             // Le passé du mois en cours est déjà reflété dans le solde de départ :
             // n'y réappliquons pas une dépense théorique.
-            let variable = (isCurrentMonth && day <= today) ? Money(.zero, currency) : dailyRate
+            let variable = (isCurrentMonth && day <= today) ? Money.zero(currency) : dailyRate
             balance -= variable
 
             if balance < lowest {
@@ -213,6 +213,6 @@ public enum CashFlowEngine {
         if let estimate = profile.estimatedMonthlyVariableSpending {
             return estimate / Decimal(daysInMonth)
         }
-        return Money(.zero, currency)
+        return Money.zero(currency)
     }
 }

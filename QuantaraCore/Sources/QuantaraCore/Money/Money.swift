@@ -65,7 +65,7 @@ public struct Money: Hashable, Sendable, Codable {
 
     /// Remet à zéro les montants négatifs. Utile partout où un reste à vivre négatif
     /// ne doit pas se propager dans une répartition.
-    public var clampedToZero: Money { amount < .zero ? Money(.zero, currency) : self }
+    public var clampedToZero: Money { amount < .zero ? Money.zero(currency) : self }
 
     // MARK: - Arithmétique
 
@@ -88,7 +88,7 @@ public struct Money: Hashable, Sendable, Codable {
     }
 
     public static func / (lhs: Money, rhs: Decimal) -> Money {
-        guard rhs != .zero else { return Money(.zero, lhs.currency) }
+        guard rhs != .zero else { return Money.zero(lhs.currency) }
         return Money(lhs.amount / rhs, lhs.currency)
     }
 
@@ -107,7 +107,7 @@ public struct Money: Hashable, Sendable, Codable {
 
     /// Arrondi bancaire (mi-pair) par défaut : sur une somme de nombreuses lignes il ne
     /// dérive pas systématiquement vers le haut, contrairement à l'arrondi commercial.
-    public func rounded(scale: Int = 2, mode: NSDecimalRoundingMode = .bankers) -> Money {
+    public func rounded(scale: Int = 2, mode: Decimal.RoundingMode = .bankers) -> Money {
         var input = amount
         var result = Decimal()
         NSDecimalRound(&result, &input, scale, mode)
@@ -121,7 +121,7 @@ public struct Money: Hashable, Sendable, Codable {
     // MARK: - Somme
 
     public static func sum(_ values: [Money], currency: Currency) -> Money {
-        values.reduce(Money(.zero, currency)) { partial, next in
+        values.reduce(Money.zero(currency)) { partial, next in
             assertSameCurrency(partial, next)
             return partial + next
         }

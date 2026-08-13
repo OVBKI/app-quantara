@@ -221,8 +221,8 @@ public enum OptimizationEngine {
                         category: nil,
                         title: "\(outliers.count) dépense\(outliers.count > 1 ? "s" : "") inhabituelle\(outliers.count > 1 ? "s" : "")",
                         detail: "\(total.formatted(locale: locale)) sur \(outliers.count) opération\(outliers.count > 1 ? "s" : "") nettement au-dessus de vos montants habituels. À vérifier : ponctuel ou début d'habitude ?",
-                        monthlySaving: Money(.zero, currency),
-                        annualSaving: Money(.zero, currency),
+                        monthlySaving: Money.zero(currency),
+                        annualSaving: Money.zero(currency),
                         effort: .easy,
                         confidence: Decimal(string: "0.70") ?? 0,
                         action: nil
@@ -238,7 +238,7 @@ public enum OptimizationEngine {
         let tenYear: Money? = totalMonthly.amount > .zero
             ? SimulationEngine.projectSavings(
                 monthlyContribution: totalMonthly,
-                initialAmount: Money(.zero, currency),
+                initialAmount: Money.zero(currency),
                 annualReturn: profile.preferences.assumedAnnualReturn,
                 months: 120,
                 referenceDate: referenceDate

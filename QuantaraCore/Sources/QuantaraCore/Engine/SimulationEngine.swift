@@ -77,7 +77,7 @@ public enum SimulationEngine {
                 monthIndex: 0,
                 date: referenceDate,
                 contributed: initialAmount,
-                interest: Money(.zero, currency),
+                interest: Money.zero(currency),
                 total: initialAmount
             )
         )
@@ -174,7 +174,7 @@ public enum SimulationEngine {
         let newDisposable = summary.disposable - amount
         let projection = projectSavings(
             monthlyContribution: amount,
-            initialAmount: Money(.zero, summary.currency),
+            initialAmount: Money.zero(summary.currency),
             annualReturn: preferences.assumedAnnualReturn,
             months: horizonYears * 12,
             annualInflation: preferences.assumedAnnualInflation,
@@ -204,7 +204,7 @@ public enum SimulationEngine {
         let newDisposable = summary.disposable + amount
         let projection = projectSavings(
             monthlyContribution: amount,
-            initialAmount: Money(.zero, summary.currency),
+            initialAmount: Money.zero(summary.currency),
             annualReturn: preferences.assumedAnnualReturn,
             months: horizonYears * 12,
             annualInflation: preferences.assumedAnnualInflation,
@@ -236,7 +236,7 @@ public enum SimulationEngine {
         let newDisposable = summary.disposable + delta
         let projection = projectSavings(
             monthlyContribution: delta.clampedToZero,
-            initialAmount: Money(.zero, summary.currency),
+            initialAmount: Money.zero(summary.currency),
             annualReturn: preferences.assumedAnnualReturn,
             months: horizonYears * 12,
             annualInflation: preferences.assumedAnnualInflation,

@@ -140,7 +140,7 @@ public enum GoalEngine {
     ) -> [GoalAlternative] {
 
         var results: [GoalAlternative] = []
-        let zero = Money(.zero, currency)
+        let zero = Money.zero(currency)
 
         // 1. Allonger l'échéance : même cible, même capacité, plus de temps.
         if capacity.amount > .zero, let months = monthsToCover(remaining, at: capacity) {

@@ -91,15 +91,15 @@ public struct FinancialProfile: Hashable, Codable, Sendable {
         self.debts = debts
         self.goals = goals
         self.categoryBudgets = categoryBudgets
-        self.savingsBalance = savingsBalance ?? Money(.zero, currency)
-        self.investmentsBalance = investmentsBalance ?? Money(.zero, currency)
+        self.savingsBalance = savingsBalance ?? Money.zero(currency)
+        self.investmentsBalance = investmentsBalance ?? Money.zero(currency)
         self.riskProfile = riskProfile
         self.investmentHorizonYears = investmentHorizonYears
         self.preferences = preferences
         self.estimatedMonthlyVariableSpending = estimatedMonthlyVariableSpending
     }
 
-    public var zero: Money { Money(.zero, currency) }
+    public var zero: Money { Money.zero(currency) }
 
     // MARK: - Filtres usuels
 

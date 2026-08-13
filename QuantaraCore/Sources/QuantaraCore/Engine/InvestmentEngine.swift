@@ -168,7 +168,7 @@ public enum InvestmentEngine {
         return InvestmentGuidance(
             readiness: checks,
             isReady: isReady,
-            indicativeMonthlyCapacity: hasCapacity ? capacity : Money(.zero, currency),
+            indicativeMonthlyCapacity: hasCapacity ? capacity : Money.zero(currency),
             riskProfile: profile.riskProfile,
             horizonYears: profile.investmentHorizonYears,
             assetClasses: education(

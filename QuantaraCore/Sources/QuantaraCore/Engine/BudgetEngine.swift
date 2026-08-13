@@ -108,7 +108,7 @@ public enum BudgetEngine {
     ) -> MonthlySummary {
 
         let currency = profile.currency
-        let zero = Money(.zero, currency)
+        let zero = Money.zero(currency)
 
         let monthTransactions = profile.transactions(in: month)
         let daysInMonth = month.numberOfDays(calendar: calendar)
@@ -384,13 +384,13 @@ public enum BudgetEngine {
 
         for expense in recurring {
             let category = ExpenseCategory.fixed(expense.category)
-            amounts[category, default: Money(.zero, currency)] += expense.monthlyEquivalent
+            amounts[category, default: Money.zero(currency)] += expense.monthlyEquivalent
             counts[category, default: 0] += 1
         }
 
         for transaction in transactions {
             let category = transaction.category ?? .variable(.other)
-            amounts[category, default: Money(.zero, currency)] += transaction.effectiveAmount
+            amounts[category, default: Money.zero(currency)] += transaction.effectiveAmount
             counts[category, default: 0] += 1
         }
 
@@ -456,8 +456,8 @@ public enum BudgetEngine {
                 return total.amount > before
             }
             .sorted { lhs, rhs in
-                let lhsDelta = lhs.amount - (previousByCategory[lhs.category] ?? Money(.zero, lhs.amount.currency))
-                let rhsDelta = rhs.amount - (previousByCategory[rhs.category] ?? Money(.zero, rhs.amount.currency))
+                let lhsDelta = lhs.amount - (previousByCategory[lhs.category] ?? Money.zero(lhs.amount.currency))
+                let rhsDelta = rhs.amount - (previousByCategory[rhs.category] ?? Money.zero(rhs.amount.currency))
                 return lhsDelta > rhsDelta
             }
 

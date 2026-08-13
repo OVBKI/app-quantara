@@ -119,7 +119,7 @@ public enum DebtEngine {
         calendar: Calendar = .gregorianUTC
     ) -> DebtPayoffPlan {
 
-        let zero = Money(.zero, currency)
+        let zero = Money.zero(currency)
         let active = debts.filter { $0.isActive && $0.outstandingPrincipal.amount > .zero }
 
         guard !active.isEmpty else {

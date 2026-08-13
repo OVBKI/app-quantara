@@ -162,7 +162,7 @@ struct TransactionsView: View {
 
     private func dayTotal(_ transactions: [BudgetTransaction]) -> Money {
         let currency = store.profile.currency
-        return transactions.reduce(Money(.zero, currency)) { partial, transaction in
+        return transactions.reduce(Money.zero(currency)) { partial, transaction in
             switch transaction.kind {
             case .income:  return partial + transaction.effectiveAmount
             case .transfer: return partial

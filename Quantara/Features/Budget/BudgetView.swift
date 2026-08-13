@@ -340,7 +340,7 @@ struct BudgetView: View {
                 ForEach(store.profile.categoryBudgets) { budget in
                     let spent = analysis.summary.categoryTotals
                         .first { $0.category == budget.category }?
-                        .amount ?? Money(.zero, store.profile.currency)
+                        .amount ?? Money.zero(store.profile.currency)
                     let ratio = spent.ratio(to: budget.limit) ?? 0
 
                     VStack(alignment: .leading, spacing: 4) {

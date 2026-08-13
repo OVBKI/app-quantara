@@ -407,7 +407,7 @@ public struct Goal: Identifiable, Hashable, Codable, Sendable {
         self.kind = kind
         self.name = name
         self.targetAmount = targetAmount
-        self.currentAmount = currentAmount ?? Money(.zero, targetAmount.currency)
+        self.currentAmount = currentAmount ?? Money.zero(targetAmount.currency)
         self.targetDate = targetDate
         self.priority = priority ?? kind.defaultPriority
         self.monthlyContribution = monthlyContribution

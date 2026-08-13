@@ -49,7 +49,7 @@ public struct AllocationPlan: Hashable, Codable, Sendable {
 
     public func amount(for bucket: AllocationBucket) -> Money {
         let matching = lines.filter { $0.bucket == bucket }
-        guard let first = matching.first else { return Money(.zero, disposable.currency) }
+        guard let first = matching.first else { return Money.zero(disposable.currency) }
         return Money.sum(matching.map(\.amount), currency: first.amount.currency)
     }
 }
@@ -75,7 +75,7 @@ public enum AllocationEngine {
     ) -> AllocationPlan {
 
         let currency = profile.currency
-        let zero = Money(.zero, currency)
+        let zero = Money.zero(currency)
         let disposable = summary.disposable.clampedToZero
 
         guard disposable.amount > .zero else {
