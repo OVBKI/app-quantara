@@ -42,15 +42,20 @@ final class AppEnvironment {
         return URL(string: raw)
     }
 
+    /// Les dépendances isolées sur l'acteur principal sont construites dans le corps de
+    /// l'initialiseur, pas en valeur par défaut : une expression par défaut est évaluée
+    /// hors isolation, et n'a donc pas le droit d'appeler un initialiseur `@MainActor`.
     init(
         store: DataStore,
-        lock: AppLockManager = AppLockManager(),
-        entitlements: any EntitlementStore = StoreKitEntitlementStore(),
+        lock: AppLockManager? = nil,
+        entitlements: (any EntitlementStore)? = nil,
         notifications: any NotificationScheduling = NotificationScheduler()
     ) {
+        let lock = lock ?? AppLockManager()
+
         self.store = store
         self.lock = lock
-        self.entitlements = entitlements
+        self.entitlements = entitlements ?? StoreKitEntitlementStore()
         self.notifications = notifications
 
         lock.configure(

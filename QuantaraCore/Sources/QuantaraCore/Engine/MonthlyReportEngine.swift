@@ -30,7 +30,6 @@ public enum MonthlyReportEngine {
     ) -> MonthlyReport {
 
         let locale = Locale(identifier: "fr_FR")
-        let currency = profile.currency
 
         let summary = BudgetEngine.summary(for: month, profile: profile, referenceDate: referenceDate)
         let previous = BudgetEngine.summary(

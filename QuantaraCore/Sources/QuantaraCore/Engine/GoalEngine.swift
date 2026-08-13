@@ -69,10 +69,14 @@ public enum GoalEngine {
         let planned = goal.monthlyContribution ?? required
 
         // Date d'atteinte estimée au rythme retenu.
+        // Sans mensualité choisie ni échéance, la projection se fait au rythme
+        // réellement disponible — la capacité d'épargne — plutôt que de ne rien
+        // annoncer : « à ce rythme, 30 mois » est une information, « aucune date » non.
         let completionMonths: Int? = {
             guard remaining.amount > .zero else { return 0 }
-            guard let planned, planned.amount > .zero else { return nil }
-            return monthsToCover(remaining, at: planned)
+            let rate = planned ?? capacity
+            guard rate.amount > .zero else { return nil }
+            return monthsToCover(remaining, at: rate)
         }()
 
         let completionDate: Date? = completionMonths.flatMap {

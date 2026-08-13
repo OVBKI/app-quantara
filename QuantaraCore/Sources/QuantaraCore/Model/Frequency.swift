@@ -44,8 +44,13 @@ public enum Frequency: String, Codable, CaseIterable, Sendable, Identifiable {
     /// Facteur de conversion vers l'équivalent annuel.
     public var annualFactor: Decimal { occurrencesPerYear ?? .zero }
 
+    /// Ordre des opérations volontaire : on multiplie **avant** de diviser.
+    /// `1 200 × (1/12)` passe par 0,08333…33 et rend 99,999…996 ; `1 200 × 1 ÷ 12`
+    /// rend exactement 100. L'écart est invisible à l'affichage mais réel en mémoire,
+    /// et il fait diverger toute comparaison de montants.
     public func monthlyEquivalent(of money: Money) -> Money {
-        money * monthlyFactor
+        guard let occurrences = occurrencesPerYear else { return Money.zero(money.currency) }
+        return money * occurrences / 12
     }
 
     public func annualEquivalent(of money: Money) -> Money {

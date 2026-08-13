@@ -95,7 +95,9 @@ public enum InsightEngine {
     public static let surplusThreshold            = Decimal(string: "0.15") ?? 0
     public static let goalDeviationThreshold      = Decimal(string: "0.05") ?? 0
     public static let savingsRateChangeThreshold  = Decimal(string: "0.03") ?? 0
-    public static let subscriptionLoadThreshold   = Decimal(string: "0.03") ?? 0
+    // 2 % du revenu : à 4 000 € nets, soit 80 €/mois — l'ordre de grandeur de
+    // l'exemple du cahier des charges (« plusieurs abonnements, 87 €/mois »).
+    public static let subscriptionLoadThreshold   = Decimal(string: "0.02") ?? 0
     public static let fixedExpenseLoadThreshold   = Decimal(string: "0.50") ?? 0
 
     public static func insights(

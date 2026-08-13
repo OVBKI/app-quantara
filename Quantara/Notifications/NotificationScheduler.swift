@@ -21,7 +21,9 @@ struct NotificationPreferences: Sendable {
 
 struct NotificationScheduler: NotificationScheduling {
 
-    private let center = UNUserNotificationCenter.current()
+    /// Le centre de notifications n'est pas `Sendable` : on ne le retient pas, on le
+    /// redemande à chaque appel. `current()` renvoie de toute façon le même singleton.
+    private var center: UNUserNotificationCenter { UNUserNotificationCenter.current() }
     private let locale: Locale
 
     init(locale: Locale = Locale(identifier: "fr_FR")) {

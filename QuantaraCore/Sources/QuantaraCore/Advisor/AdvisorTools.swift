@@ -387,13 +387,17 @@ public struct AdvisorToolRunner: Sendable {
             "debt_free_date": plan.debtFreeDate.map { formatter.string(from: $0) },
             "total_interest": rounded(plan.totalInterest.amount),
             "interest_saved_versus_minimum": rounded(plan.interestSaved.amount),
-            "order": plan.steps.map { step in
-                [
+            // Une dette dont l'échéance n'est pas calculable (mensualité inférieure aux
+            // intérêts) n'expose pas la clé : `JSONSerialization` refuse un `Optional`,
+            // et un champ absent se lit mieux qu'un `null`.
+            "order": plan.steps.map { step -> [String: Any] in
+                var entry: [String: Any] = [
                     "name": step.name,
                     "order": step.order,
-                    "months_to_payoff": step.monthsToPayoff,
                     "total_interest": rounded(step.totalInterest.amount)
-                ] as [String: Any]
+                ]
+                if let months = step.monthsToPayoff { entry["months_to_payoff"] = months }
+                return entry
             }
         ]
     }
