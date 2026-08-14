@@ -2,9 +2,16 @@ name: Build & Tests
 
 # Compile le projet sur un Mac fourni par GitHub. Utile pour valider le code
 # depuis un poste Windows ou Linux, où la chaîne d'outils iOS n'existe pas.
+# Les chemins sont filtrés : un runner macOS coûte dix fois un runner Linux, et une
+# modification de la version Windows n'a aucune raison de le déclencher.
 on:
   push:
     branches: ["**"]
+    paths:
+      - 'Quantara/**'
+      - 'QuantaraCore/**'
+      - 'Quantara.xcodeproj/**'
+      - '.github/workflows/ci.yml'
   pull_request:
   workflow_dispatch:
 

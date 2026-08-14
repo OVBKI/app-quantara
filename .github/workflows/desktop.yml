@@ -1,0 +1,75 @@
+name: Application Windows
+
+# Produit un installateur Windows téléchargeable depuis l'onglet Actions.
+# Permet de tester l'application sans chaîne de compilation locale.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: desktop
+
+jobs:
+  core:
+    name: Cœur métier (tests unitaires)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - run: npm ci
+
+      # Le moteur financier ne dépend ni de Tauri ni du navigateur : il se teste sur
+      # Linux, plus rapide et sans licence, avant même de compiler quoi que ce soit.
+      - name: Tests
+        run: npm test
+
+      - name: Vérification des types
+        run: npm run typecheck
+
+  windows:
+    name: Installateur Windows
+    runs-on: windows-latest
+    needs: core
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # La compilation Rust est longue et surtout répétitive : sans ce cache, chaque
+      # exécution recompile l'intégralité des dépendances de Tauri.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - run: npm ci
+
+      - name: Compilation de l'application
+        run: npm run tauri build
+
+      - name: Publication de l'installateur
+        uses: actions/upload-artifact@v4
+        with:
+          name: Quantara-windows
+          path: |
+            desktop/src-tauri/target/release/bundle/nsis/*.exe
+            desktop/src-tauri/target/release/quantara.exe
+          retention-days: 30
+          if-no-files-found: error

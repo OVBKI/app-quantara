@@ -1,0 +1,31 @@
+[package]
+name = "quantara"
+version = "0.1.0"
+description = "Gestion de budget avec assistant financier"
+authors = ["Quantara"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "quantara_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Le binaire de production est optimisé pour la taille : une application de bureau
+# distribuée par téléchargement n'a pas besoin des dernières fractions de performance,
+# mais l'utilisateur voit le poids du fichier.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

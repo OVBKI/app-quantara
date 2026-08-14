@@ -91,6 +91,20 @@ function scaledFromString(text: string): bigint {
   return sign === '-' ? -micros : micros;
 }
 
+export interface MoneyJSON {
+  readonly __money: string;
+  readonly currency: Currency;
+}
+
+export function isMoneyJSON(value: unknown): value is MoneyJSON {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as MoneyJSON).__money === 'string' &&
+    typeof (value as MoneyJSON).currency === 'string'
+  );
+}
+
 export class Money {
   private constructor(
     readonly micros: bigint,
@@ -301,12 +315,14 @@ export class Money {
 
   // --- Sérialisation ---
 
-  toJSON(): { micros: string; currency: Currency } {
-    return { micros: this.micros.toString(), currency: this.currency };
+  /** Le marqueur `__money` permet au lecteur JSON de reconnaître un montant et de le
+   *  reconstruire — sans lui, un montant relu ne serait qu'un objet quelconque. */
+  toJSON(): MoneyJSON {
+    return { __money: this.micros.toString(), currency: this.currency };
   }
 
-  static fromJSON(value: { micros: string; currency: Currency }): Money {
-    return new Money(BigInt(value.micros), value.currency);
+  static fromJSON(value: MoneyJSON): Money {
+    return new Money(BigInt(value.__money), value.currency);
   }
 }
 

@@ -1,6 +1,11 @@
 # Quantara
 
-Application iOS de gestion de budget avec conseiller financier IA.
+Gestion de budget avec assistant financier. Deux applications, un même modèle de calcul :
+
+| | |
+|---|---|
+| [`Quantara/`](Quantara) + [`QuantaraCore/`](QuantaraCore) | Application **iOS** (SwiftUI), avec conseiller IA |
+| [`desktop/`](desktop) | Application **Windows** (Tauri), moteur transposé en TypeScript |
 
 > **État du dépôt** — Le projet compile et les 76 tests unitaires du cœur métier
 > passent, vérifiés par l'intégration continue sur un runner macOS (Xcode 16.4,
@@ -46,6 +51,11 @@ Quantara/              Application SwiftUI
   Resources/           Info.plist, catalogue d'assets, localisations FR et EN
 
 Quantara.xcodeproj/    Projet Xcode (dossier synchronisé, Xcode 16+)
+
+desktop/               Application Windows — voir desktop/README.md
+  src/core/            Moteur financier en TypeScript, 66 tests
+  src/ui/              Écrans
+  src-tauri/           Enveloppe native
 ```
 
 ---
@@ -104,6 +114,11 @@ limitée). L'application s'exécute alors dans le navigateur, cliquable, sans ma
 Apple. C'est suffisant pour parcourir l'onboarding, saisir un budget et vérifier les
 écrans ; ce n'est pas suffisant pour tester Face ID, les notifications ou les achats
 intégrés.
+
+**Version Windows** — une application de bureau distincte existe désormais dans
+[`desktop/`](desktop) : elle s'exécute nativement sous Windows et se télécharge depuis
+l'onglet Actions (workflow *Application Windows*). Elle reprend le même modèle de calcul,
+transposé en TypeScript et testé indépendamment.
 
 **Autres options** : louer un Mac à l'heure (Scaleway Mac mini, MacinCloud, MacStadium),
 ou emprunter un Mac le temps d'une session. Les machines virtuelles macOS sur PC sont

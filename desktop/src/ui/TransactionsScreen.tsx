@@ -1,0 +1,288 @@
+import { useMemo, useState } from 'react';
+import { Money } from '../core/money';
+import {
+  ALL_CATEGORY_IDS,
+  INCOME_CATEGORIES,
+  INCOME_LABELS,
+  VARIABLE_CATEGORY_IDS,
+  categoryLabel,
+  type ExpenseCategoryId,
+  type IncomeCategory,
+} from '../core/categories';
+import { formatDate, parseDate } from '../core/yearMonth';
+import type { Transaction, TransactionKind } from '../core/model';
+import { useStore } from '../state/store';
+import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
+
+const KIND_LABELS: Record<TransactionKind, string> = {
+  expense: 'Dépense',
+  income: 'Revenu',
+  savings: 'Épargne',
+  transfer: 'Virement',
+  debtPayment: 'Remboursement',
+};
+
+export function TransactionsScreen() {
+  const { profile, addTransaction, removeTransaction } = useStore();
+  const [search, setSearch] = useState('');
+  const [kindFilter, setKindFilter] = useState<TransactionKind | 'all'>('all');
+  const [form, setForm] = useState(false);
+  const [confirmNode, confirm] = useConfirm();
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return [...profile.transactions]
+      .filter((transaction) => (kindFilter === 'all' ? true : transaction.kind === kindFilter))
+      .filter((transaction) => {
+        if (needle === '') return true;
+        const haystack = [
+          transaction.label,
+          transaction.category ? categoryLabel(transaction.category) : '',
+          transaction.note ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(needle);
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [profile.transactions, search, kindFilter]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    for (const transaction of filtered) {
+      const key = transaction.date.slice(0, 10);
+      map.set(key, [...(map.get(key) ?? []), transaction]);
+    }
+    return [...map.entries()];
+  }, [filtered]);
+
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">Transactions</h1>
+          <p className="page-subtitle">
+            {profile.transactions.length} enregistrée{profile.transactions.length > 1 ? 's' : ''}
+          </p>
+        </div>
+        <button type="button" className="button button-primary" onClick={() => setForm(true)}>
+          Nouvelle transaction
+        </button>
+      </header>
+
+      <Card>
+        <div className="field-row" style={{ marginBottom: 16 }}>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher un libellé, une catégorie…"
+            aria-label="Rechercher"
+          />
+          <select
+            value={kindFilter}
+            onChange={(event) => setKindFilter(event.target.value as TransactionKind | 'all')}
+            aria-label="Filtrer par nature"
+          >
+            <option value="all">Toutes les natures</option>
+            {(Object.keys(KIND_LABELS) as TransactionKind[]).map((kind) => (
+              <option key={kind} value={kind}>
+                {KIND_LABELS[kind]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {grouped.length === 0 ? (
+          <EmptyState
+            title="Aucune transaction"
+            message="Les charges récurrentes sont déjà prises en compte par ailleurs. Ici, enregistrez ce qui varie : courses, restaurants, imprévus."
+            action={
+              <button type="button" className="button button-primary" onClick={() => setForm(true)}>
+                Enregistrer une dépense
+              </button>
+            }
+          />
+        ) : (
+          grouped.map(([date, entries]) => (
+            <div key={date} style={{ marginBottom: 18 }}>
+              <div className="inline" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+                <span className="row-subtitle" style={{ textTransform: 'capitalize' }}>
+                  {parseDate(date).toLocaleDateString('fr-FR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                </span>
+                <span className="row-subtitle amount">{dayTotal(entries, profile.currency)}</span>
+              </div>
+              {entries.map((transaction) => (
+                <div className="row" key={transaction.id}>
+                  <div className="row-main">
+                    <div className="row-title">{transaction.label}</div>
+                    <div className="row-subtitle">
+                      {transaction.category
+                        ? categoryLabel(transaction.category)
+                        : transaction.incomeCategory
+                          ? INCOME_LABELS[transaction.incomeCategory]
+                          : KIND_LABELS[transaction.kind]}
+                      {transaction.note ? ` · ${transaction.note}` : ''}
+                    </div>
+                  </div>
+                  <div
+                    className={`row-amount amount ${transaction.kind === 'income' ? 'positive' : ''}`}
+                  >
+                    {transaction.kind === 'income' ? '+ ' : transaction.kind === 'transfer' ? '' : '− '}
+                    {transaction.amount.format()}
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    aria-label={`Supprimer ${transaction.label}`}
+                    onClick={() =>
+                      confirm(`Supprimer « ${transaction.label} » ?`, () => removeTransaction(transaction.id))
+                    }
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </Card>
+
+      {form && (
+        <TransactionForm currency={profile.currency} onClose={() => setForm(false)} onSubmit={addTransaction} />
+      )}
+      {confirmNode}
+    </>
+  );
+}
+
+function dayTotal(entries: readonly Transaction[], currency: Money['currency']): string {
+  const total = entries.reduce((sum, transaction) => {
+    if (transaction.kind === 'income') return sum.plus(transaction.amount);
+    if (transaction.kind === 'transfer') return sum;
+    return sum.minus(transaction.amount);
+  }, Money.zero(currency));
+  return total.format();
+}
+
+function TransactionForm({
+  currency,
+  onClose,
+  onSubmit,
+}: {
+  currency: Money['currency'];
+  onClose: () => void;
+  onSubmit: (transaction: Omit<Transaction, 'id'>) => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [label, setLabel] = useState('');
+  const [kind, setKind] = useState<TransactionKind>('expense');
+  const [category, setCategory] = useState<ExpenseCategoryId>('variable.groceries');
+  const [incomeCategory, setIncomeCategory] = useState<IncomeCategory>('salary');
+  const [date, setDate] = useState(() => formatDate(new Date()));
+  const [note, setNote] = useState('');
+
+  const parsed = parseAmount(amount, currency);
+
+  return (
+    <Modal title="Nouvelle transaction" onClose={onClose}>
+      <div className="field-row">
+        <Field label="Montant">
+          {(id) => <MoneyInput id={id} value={amount} currency={currency} onChange={setAmount} autoFocus />}
+        </Field>
+        <Field label="Date">
+          {(id) => <input id={id} type="date" value={date} onChange={(event) => setDate(event.target.value)} />}
+        </Field>
+      </div>
+
+      <Field label="Nature">
+        {(id) => (
+          <select id={id} value={kind} onChange={(event) => setKind(event.target.value as TransactionKind)}>
+            {(Object.keys(KIND_LABELS) as TransactionKind[]).map((entry) => (
+              <option key={entry} value={entry}>
+                {KIND_LABELS[entry]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+
+      <Field label="Libellé">
+        {(id) => (
+          <input id={id} value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Courses" />
+        )}
+      </Field>
+
+      {kind === 'expense' && (
+        <Field label="Catégorie" hint="Les catégories variables viennent en premier : ce sont les plus fréquentes.">
+          {(id) => (
+            <select
+              id={id}
+              value={category}
+              onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}
+            >
+              {[...VARIABLE_CATEGORY_IDS, ...ALL_CATEGORY_IDS.filter((entry) => entry.startsWith('fixed.'))].map(
+                (entry) => (
+                  <option key={entry} value={entry}>
+                    {categoryLabel(entry)}
+                  </option>
+                ),
+              )}
+            </select>
+          )}
+        </Field>
+      )}
+
+      {kind === 'income' && (
+        <Field label="Nature du revenu">
+          {(id) => (
+            <select
+              id={id}
+              value={incomeCategory}
+              onChange={(event) => setIncomeCategory(event.target.value as IncomeCategory)}
+            >
+              {INCOME_CATEGORIES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {INCOME_LABELS[entry]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
+
+      <Field label="Note">
+        {(id) => <input id={id} value={note} onChange={(event) => setNote(event.target.value)} />}
+      </Field>
+
+      <div className="modal-actions">
+        <button type="button" className="button" onClick={onClose}>
+          Annuler
+        </button>
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={!parsed || !parsed.isPositive}
+          onClick={() => {
+            if (!parsed) return;
+            onSubmit({
+              amount: parsed,
+              date,
+              kind,
+              label: label.trim() || (kind === 'expense' ? categoryLabel(category) : KIND_LABELS[kind]),
+              category: kind === 'expense' ? category : undefined,
+              incomeCategory: kind === 'income' ? incomeCategory : undefined,
+              note: note.trim() || undefined,
+            });
+            onClose();
+          }}
+        >
+          Enregistrer
+        </button>
+      </div>
+    </Modal>
+  );
+}
