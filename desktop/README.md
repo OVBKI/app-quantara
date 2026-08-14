@@ -4,7 +4,7 @@ Application de bureau de gestion de budget. Interface web, enveloppe native Taur
 données stockées localement.
 
 > **État** — Fonctionnellement complet pour la v1. Le moteur et l'interface compilent,
-> et les 126 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
+> et les 141 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
 > est produit par l'intégration continue.
 
 ---
@@ -38,7 +38,7 @@ src/core/            Moteur financier — aucune dépendance à React
   categories.ts      Catégories, caractère essentiel, compressibilité
   yearMonth.ts       Périodes mensuelles, dates locales
   model.ts           Entités et sélecteurs
-  engine/            Budget · Revenus irréguliers · Enveloppes · Trésorerie
+  engine/            Budget · Revenus irréguliers · Enveloppes · Trading · Trésorerie
                      Objectifs · Fonds d'urgence · Dettes · Répartition
                      Analyse proactive · Optimisation · Simulation · Rapport mensuel
                      « Puis-je me le permettre » · Catégorisation · Import CSV
@@ -83,6 +83,15 @@ catégorie, comparée en continu au calendrier : avoir consommé 60 % de son bud
 n'a pas le même sens le 5 et le 25. Le plan réserve l'enveloppe même les mois calmes,
 parce que c'est un engagement — mais si elle est déjà dépassée, c'est le réel qui prime.
 Un poste sans enveloppe n'a aucune décision à tenir : il est extrapolé au rythme observé.
+
+**Le capital d'un compte financé ne vous appartient pas.** Un compte prop firm de
+100 000 € n'est pas 100 000 € de patrimoine : c'est un mandat révocable. L'application ne
+le compte donc dans aucun avoir — seul le prix des épreuves entre au budget, parce que
+c'est le seul montant réellement engagé. Le chiffre qui dit si l'activité rapporte est une
+soustraction que peu de gens font : versements encaissés moins épreuves payées, échecs
+compris. Et ce revenu reste planifié à zéro tant que six mois de versements n'ont pas été
+observés : un compte se perd sur une seule séance, y adosser une charge fixe revient à
+risquer de devoir la payer sans lui.
 
 **La répartition suit le risque, pas le rendement.** Sécuriser un mois de dépenses,
 éteindre les dettes coûteuses, compléter le fonds d'urgence, financer les objectifs, et

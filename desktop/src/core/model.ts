@@ -70,6 +70,9 @@ export interface Transaction {
    *  récurrente : elle est alors exclue du variable, sinon elle compterait deux fois. */
   readonly recurringExpenseId?: string;
   readonly incomeSourceId?: string;
+  /** Versement reçu d'une société de financement. Exclu des revenus ordinaires : il ne
+   *  se planifie pas comme un salaire. */
+  readonly tradingAccountId?: string;
 }
 
 export type DebtKind = 'creditCard' | 'consumerLoan' | 'carLoan' | 'studentLoan' | 'mortgage' | 'overdraft' | 'otherDebt';
@@ -104,6 +107,28 @@ export interface Goal {
   readonly priority: number;
   readonly createdAt: string;
   readonly achieved: boolean;
+}
+
+export type PropFirmPhase = 'challenge' | 'verification' | 'funded' | 'failed' | 'closed';
+
+/**
+ * Compte auprès d'une société de financement.
+ *
+ * `accountSize` est le capital confié, jamais un avoir : il n'entre dans aucun calcul de
+ * patrimoine. `fee` est le prix de l'épreuve — c'est le seul montant réellement engagé,
+ * et donc le seul qui pèse sur le budget.
+ */
+export interface TradingAccount {
+  readonly id: string;
+  readonly provider: string;
+  readonly label: string;
+  readonly phase: PropFirmPhase;
+  readonly accountSize: Money;
+  readonly fee: Money;
+  /** Part des gains revenant au trader, de 0 à 1. */
+  readonly profitSplit: number;
+  readonly startedAt: string;
+  readonly endedAt?: string;
 }
 
 export interface CategoryBudget {
@@ -142,6 +167,7 @@ export interface FinancialProfile {
   readonly transactions: readonly Transaction[];
   readonly debts: readonly Debt[];
   readonly goals: readonly Goal[];
+  readonly tradingAccounts: readonly TradingAccount[];
   readonly categoryBudgets: readonly CategoryBudget[];
   /** Règles apprises quand l'utilisateur corrige une catégorie : il ne doit pas avoir
    *  à recorriger le même marchand le mois suivant. */
@@ -160,6 +186,7 @@ export function emptyProfile(currency: Currency = 'EUR'): FinancialProfile {
     transactions: [],
     debts: [],
     goals: [],
+    tradingAccounts: [],
     categoryBudgets: [],
     categorizationRules: [],
     preferences: DEFAULT_PREFERENCES,

@@ -23,7 +23,10 @@ export type InsightKind =
   | 'volatileIncome'
   | 'envelopeExceeded'
   | 'envelopeAtRisk'
-  | 'noEnvelopes';
+  | 'noEnvelopes'
+  | 'tradingNetNegative'
+  | 'tradingDependency'
+  | 'tradingCapitalNotOwned';
 
 export type InsightSeverity = 'critical' | 'warning' | 'info' | 'positive';
 
@@ -91,6 +94,66 @@ export function buildInsights(input: {
           : ''),
       amount: detail.high.minus(detail.low),
     });
+  }
+
+  // --- Activité de trading ---
+  const trading = summary.trading;
+  if (trading && trading.attemptsStarted > 0) {
+    if (trading.lifetimeNet.isNegative) {
+      insights.push({
+        id: 'tradingNetNegative',
+        kind: 'tradingNetNegative',
+        severity: 'warning',
+        title: `Trading : ${trading.lifetimeNet.roundedToUnit.format()} depuis le début`,
+        message:
+          `${trading.lifetimePayouts.roundedToUnit.format()} de versements reçus pour ` +
+          `${trading.lifetimeFees.roundedToUnit.format()} d’épreuves payées sur ${trading.attemptsStarted} ` +
+          `tentative${trading.attemptsStarted > 1 ? 's' : ''}. ` +
+          'Le solde net est ce que l’activité vous rapporte réellement — les versements seuls ne le disent pas.',
+        amount: trading.lifetimeNet.absolute,
+      });
+    } else if (trading.lifetimeNet.isPositive) {
+      insights.push({
+        id: 'tradingNetPositive',
+        kind: 'tradingNetNegative',
+        severity: 'positive',
+        title: `Trading : +${trading.lifetimeNet.roundedToUnit.format()} depuis le début`,
+        message:
+          `${trading.lifetimePayouts.roundedToUnit.format()} encaissés, ` +
+          `${trading.lifetimeFees.roundedToUnit.format()} d’épreuves payées.` +
+          (trading.costPerFundedAccount
+            ? ` Chaque compte financé vous a coûté ${trading.costPerFundedAccount.roundedToUnit.format()} en moyenne, échecs compris.`
+            : ''),
+        amount: trading.lifetimeNet,
+      });
+    }
+
+    if (trading.shareOfIncome !== null && trading.shareOfIncome > 0.3) {
+      insights.push({
+        id: 'tradingDependency',
+        kind: 'tradingDependency',
+        severity: 'warning',
+        title: `${Percent.format(trading.shareOfIncome, 'fr-FR', 0)} de vos revenus viennent du trading`,
+        message:
+          'Un compte financé se perd sur une seule séance en dépassant la perte maximale autorisée. ' +
+          `Sur les douze derniers mois, votre plus longue série sans versement a duré ` +
+          `${trading.payouts.longestDrySpell} mois : c’est cette durée que vos charges fixes doivent pouvoir traverser.`,
+        amount: trading.payoutsThisMonth,
+      });
+    }
+
+    if (trading.allocatedCapital.isPositive) {
+      insights.push({
+        id: 'tradingCapitalNotOwned',
+        kind: 'tradingCapitalNotOwned',
+        severity: 'info',
+        title: `${trading.allocatedCapital.roundedToUnit.format()} de capital géré — qui ne vous appartient pas`,
+        message:
+          'Ce montant n’entre dans aucun calcul de patrimoine ici, et c’est volontaire : c’est un mandat ' +
+          'révocable, pas un avoir. Votre exposition réelle se limite au prix des épreuves déjà payées.',
+        amount: trading.allocatedCapital,
+      });
+    }
   }
 
   // --- Enveloppes ---

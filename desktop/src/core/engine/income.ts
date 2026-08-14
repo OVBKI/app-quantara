@@ -4,6 +4,7 @@ import { monthlyEquivalent } from '../frequency';
 import { activeIncomes, transactionsIn, type FinancialProfile, type IncomeSource } from '../model';
 import { addMonths, lastMonths, yearMonthEquals, yearMonthOf, type YearMonth } from '../yearMonth';
 import { Statistics } from './statistics';
+import { tradingIncomeEstimate } from './trading';
 
 /**
  * Mode de planification d'un revenu irrégulier.
@@ -34,6 +35,15 @@ export interface IncomeSourceEstimate {
 
 export interface IncomeBreakdown {
   readonly sources: readonly IncomeSourceEstimate[];
+  /** Versements de sociétés de financement, isolés du reste : ils ne se planifient pas
+   *  comme un salaire, et le plan doit pouvoir les afficher à part. */
+  readonly trading: {
+    readonly planned: Money;
+    readonly typical: Money;
+    readonly high: Money;
+    readonly plannable: boolean;
+    readonly monthsObserved: number;
+  } | null;
   readonly low: Money;
   readonly typical: Money;
   readonly high: Money;
@@ -150,21 +160,38 @@ export function incomeBreakdown(
 
   // Les entrées ponctuelles non rattachées à une source déclarée : prime, remboursement,
   // vente. Elles sont certaines puisque déjà encaissées, donc comptées à l'identique
-  // dans les trois hypothèses.
+  // dans les trois hypothèses. Les versements de trading en sont exclus : ils suivent
+  // une règle propre, bien plus prudente.
   const oneOff = Money.sum(
     transactionsIn(profile, period)
-      .filter((transaction) => transaction.kind === 'income' && transaction.incomeSourceId === undefined)
+      .filter(
+        (transaction) =>
+          transaction.kind === 'income' &&
+          transaction.incomeSourceId === undefined &&
+          transaction.tradingAccountId === undefined,
+      )
       .map((transaction) => transaction.amount),
     currency,
   );
 
-  const low = Money.sum([...sources.map((entry) => entry.actual ?? entry.low), oneOff], currency);
-  const typical = Money.sum([...sources.map((entry) => entry.actual ?? entry.typical), oneOff], currency);
-  const high = Money.sum([...sources.map((entry) => entry.actual ?? entry.high), oneOff], currency);
-  const planned = Money.sum([...sources.map((entry) => pick(entry, mode)), oneOff], currency);
+  const trading = profile.tradingAccounts.length > 0 ? tradingIncomeEstimate(profile, period) : null;
+  // Un versement déjà encaissé est acquis ; sinon on retient le bas de fourchette, qui
+  // vaut zéro tant que l'activité n'a pas six mois de recul.
+  const tradingPlanned = trading ? (trading.actual ?? trading.low) : Money.zero(currency);
+  const tradingTypical = trading ? (trading.actual ?? trading.typical) : Money.zero(currency);
+  const tradingHigh = trading ? (trading.actual ?? trading.high) : Money.zero(currency);
+
+  const low = Money.sum([...sources.map((entry) => entry.actual ?? entry.low), oneOff, tradingPlanned], currency);
+  const typical = Money.sum([...sources.map((entry) => entry.actual ?? entry.typical), oneOff, tradingTypical], currency);
+  const high = Money.sum([...sources.map((entry) => entry.actual ?? entry.high), oneOff, tradingHigh], currency);
+  const planned = Money.sum([...sources.map((entry) => pick(entry, mode)), oneOff, tradingPlanned], currency);
 
   const received = Money.sum(
-    [...sources.map((entry) => entry.actual ?? Money.zero(currency)), oneOff],
+    [
+      ...sources.map((entry) => entry.actual ?? Money.zero(currency)),
+      oneOff,
+      trading?.actual ?? Money.zero(currency),
+    ],
     currency,
   );
 
@@ -172,12 +199,21 @@ export function incomeBreakdown(
 
   return {
     sources,
+    trading: trading
+      ? {
+          planned: tradingPlanned,
+          typical: tradingTypical,
+          high: tradingHigh,
+          plannable: trading.plannable,
+          monthsObserved: trading.monthsObserved,
+        }
+      : null,
     low,
     typical,
     high,
     planned,
     received,
-    hasVariableSource: sources.some((entry) => entry.variable),
+    hasVariableSource: sources.some((entry) => entry.variable) || trading !== null,
     volatility,
   };
 }

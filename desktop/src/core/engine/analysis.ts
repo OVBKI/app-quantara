@@ -27,6 +27,8 @@ export interface FinancialAnalysis {
   readonly incomeIsVolatile: boolean;
 }
 
+export type { TradingSummary } from './trading';
+
 /**
  * Point d'entrée unique du moteur.
  *

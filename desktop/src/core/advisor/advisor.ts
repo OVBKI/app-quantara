@@ -48,6 +48,7 @@ export const SUGGESTED_QUESTIONS: readonly SuggestedQuestion[] = [
   { id: 'afford', label: 'Puis-je me permettre une dépense de 500 € ?' },
   { id: 'grow', label: 'Que deviendraient 200 € par mois pendant 10 ans ?' },
   { id: 'income', label: 'Comment gérer un revenu irrégulier ?' },
+  { id: 'trading', label: 'Mon activité de trading est-elle rentable ?' },
 ];
 
 interface Intent {
@@ -65,6 +66,7 @@ const INTENTS: readonly Intent[] = [
   { id: 'afford', keywords: ['permettre', 'acheter', 'puis-je', 'peux-je', 'peux je', 'abordable'] },
   { id: 'grow', keywords: ['placer', 'investir', 'devenir', 'deviendrai', 'rendement', 'interet', 'intérêt', 'dans 10 ans'] },
   { id: 'income', keywords: ['irregulier', 'irrégulier', 'variable', 'fluctue', 'varie', 'freelance', 'pas fixe', 'salaire varie'] },
+  { id: 'trading', keywords: ['trading', 'trader', 'propfirm', 'prop firm', 'compte finance', 'compte financé', 'challenge', 'payout', 'versement'] },
 ];
 
 function normalise(text: string): string {
@@ -136,6 +138,8 @@ export function ask(question: string, analysis: FinancialAnalysis): AdvisorAnswe
       return growAnswer(question, analysis, gaps);
     case 'income':
       return volatileIncomeAnswer(analysis, gaps);
+    case 'trading':
+      return tradingAnswer(analysis, gaps);
     default:
       return fallback(analysis);
   }
@@ -499,6 +503,80 @@ function volatileIncomeAnswer(analysis: FinancialAnalysis, caveats: string[]): A
   };
 }
 
+/**
+ * Rentabilité réelle de l'activité de trading.
+ *
+ * La question tient en une soustraction que peu de gens font : versements encaissés moins
+ * épreuves payées. Les versements se retiennent, les frais s'oublient — et c'est ce qui
+ * fait qu'une activité déficitaire peut sembler rentable pendant des mois.
+ */
+function tradingAnswer(analysis: FinancialAnalysis, caveats: string[]): AdvisorAnswer {
+  const trading = analysis.summary.trading;
+
+  if (!trading || trading.attemptsStarted === 0) {
+    return {
+      title: 'Aucun compte de trading enregistré',
+      paragraphs: [
+        'Ajoutez vos comptes dans l’onglet Trading — le prix de chaque épreuve, sa phase, et les versements ' +
+          'reçus. Je pourrai alors vous dire ce que l’activité rapporte réellement, frais compris.',
+      ],
+      figures: [],
+      caveats,
+    };
+  }
+
+  const net = trading.lifetimeNet;
+
+  return {
+    title: net.isNegative
+      ? `Non : ${net.roundedToUnit.format()} depuis le début`
+      : `Oui : +${net.roundedToUnit.format()} depuis le début`,
+    paragraphs: [
+      `${trading.lifetimePayouts.roundedToUnit.format()} de versements encaissés, ` +
+        `${trading.lifetimeFees.roundedToUnit.format()} d’épreuves payées sur ${trading.attemptsStarted} ` +
+        `tentative${trading.attemptsStarted > 1 ? 's' : ''}. La différence est le seul chiffre qui répond à ` +
+        'la question — les versements seuls ne la posent même pas.',
+      trading.passRate !== null
+        ? `${trading.fundedAccounts} compte${trading.fundedAccounts > 1 ? 's' : ''} financé${trading.fundedAccounts > 1 ? 's' : ''} ` +
+          `sur ${trading.fundedAccounts + trading.failedAccounts} épreuves terminées, soit ` +
+          `${Percent.format(trading.passRate, 'fr-FR', 0)} de réussite.` +
+          (trading.costPerFundedAccount
+            ? ` Chaque compte financé revient à ${trading.costPerFundedAccount.roundedToUnit.format()}, échecs compris.`
+            : '')
+        : 'Aucune épreuve terminée pour l’instant : le taux de réussite n’est pas encore calculable.',
+      trading.payouts.monthsWithPayout > 0
+        ? `Sur les douze derniers mois, ${trading.payouts.monthsWithPayout} ` +
+          `${trading.payouts.monthsWithPayout > 1 ? 'ont' : 'a'} donné lieu à un versement, ` +
+          `d’un montant médian de ${trading.payouts.median.roundedToUnit.format()}. Votre plus longue série ` +
+          `sans versement a duré ${trading.payouts.longestDrySpell} mois — c’est la durée que vos charges ` +
+          'fixes doivent pouvoir traverser sans cette rentrée.'
+        : 'Aucun versement reçu sur les douze derniers mois.',
+      `Les ${trading.allocatedCapital.roundedToUnit.format()} de capital géré n’entrent dans aucun calcul de ` +
+        'patrimoine ici : c’est un mandat révocable, pas un avoir. Votre exposition financière se limite au ' +
+        'prix des épreuves.',
+    ],
+    figures: [
+      { label: 'Versements reçus', value: trading.lifetimePayouts.roundedToUnit.format() },
+      { label: 'Épreuves payées', value: trading.lifetimeFees.roundedToUnit.format() },
+      { label: 'Net', value: net.roundedToUnit.format() },
+      {
+        label: 'Retenu au budget',
+        value: analysis.summary.incomeDetail.trading?.planned.roundedToUnit.format() ?? '—',
+      },
+    ],
+    caveats: [
+      ...caveats,
+      analysis.summary.incomeDetail.trading?.plannable
+        ? 'Le budget retient le premier quintile de vos versements, mois sans versement compris.'
+        : 'Le budget ne compte aucun revenu de trading tant que six mois de versements n’ont pas été observés. ' +
+          'Un compte financé se perd sur une seule séance : y adosser une charge fixe, c’est risquer de devoir ' +
+          'la payer un mois où le compte n’existe plus.',
+      'Je ne formule aucune recommandation sur votre stratégie ni sur les marchés : je compte ce que vous avez ' +
+        'saisi, rien de plus.',
+    ],
+  };
+}
+
 function fallback(analysis: FinancialAnalysis): AdvisorAnswer {
   return {
     title: 'Je ne sais pas répondre à cette question',
@@ -507,7 +585,8 @@ function fallback(analysis: FinancialAnalysis): AdvisorAnswer {
         'sort de ce périmètre, je préfère le dire plutôt que produire une réponse plausible et fausse.',
       'Voici ce que je sais traiter : la répartition de vos dépenses, votre capacité d’épargne, votre fonds ' +
         'd’urgence, les pistes de réduction, la santé de votre budget, vos dettes, une dépense envisagée, ' +
-        'la gestion d’un revenu irrégulier, et l’effet du temps sur une épargne régulière.',
+        'la gestion d’un revenu irrégulier, la rentabilité réelle de votre activité de trading, et l’effet ' +
+        'du temps sur une épargne régulière.',
     ],
     figures: [
       { label: 'Disponible ce mois-ci', value: analysis.summary.disposable.roundedToUnit.format() },
