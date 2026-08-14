@@ -24,7 +24,6 @@ import {
 import { Statistics } from './statistics';
 import { incomeBreakdown, type IncomeBreakdown } from './income';
 import { buildEnvelopes, type EnvelopeSummary } from './envelopes';
-import { tradingSummary, type TradingSummary } from './trading';
 
 export interface CategoryTotal {
   readonly category: ExpenseCategoryId;
@@ -60,10 +59,6 @@ export interface MonthlySummary {
   readonly envelopes: EnvelopeSummary;
   readonly debtPayments: Money;
   readonly savingsContributions: Money;
-  /** Épreuves de sociétés de financement payées ce mois-ci. C'est une dépense réelle,
-   *  et le seul montant réellement engagé dans cette activité. */
-  readonly tradingFees: Money;
-  readonly trading: TradingSummary | null;
 
   readonly totalExpenses: Money;
   /** Ce qui reste une fois toutes les charges du mois honorées. */
@@ -281,11 +276,7 @@ export function monthlySummary(
           currency,
         );
 
-  const trading =
-    profile.tradingAccounts.length > 0 ? tradingSummary(profile, period, income) : null;
-  const tradingFees = trading?.feesThisMonth ?? Money.zero(currency);
-
-  const totalExpenses = Money.sum([fixedExpenses, variableReserved, debtPayments, tradingFees], currency);
+  const totalExpenses = Money.sum([fixedExpenses, variableReserved, debtPayments], currency);
   const disposable = income.minus(totalExpenses);
 
   const essentialFixed = Money.sum(
@@ -317,7 +308,6 @@ export function monthlySummary(
     .minus(fixedExpenses)
     .minus(debtPayments)
     .minus(savingsContributions)
-    .minus(tradingFees)
     .minus(Money.max(variableSpentToDate, envelopes.totalSpent))
     .clampedToZero;
   const safeToSpendPerDay = daysRemaining > 0 ? remaining.dividedBy(BigInt(daysRemaining)) : remaining;
@@ -338,8 +328,6 @@ export function monthlySummary(
     envelopes,
     debtPayments,
     savingsContributions,
-    tradingFees,
-    trading,
     totalExpenses,
     disposable,
     essentialExpenses,

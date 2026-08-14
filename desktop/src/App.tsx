@@ -8,25 +8,15 @@ import { GoalsScreen } from './ui/GoalsScreen';
 import { SettingsScreen } from './ui/SettingsScreen';
 import { AdvisorScreen } from './ui/AdvisorScreen';
 import { ProjectionScreen } from './ui/ProjectionScreen';
-import { TradingScreen } from './ui/TradingScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
 
-type Screen =
-  | 'home'
-  | 'budget'
-  | 'transactions'
-  | 'goals'
-  | 'trading'
-  | 'advisor'
-  | 'projections'
-  | 'settings';
+type Screen = 'home' | 'budget' | 'transactions' | 'goals' | 'advisor' | 'projections' | 'settings';
 
 const NAV: { id: Screen; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '◆' },
   { id: 'budget', label: 'Budget', icon: '▤' },
   { id: 'transactions', label: 'Transactions', icon: '⇄' },
   { id: 'goals', label: 'Objectifs', icon: '◎' },
-  { id: 'trading', label: 'Trading', icon: '⟳' },
   { id: 'advisor', label: 'Assistant', icon: '✦' },
   { id: 'projections', label: 'Projections', icon: '↗' },
   { id: 'settings', label: 'Réglages', icon: '⚙' },
@@ -109,7 +99,6 @@ export function App() {
         {screen === 'budget' && <BudgetScreen />}
         {screen === 'transactions' && <TransactionsScreen />}
         {screen === 'goals' && <GoalsScreen />}
-        {screen === 'trading' && <TradingScreen />}
         {screen === 'advisor' && <AdvisorScreen />}
         {screen === 'projections' && <ProjectionScreen />}
         {screen === 'settings' && <SettingsScreen />}

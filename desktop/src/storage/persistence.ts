@@ -55,7 +55,6 @@ function normalise(raw: Partial<FinancialProfile>): FinancialProfile {
     transactions: raw.transactions ?? base.transactions,
     debts: raw.debts ?? base.debts,
     goals: raw.goals ?? base.goals,
-    tradingAccounts: raw.tradingAccounts ?? base.tradingAccounts,
     categoryBudgets: raw.categoryBudgets ?? base.categoryBudgets,
     categorizationRules: raw.categorizationRules ?? base.categorizationRules,
     preferences: { ...DEFAULT_PREFERENCES, ...(raw.preferences ?? {}) },

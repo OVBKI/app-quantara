@@ -11,7 +11,6 @@ import {
   type Transaction,
   type CategoryBudget,
   type Account,
-  type TradingAccount,
 } from '../core/model';
 import { analyse, type FinancialAnalysis } from '../core/engine/analysis';
 import type { CategorizationRule } from '../core/engine/categorizer';
@@ -50,10 +49,6 @@ interface StoreValue {
 
   addAccount(account: Omit<Account, 'id'>): void;
   removeAccount(id: string): void;
-
-  addTradingAccount(account: Omit<TradingAccount, 'id'>): void;
-  updateTradingAccount(account: TradingAccount): void;
-  removeTradingAccount(id: string): void;
 
   setCategoryBudget(budget: CategoryBudget): void;
   removeCategoryBudget(category: CategoryBudget['category']): void;
@@ -198,18 +193,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeDebt: (target) => update((p) => ({ ...p, debts: p.debts.filter((entry) => entry.id !== target) })),
 
       addAccount: (account) => update((p) => ({ ...p, accounts: [...p.accounts, { ...account, id: id() }] })),
-
-      addTradingAccount: (account) =>
-        update((p) => ({ ...p, tradingAccounts: [...p.tradingAccounts, { ...account, id: id() }] })),
-      updateTradingAccount: (account) =>
-        update((p) => ({
-          ...p,
-          tradingAccounts: p.tradingAccounts.map((entry) => (entry.id === account.id ? account : entry)),
-        })),
-      // Les versements liés au compte restent dans l'historique : ils ont bien été
-      // encaissés, et les effacer fausserait le net de l'activité.
-      removeTradingAccount: (target) =>
-        update((p) => ({ ...p, tradingAccounts: p.tradingAccounts.filter((entry) => entry.id !== target) })),
       removeAccount: (target) =>
         update((p) => ({ ...p, accounts: p.accounts.filter((entry) => entry.id !== target) })),
 
