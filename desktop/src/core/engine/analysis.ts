@@ -8,6 +8,7 @@ import { debtPayoffPlan, highInterestDebts, type DebtPlan } from './debt';
 import { allocate, type AllocationPlan } from './allocation';
 import { forecastCashFlow, openingBalanceOf, type CashFlowForecast } from './cashflow';
 import { buildInsights, type Insight } from './insights';
+import { smoothingBuffer, HIGH_VOLATILITY_THRESHOLD } from './income';
 
 export interface FinancialAnalysis {
   readonly profile: FinancialProfile;
@@ -21,6 +22,9 @@ export interface FinancialAnalysis {
   readonly allocation: AllocationPlan;
   readonly cashFlow: CashFlowForecast;
   readonly insights: readonly Insight[];
+  /** Coussin recommandé pour absorber l'irrégularité du revenu. Zéro si le revenu est fixe. */
+  readonly smoothingBuffer: Money;
+  readonly incomeIsVolatile: boolean;
 }
 
 /**
@@ -67,12 +71,18 @@ export function analyse(
 
   const cashFlow = forecastCashFlow(profile, summary, period, openingBalanceOf(profile), reference);
 
+  const volatility = summary.incomeDetail.volatility;
+  const buffer = summary.incomeDetail.hasVariableSource
+    ? smoothingBuffer(summary.incomeDetail)
+    : Money.zero(profile.currency);
+
   const insights = buildInsights({
     summary,
     emergencyFund,
     cashFlow,
     goalPlans,
     categoryBudgets: profile.categoryBudgets,
+    smoothingBuffer: buffer,
   });
 
   return {
@@ -87,5 +97,7 @@ export function analyse(
     allocation,
     cashFlow,
     insights,
+    smoothingBuffer: buffer,
+    incomeIsVolatile: volatility !== null && volatility > HIGH_VOLATILITY_THRESHOLD,
   };
 }

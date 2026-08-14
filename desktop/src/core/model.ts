@@ -4,6 +4,7 @@ import type { ExpenseCategoryId, IncomeCategory } from './categories';
 import { categoryInfo } from './categories';
 import { containsDate, parseDate, type YearMonth } from './yearMonth';
 import type { CategorizationRule } from './engine/categorizer';
+import type { IncomePlanningMode } from './engine/income';
 
 /** Toutes les entités sont immuables : un état modifié est un nouvel objet, ce qui rend
  *  le rendu React prévisible et le calcul reproductible. */
@@ -20,11 +21,17 @@ export interface Account {
 export interface IncomeSource {
   readonly id: string;
   readonly name: string;
+  /** Montant typique — celui d'un mois ordinaire. */
   readonly amount: Money;
   readonly frequency: Frequency;
   readonly category: IncomeCategory;
-  /** Un revenu variable (indépendant, primes) n'est pas projeté comme un salaire. */
+  /** Un revenu variable (indépendant, primes, heures supplémentaires) n'est pas projeté
+   *  comme un salaire fixe : il porte une fourchette et se planifie sur son bas. */
   readonly variable: boolean;
+  /** Mois faible. Facultatif : à défaut, le typique moins 20 %. */
+  readonly minAmount?: Money;
+  /** Mois fort. Facultatif : à défaut, le typique plus 20 %. */
+  readonly maxAmount?: Money;
   readonly startDate?: string;
   readonly endDate?: string;
   readonly active: boolean;
@@ -107,6 +114,8 @@ export interface CategoryBudget {
 export type RiskProfile = 'cautious' | 'balanced' | 'dynamic';
 
 export interface BudgetPreferences {
+  /** Hypothèse retenue pour les revenus irréguliers. */
+  readonly incomePlanning: IncomePlanningMode;
   /** Nombre de mois de dépenses visés pour le fonds d'urgence (3, 6 ou 9). */
   readonly emergencyFundMonths: number;
   /** Lisse les revenus irréguliers sur la médiane des mois passés. */
@@ -118,6 +127,7 @@ export interface BudgetPreferences {
 }
 
 export const DEFAULT_PREFERENCES: BudgetPreferences = {
+  incomePlanning: 'prudent',
   emergencyFundMonths: 6,
   smoothIncome: true,
   riskProfile: 'balanced',

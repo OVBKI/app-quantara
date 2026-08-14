@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { CURRENCIES, Money, type Currency } from '../core/money';
 import type { AccountKind, DebtKind, RiskProfile } from '../core/model';
 import { EMERGENCY_FUND_TIERS } from '../core/engine/emergencyFund';
+import { INCOME_PLANNING_LABELS, type IncomePlanningMode } from '../core/engine/income';
 import { useStore } from '../state/store';
 import { deserializeProfile, downloadProfile } from '../storage/persistence';
 import { Card, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
@@ -126,6 +127,27 @@ export function SettingsScreen() {
               )}
             </Field>
           </div>
+
+          <Field
+            label="Planification d’un revenu irrégulier"
+            hint="Un budget bâti sur le meilleur mois casse onze mois sur douze."
+          >
+            {(id) => (
+              <select
+                id={id}
+                value={profile.preferences.incomePlanning}
+                onChange={(event) =>
+                  updatePreferences({ incomePlanning: event.target.value as IncomePlanningMode })
+                }
+              >
+                {(Object.keys(INCOME_PLANNING_LABELS) as IncomePlanningMode[]).map((mode) => (
+                  <option key={mode} value={mode}>
+                    {INCOME_PLANNING_LABELS[mode]}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
 
           <label className="inline">
             <input

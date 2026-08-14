@@ -29,6 +29,9 @@ export function OnboardingScreen() {
   const [incomeName, setIncomeName] = useState('Salaire');
   const [incomeAmount, setIncomeAmount] = useState('');
   const [incomeFrequency, setIncomeFrequency] = useState<Frequency>('monthly');
+  const [incomeVariable, setIncomeVariable] = useState(false);
+  const [incomeMin, setIncomeMin] = useState('');
+  const [incomeMax, setIncomeMax] = useState('');
 
   const [expenses, setExpenses] = useState<DraftExpense[]>([]);
   const [expenseName, setExpenseName] = useState('');
@@ -55,7 +58,9 @@ export function OnboardingScreen() {
         amount: parsedIncome,
         frequency: incomeFrequency,
         category: 'salary',
-        variable: false,
+        variable: incomeVariable,
+        minAmount: incomeVariable ? (parseAmount(incomeMin, currency) ?? undefined) : undefined,
+        maxAmount: incomeVariable ? (parseAmount(incomeMax, currency) ?? undefined) : undefined,
         active: true,
       });
     }
@@ -135,11 +140,38 @@ export function OnboardingScreen() {
                 )}
               </Field>
             </div>
+            <label className="inline" style={{ margin: '4px 0 10px' }}>
+              <input
+                type="checkbox"
+                checked={incomeVariable}
+                onChange={(event) => setIncomeVariable(event.target.checked)}
+                style={{ width: 16 }}
+              />
+              <span>Mon revenu varie d’un mois à l’autre</span>
+            </label>
+
+            {incomeVariable && (
+              <>
+                <p className="field-hint" style={{ marginBottom: 12 }}>
+                  Le montant ci-dessus devient votre mois <strong>typique</strong>. Indiquez l’amplitude : le plan
+                  se calera sur le mois faible, pour qu’un mois creux ne casse pas tout.
+                </p>
+                <div className="field-row">
+                  <Field label="Mois faible">
+                    {(id) => <MoneyInput id={id} value={incomeMin} currency={currency} onChange={setIncomeMin} />}
+                  </Field>
+                  <Field label="Mois fort">
+                    {(id) => <MoneyInput id={id} value={incomeMax} currency={currency} onChange={setIncomeMax} />}
+                  </Field>
+                </div>
+              </>
+            )}
+
             {monthlyIncome && (
               <p className="rationale">
-                Soit <strong className="amount">{monthlyIncome.roundedTo(2).format()}</strong> par mois. Une somme
-                hebdomadaire est ramenée au mois par 52 semaines ÷ 12, jamais par « 4 semaines » — l’écart
-                atteindrait un mois de revenu par an.
+                Soit <strong className="amount">{monthlyIncome.roundedTo(2).format()}</strong> par mois
+                {incomeVariable ? ' pour un mois typique' : ''}. Une somme hebdomadaire est ramenée au mois par
+                52 semaines ÷ 12, jamais par « 4 semaines » — l’écart atteindrait un mois de revenu par an.
               </p>
             )}
           </>

@@ -58,6 +58,8 @@ function normalise(raw: Partial<FinancialProfile>): FinancialProfile {
     categoryBudgets: raw.categoryBudgets ?? base.categoryBudgets,
     categorizationRules: raw.categorizationRules ?? base.categorizationRules,
     preferences: { ...DEFAULT_PREFERENCES, ...(raw.preferences ?? {}) },
+    // `incomePlanning` est apparu après la première version : un profil enregistré avant
+    // ne le porte pas, et `DEFAULT_PREFERENCES` le comble.
     savingsBalance: raw.savingsBalance ?? Money.zero(currency),
     investmentsBalance: raw.investmentsBalance ?? Money.zero(currency),
   };

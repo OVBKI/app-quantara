@@ -19,7 +19,11 @@ export type InsightKind =
   | 'savingsRateGood'
   | 'goalBehindSchedule'
   | 'goalAhead'
-  | 'surplus';
+  | 'surplus'
+  | 'volatileIncome'
+  | 'envelopeExceeded'
+  | 'envelopeAtRisk'
+  | 'noEnvelopes';
 
 export type InsightSeverity = 'critical' | 'warning' | 'info' | 'positive';
 
@@ -61,13 +65,75 @@ export const THRESHOLDS = {
  */
 export function buildInsights(input: {
   summary: MonthlySummary;
+  smoothingBuffer?: Money;
   emergencyFund: EmergencyFundStatus;
   cashFlow: CashFlowForecast;
   goalPlans: readonly GoalPlan[];
   categoryBudgets: readonly { category: import('../categories').ExpenseCategoryId; limit: Money }[];
 }): Insight[] {
-  const { summary, emergencyFund, cashFlow, goalPlans, categoryBudgets } = input;
+  const { summary, emergencyFund, cashFlow, goalPlans, categoryBudgets, smoothingBuffer } = input;
   const insights: Insight[] = [];
+
+  // --- Irrégularité du revenu ---
+  const detail = summary.incomeDetail;
+  if (detail.hasVariableSource && detail.volatility !== null && detail.volatility > 0.3) {
+    insights.push({
+      id: 'volatileIncome',
+      kind: 'volatileIncome',
+      severity: 'info',
+      title: `Revenu irrégulier : de ${detail.low.roundedToUnit.format()} à ${detail.high.roundedToUnit.format()}`,
+      message:
+        `Soit un écart de ${Percent.format(detail.volatility, 'fr-FR', 0)} autour de votre mois typique ` +
+        `(${detail.typical.roundedToUnit.format()}). Le plan se cale sur le mois faible : les bons mois ` +
+        'dégagent alors un surplus, au lieu que les mauvais creusent un trou.' +
+        (smoothingBuffer && smoothingBuffer.isPositive
+          ? ` Un compte tampon d’environ ${smoothingBuffer.roundedToUnit.format()} absorberait trois mois creux.`
+          : ''),
+      amount: detail.high.minus(detail.low),
+    });
+  }
+
+  // --- Enveloppes ---
+  for (const envelope of summary.envelopes.envelopes) {
+    if (envelope.state === 'exceeded') {
+      insights.push({
+        id: `envelopeExceeded.${envelope.category}`,
+        kind: 'envelopeExceeded',
+        severity: 'warning',
+        title: `${envelope.label} : enveloppe dépassée de ${envelope.remaining.absolute.roundedToUnit.format()}`,
+        message:
+          `${envelope.spent.roundedToUnit.format()} dépensés pour ${envelope.planned.roundedToUnit.format()} prévus. ` +
+          'Le dépassement est repris dans le disponible : mieux vaut le voir maintenant qu’en fin de mois.',
+        amount: envelope.remaining.absolute,
+      });
+    } else if (envelope.state === 'atRisk') {
+      insights.push({
+        id: `envelopeAtRisk.${envelope.category}`,
+        kind: 'envelopeAtRisk',
+        severity: 'info',
+        title: `${envelope.label} : rythme trop rapide`,
+        message:
+          `${Math.round(envelope.consumed * 100)} % de l’enveloppe consommés alors que ` +
+          `${Math.round(envelope.monthProgress * 100)} % du mois se sont écoulés. ` +
+          `Il reste ${envelope.perRemainingDay.roundedToUnit.format()} par jour pour tenir.`,
+        amount: envelope.remaining,
+      });
+    }
+  }
+
+  if (summary.envelopes.envelopes.length === 0 && summary.variableSpentToDate.isPositive) {
+    insights.push({
+      id: 'noEnvelopes',
+      kind: 'noEnvelopes',
+      severity: 'info',
+      title: 'Aucun budget par catégorie',
+      message:
+        `${summary.variableSpentToDate.roundedToUnit.format()} de dépenses variables ce mois-ci, sans montant ` +
+        'décidé à l’avance. Constater ses dépenses n’est pas les piloter : fixez une enveloppe par poste, ' +
+        'même approximative, et l’application vous dira si vous tenez le rythme.',
+      amount: summary.variableSpentToDate,
+    });
+  }
 
   if (summary.disposable.isNegative) {
     insights.push({

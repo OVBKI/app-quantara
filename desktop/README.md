@@ -4,7 +4,7 @@ Application de bureau de gestion de budget. Interface web, enveloppe native Taur
 données stockées localement.
 
 > **État** — Fonctionnellement complet pour la v1. Le moteur et l'interface compilent,
-> et les 104 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
+> et les 126 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
 > est produit par l'intégration continue.
 
 ---
@@ -38,10 +38,10 @@ src/core/            Moteur financier — aucune dépendance à React
   categories.ts      Catégories, caractère essentiel, compressibilité
   yearMonth.ts       Périodes mensuelles, dates locales
   model.ts           Entités et sélecteurs
-  engine/            Budget · Trésorerie · Objectifs · Fonds d'urgence · Dettes
-                     Répartition · Analyse proactive · Optimisation · Simulation
-                     Rapport mensuel · « Puis-je me le permettre » · Catégorisation
-                     Import CSV · Statistiques
+  engine/            Budget · Revenus irréguliers · Enveloppes · Trésorerie
+                     Objectifs · Fonds d'urgence · Dettes · Répartition
+                     Analyse proactive · Optimisation · Simulation · Rapport mensuel
+                     « Puis-je me le permettre » · Catégorisation · Import CSV
   advisor/           Assistant déterministe : réponses assemblées à partir des moteurs
   *.test.ts          104 tests, dont les exemples chiffrés du cahier des charges
 
@@ -70,6 +70,19 @@ exactement 100. Toute conversion de périodicité passe par une fraction exacte.
 **Les seuils sont explicites.** Charges fixes au-delà de 50 % du revenu, remboursements
 au-delà d'un tiers, abonnements au-delà de 2 % : ce sont des choix de produit, réunis
 dans un seul fichier et discutables, pas des constantes éparpillées.
+
+**Un revenu irrégulier se planifie sur son mois faible.** Un salaire qui varie n'est pas
+un salaire moyen : il porte une fourchette. Le plan se cale par défaut sur le bas, si bien
+qu'un mois creux ne casse rien et qu'un bon mois dégage un surplus — une bonne nouvelle
+plutôt qu'un rattrapage. Dès trois mois de revenus saisis, la fourchette déclarée cède la
+place à la distribution réelle. Un montant déjà encaissé n'est plus une hypothèse : il
+remplace l'estimation.
+
+**Les dépenses variables se décident, pas seulement se constatent.** Une enveloppe par
+catégorie, comparée en continu au calendrier : avoir consommé 60 % de son budget courses
+n'a pas le même sens le 5 et le 25. Le plan réserve l'enveloppe même les mois calmes,
+parce que c'est un engagement — mais si elle est déjà dépassée, c'est le réel qui prime.
+Un poste sans enveloppe n'a aucune décision à tenir : il est extrapolé au rythme observé.
 
 **La répartition suit le risque, pas le rendement.** Sécuriser un mois de dépenses,
 éteindre les dettes coûteuses, compléter le fonds d'urgence, financer les objectifs, et

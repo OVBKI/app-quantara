@@ -5,6 +5,8 @@ import { FREQUENCIES, FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from
 import type { IncomeSource, RecurringExpense } from '../core/model';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
+import { EnvelopesCard } from './EnvelopesCard';
+import { IncomeRangeCard } from './IncomeRangeCard';
 
 export function BudgetScreen() {
   const { profile, analysis, addIncome, removeIncome, addExpense, removeExpense } = useStore();
@@ -24,6 +26,8 @@ export function BudgetScreen() {
       </header>
 
       <div className="stack">
+        <IncomeRangeCard />
+
         <Card
           title="Revenus"
           action={
@@ -51,6 +55,11 @@ export function BudgetScreen() {
                     <div className="row-subtitle">
                       {income.amount.format()} · {FREQUENCY_LABELS[income.frequency].toLowerCase()} ·{' '}
                       {INCOME_LABELS[income.category]}
+                      {income.variable && (
+                        <span className="badge" style={{ marginLeft: 8 }}>
+                          irrégulier
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="row-amount amount">
@@ -135,6 +144,8 @@ export function BudgetScreen() {
           )}
         </Card>
 
+        <EnvelopesCard />
+
         <Card title="Où va le disponible">
           {allocation.lines.length === 0 ? (
             <p className="muted">
@@ -189,9 +200,13 @@ function IncomeForm({
   const [frequency, setFrequency] = useState<Frequency>('monthly');
   const [category, setCategory] = useState<IncomeCategory>('salary');
   const [variable, setVariable] = useState(false);
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
+  const parsedMin = parseAmount(minAmount, currency);
+  const parsedMax = parseAmount(maxAmount, currency);
 
   return (
     <Modal title="Nouveau revenu" onClose={onClose}>
@@ -232,12 +247,29 @@ function IncomeForm({
           onChange={(event) => setVariable(event.target.checked)}
           style={{ width: 16 }}
         />
-        <span>Revenu irrégulier (freelance, primes)</span>
+        <span>Revenu irrégulier (freelance, primes, heures supplémentaires)</span>
       </label>
-      <p className="field-hint">
-        Un revenu irrégulier n’est pas projeté comme un salaire : la référence retenue est la médiane des mois
-        passés, qui absorbe les à-coups.
-      </p>
+
+      {variable ? (
+        <>
+          <p className="field-hint" style={{ marginBottom: 12 }}>
+            Le montant ci-dessus est votre mois <strong>typique</strong>. Indiquez l’amplitude : le plan se calera
+            sur le mois faible, et les bons mois dégageront un surplus au lieu que les mauvais creusent un trou.
+          </p>
+          <div className="field-row">
+            <Field label="Mois faible" hint="Le plus bas que vous ayez connu, hors accident">
+              {(id) => <MoneyInput id={id} value={minAmount} currency={currency} onChange={setMinAmount} />}
+            </Field>
+            <Field label="Mois fort">
+              {(id) => <MoneyInput id={id} value={maxAmount} currency={currency} onChange={setMaxAmount} />}
+            </Field>
+          </div>
+          <p className="field-hint">
+            Laissez vide et j’appliquerai ± 20 %. Dès trois mois de revenus saisis, c’est votre historique réel
+            qui remplacera cette fourchette.
+          </p>
+        </>
+      ) : null}
 
       {monthly && (
         <p className="rationale">
@@ -261,6 +293,8 @@ function IncomeForm({
               frequency,
               category,
               variable,
+              minAmount: variable && parsedMin ? parsedMin : undefined,
+              maxAmount: variable && parsedMax ? parsedMax : undefined,
               active: true,
             });
             onClose();

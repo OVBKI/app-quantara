@@ -16,6 +16,7 @@ import { formatYearMonth } from '../core/yearMonth';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
 import { Card, ProgressBar, Tile } from './components';
+import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 const SEVERITY_COLOR: Record<InsightSeverity, string> = {
   critical: 'var(--critical)',
@@ -102,7 +103,16 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
         </section>
 
         <div className="grid grid-4">
-          <Tile label="Revenus" value={summary.income.roundedToUnit.format()} tone="positive" />
+          <Tile
+            label="Revenus"
+            value={summary.income.roundedToUnit.format()}
+            tone="positive"
+            note={
+              summary.incomeDetail.hasVariableSource
+                ? `Fourchette ${summary.incomeDetail.low.formatCompact()} – ${summary.incomeDetail.high.formatCompact()}`
+                : undefined
+            }
+          />
           <Tile
             label="Charges fixes"
             value={summary.fixedExpenses.roundedToUnit.format()}
@@ -110,13 +120,15 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
           />
           <Tile
             label="Dépenses variables"
-            value={summary.variableProjected.roundedToUnit.format()}
+            value={summary.variableReserved.roundedToUnit.format()}
             note={
-              summary.variableProjectionMethod === 'runRate'
-                ? `Projeté d’après ${summary.variableSpentToDate.roundedToUnit.format()} en ${summary.daysElapsed} jours`
-                : summary.variableProjectionMethod === 'history'
-                  ? 'Estimé d’après les mois précédents'
-                  : 'Constaté'
+              summary.variablePlanned.isPositive
+                ? `${summary.envelopes.totalSpent.roundedToUnit.format()} dépensés sur ${summary.variablePlanned.roundedToUnit.format()} d’enveloppes`
+                : summary.variableProjectionMethod === 'runRate'
+                  ? `Projeté d’après ${summary.variableSpentToDate.roundedToUnit.format()} en ${summary.daysElapsed} jours`
+                  : summary.variableProjectionMethod === 'history'
+                    ? 'Estimé d’après les mois précédents'
+                    : 'Constaté'
             }
           />
           <Tile
@@ -246,6 +258,26 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
             en cas de coup dur, les loisirs s’arrêtent, le loyer non.
           </p>
         </Card>
+
+        {summary.envelopes.envelopes.length > 0 && (
+          <Card title="Enveloppes du mois">
+            {summary.envelopes.envelopes.map((envelope) => (
+              <div key={envelope.category} style={{ padding: '9px 0' }}>
+                <div className="inline" style={{ justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontWeight: 520 }}>{envelope.label}</span>
+                  <span className="amount tile-note">
+                    {envelope.spent.roundedToUnit.format()} / {envelope.planned.roundedToUnit.format()}
+                  </span>
+                </div>
+                <ProgressBar value={envelope.consumed} tone={ENVELOPE_STATE_TONE[envelope.state]} />
+              </div>
+            ))}
+            <p className="rationale" style={{ marginTop: 10 }}>
+              La couleur compare la part consommée à la part du mois écoulée : dépenser 60 % de son budget
+              courses n’a pas le même sens le 5 et le 25.
+            </p>
+          </Card>
+        )}
 
         <Card title="Ce que je remarque">
           {insights.length === 0 ? (

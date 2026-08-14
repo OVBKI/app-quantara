@@ -47,6 +47,7 @@ export const SUGGESTED_QUESTIONS: readonly SuggestedQuestion[] = [
   { id: 'debt', label: 'Quand serai-je débarrassé de mes dettes ?' },
   { id: 'afford', label: 'Puis-je me permettre une dépense de 500 € ?' },
   { id: 'grow', label: 'Que deviendraient 200 € par mois pendant 10 ans ?' },
+  { id: 'income', label: 'Comment gérer un revenu irrégulier ?' },
 ];
 
 interface Intent {
@@ -63,6 +64,7 @@ const INTENTS: readonly Intent[] = [
   { id: 'debt', keywords: ['dette', 'credit', 'crédit', 'rembourser', 'emprunt'] },
   { id: 'afford', keywords: ['permettre', 'acheter', 'puis-je', 'peux-je', 'peux je', 'abordable'] },
   { id: 'grow', keywords: ['placer', 'investir', 'devenir', 'deviendrai', 'rendement', 'interet', 'intérêt', 'dans 10 ans'] },
+  { id: 'income', keywords: ['irregulier', 'irrégulier', 'variable', 'fluctue', 'varie', 'freelance', 'pas fixe', 'salaire varie'] },
 ];
 
 function normalise(text: string): string {
@@ -132,6 +134,8 @@ export function ask(question: string, analysis: FinancialAnalysis): AdvisorAnswe
       return affordAnswer(question, analysis, gaps);
     case 'grow':
       return growAnswer(question, analysis, gaps);
+    case 'income':
+      return volatileIncomeAnswer(analysis, gaps);
     default:
       return fallback(analysis);
   }
@@ -455,6 +459,46 @@ function growAnswer(question: string, analysis: FinancialAnalysis, caveats: stri
   };
 }
 
+function volatileIncomeAnswer(analysis: FinancialAnalysis, caveats: string[]): AdvisorAnswer {
+  const detail = analysis.summary.incomeDetail;
+
+  if (!detail.hasVariableSource) {
+    return {
+      title: 'Vos revenus sont déclarés comme fixes',
+      paragraphs: [
+        'Si ce n’est pas le cas, cochez « revenu irrégulier » sur la source concernée dans l’écran Budget, et ' +
+          'indiquez votre mois faible et votre mois fort. Le plan se calera alors sur le bas de la fourchette.',
+      ],
+      figures: [{ label: 'Revenu mensuel', value: detail.typical.roundedToUnit.format() }],
+      caveats,
+    };
+  }
+
+  return {
+    title: `Planifier sur ${detail.low.roundedToUnit.format()}, pas sur ${detail.high.roundedToUnit.format()}`,
+    paragraphs: [
+      `Vos revenus vont de ${detail.low.roundedToUnit.format()} à ${detail.high.roundedToUnit.format()}, ` +
+        `autour d’un mois typique à ${detail.typical.roundedToUnit.format()}. ` +
+        (detail.sources.some((source) => source.historyMonths >= 3)
+          ? 'Cette fourchette vient de vos mois réellement encaissés, pas d’une estimation.'
+          : 'Cette fourchette vient de ce que vous avez déclaré ; elle s’affinera dès trois mois de revenus saisis.'),
+      'La règle est simple : engagez-vous sur le mois faible. Un loyer, un crédit ou un abonnement pris au ' +
+        'niveau du mois fort devient intenable dès le premier creux, alors qu’un plan calé sur le bas transforme ' +
+        'les bons mois en surplus — une bonne nouvelle plutôt qu’un rattrapage.',
+      `Un compte tampon d’environ ${analysis.smoothingBuffer.roundedToUnit.format()} absorberait trois mois ` +
+        'creux : les bons mois y déposent l’excédent, les mauvais y puisent. Il ne remplace pas le fonds ' +
+        'd’urgence, qui couvre les accidents ; il couvre l’irrégularité, ce qui n’est pas la même chose.',
+    ],
+    figures: [
+      { label: 'Mois faible', value: detail.low.roundedToUnit.format() },
+      { label: 'Mois typique', value: detail.typical.roundedToUnit.format() },
+      { label: 'Mois fort', value: detail.high.roundedToUnit.format() },
+      { label: 'Tampon conseillé', value: analysis.smoothingBuffer.roundedToUnit.format() },
+    ],
+    caveats,
+  };
+}
+
 function fallback(analysis: FinancialAnalysis): AdvisorAnswer {
   return {
     title: 'Je ne sais pas répondre à cette question',
@@ -462,8 +506,8 @@ function fallback(analysis: FinancialAnalysis): AdvisorAnswer {
       'Je ne réponds qu’à partir de vos chiffres, calculés par les moteurs de l’application. Quand une question ' +
         'sort de ce périmètre, je préfère le dire plutôt que produire une réponse plausible et fausse.',
       'Voici ce que je sais traiter : la répartition de vos dépenses, votre capacité d’épargne, votre fonds ' +
-        'd’urgence, les pistes de réduction, la santé de votre budget, vos dettes, une dépense envisagée, et ' +
-        'l’effet du temps sur une épargne régulière.',
+        'd’urgence, les pistes de réduction, la santé de votre budget, vos dettes, une dépense envisagée, ' +
+        'la gestion d’un revenu irrégulier, et l’effet du temps sur une épargne régulière.',
     ],
     figures: [
       { label: 'Disponible ce mois-ci', value: analysis.summary.disposable.roundedToUnit.format() },

@@ -4,7 +4,6 @@ import { monthlyEquivalent } from '../frequency';
 import { categoryInfo, type ExpenseCategoryId } from '../categories';
 import {
   activeDebts,
-  activeIncomes,
   activeRecurringExpenses,
   isEssential,
   isRecurringInstance,
@@ -23,6 +22,8 @@ import {
   type YearMonth,
 } from '../yearMonth';
 import { Statistics } from './statistics';
+import { incomeBreakdown, type IncomeBreakdown } from './income';
+import { buildEnvelopes, type EnvelopeSummary } from './envelopes';
 
 export interface CategoryTotal {
   readonly category: ExpenseCategoryId;
@@ -38,15 +39,24 @@ export interface MonthlySummary {
   readonly period: YearMonth;
   readonly currency: Currency;
 
+  /** Revenu retenu par le plan : le montant encaissé s'il est saisi, sinon l'hypothèse
+   *  choisie (prudente par défaut pour un revenu irrégulier). */
   readonly income: Money;
   /** Revenu de référence, lissé si le profil le demande et si l'historique le permet. */
   readonly incomeBaseline: Money;
+  /** Détail par source, avec fourchette basse / typique / haute. */
+  readonly incomeDetail: IncomeBreakdown;
 
   readonly fixedExpenses: Money;
   readonly subscriptions: Money;
   readonly variableSpentToDate: Money;
   readonly variableProjected: Money;
   readonly variableProjectionMethod: VariableProjectionMethod;
+  /** Somme des enveloppes déclarées par catégorie. Zéro si aucune n'est définie. */
+  readonly variablePlanned: Money;
+  /** Ce que le plan réserve réellement pour le variable. */
+  readonly variableReserved: Money;
+  readonly envelopes: EnvelopeSummary;
   readonly debtPayments: Money;
   readonly savingsContributions: Money;
 
@@ -81,13 +91,7 @@ function isExpenseTransaction(transaction: Transaction): boolean {
 /** Revenus du mois : sources déclarées ramenées au mois, plus les entrées ponctuelles
  *  non rattachées à une source — sans quoi un salaire compterait deux fois. */
 export function monthlyIncome(profile: FinancialProfile, period: YearMonth, reference: Date): Money {
-  const declared = activeIncomes(profile, reference).map((income) =>
-    monthlyEquivalent(income.amount, income.frequency),
-  );
-  const oneOff = transactionsIn(profile, period)
-    .filter((transaction) => transaction.kind === 'income' && transaction.incomeSourceId === undefined)
-    .map((transaction) => transaction.amount);
-  return Money.sum([...declared, ...oneOff], profile.currency);
+  return incomeBreakdown(profile, period, reference, profile.preferences.incomePlanning).planned;
 }
 
 /** Dépenses variables réellement constatées sur un mois. */
@@ -106,6 +110,19 @@ export function realizedVariableSpending(profile: FinancialProfile, period: Year
  * 2. mois en cours avec assez de jours écoulés → extrapolation du rythme observé ;
  * 3. mois à peine commencé → médiane des mois précédents, à défaut le constaté.
  */
+/**
+ * Facteur d'extrapolation du mois en cours, `null` hors du régime de rythme observé.
+ *
+ * Exposé séparément pour pouvoir n'extrapoler qu'une partie des dépenses : celles qui
+ * ne sont couvertes par aucune enveloppe.
+ */
+export function runRateFactor(period: YearMonth, reference: Date): { total: number; elapsed: number } | null {
+  if (!yearMonthEquals(period, yearMonthOf(reference))) return null;
+  const total = daysInMonth(period);
+  const elapsed = Math.min(reference.getDate(), total);
+  return elapsed >= MINIMUM_DAYS_FOR_RUN_RATE ? { total, elapsed } : null;
+}
+
 export function projectedVariableSpending(
   profile: FinancialProfile,
   period: YearMonth,
@@ -204,8 +221,9 @@ export function monthlySummary(
   const currency = profile.currency;
   const monthTransactions = transactionsIn(profile, period);
 
-  const income = monthlyIncome(profile, period, reference);
-  const incomeBaseline = smoothedIncomeBaseline(profile, period, income);
+  const detail = incomeBreakdown(profile, period, reference, profile.preferences.incomePlanning);
+  const income = detail.planned;
+  const incomeBaseline = smoothedIncomeBaseline(profile, period, detail.typical);
 
   const recurring = activeRecurringExpenses(profile, reference);
   const fixedExpenses = Money.sum(
@@ -232,7 +250,33 @@ export function monthlySummary(
     currency,
   );
 
-  const totalExpenses = Money.sum([fixedExpenses, projection.amount, debtPayments], currency);
+  const envelopes = buildEnvelopes(profile, period, reference);
+
+  // Ce que le plan met de côté pour le variable, calculé poste par poste plutôt que
+  // globalement — mélanger un budget décidé et une extrapolation statistique produirait
+  // un chiffre que personne ne saurait expliquer.
+  //
+  // - Poste doté d'une enveloppe : on réserve l'enveloppe, même si le mois est calme,
+  //   parce que c'est un engagement. Si elle est déjà dépassée, c'est le réel qui prime :
+  //   un budget qui ignore un dépassement affiche un disponible qui n'existe pas.
+  // - Poste sans enveloppe : aucune décision à tenir, donc on extrapole le rythme observé.
+  const factor = runRateFactor(period, reference);
+  const unbudgetedProjected = factor
+    ? envelopes.unbudgeted.timesFraction(factor.total, factor.elapsed)
+    : envelopes.unbudgeted;
+
+  const variableReserved =
+    envelopes.envelopes.length === 0
+      ? projection.amount
+      : Money.sum(
+          [
+            ...envelopes.envelopes.map((envelope) => Money.max(envelope.planned, envelope.spent)),
+            unbudgetedProjected,
+          ],
+          currency,
+        );
+
+  const totalExpenses = Money.sum([fixedExpenses, variableReserved, debtPayments], currency);
   const disposable = income.minus(totalExpenses);
 
   const essentialFixed = Money.sum(
@@ -264,7 +308,7 @@ export function monthlySummary(
     .minus(fixedExpenses)
     .minus(debtPayments)
     .minus(savingsContributions)
-    .minus(variableSpentToDate)
+    .minus(Money.max(variableSpentToDate, envelopes.totalSpent))
     .clampedToZero;
   const safeToSpendPerDay = daysRemaining > 0 ? remaining.dividedBy(BigInt(daysRemaining)) : remaining;
 
@@ -273,11 +317,15 @@ export function monthlySummary(
     currency,
     income,
     incomeBaseline,
+    incomeDetail: detail,
     fixedExpenses,
     subscriptions,
     variableSpentToDate,
     variableProjected: projection.amount,
     variableProjectionMethod: projection.method,
+    variablePlanned: envelopes.totalPlanned,
+    variableReserved,
+    envelopes,
     debtPayments,
     savingsContributions,
     totalExpenses,
