@@ -19,7 +19,7 @@ import { Card, Field, Modal, MoneyInput, ProgressBar, parseAmount, useConfirm } 
  */
 export function EnvelopesCard() {
   const { profile, analysis, setCategoryBudget, removeCategoryBudget } = useStore();
-  const [form, setForm] = useState(false);
+  const [form, setForm] = useState<Envelope | true | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [confirmNode, confirm] = useConfirm();
 
@@ -84,6 +84,7 @@ export function EnvelopesCard() {
               <EnvelopeRow
                 key={envelope.category}
                 envelope={envelope}
+                onEdit={() => setForm(envelope)}
                 onRemove={() =>
                   confirm(`Supprimer l’enveloppe « ${envelope.label} » ?`, () =>
                     removeCategoryBudget(envelope.category),
@@ -105,9 +106,10 @@ export function EnvelopesCard() {
 
       {form && (
         <EnvelopeForm
+          initial={form === true ? null : form}
           currency={profile.currency}
           existing={envelopes.envelopes.map((envelope) => envelope.category)}
-          onClose={() => setForm(false)}
+          onClose={() => setForm(null)}
           onSubmit={(category, limit) => setCategoryBudget({ category, limit })}
         />
       )}
@@ -117,7 +119,15 @@ export function EnvelopesCard() {
   );
 }
 
-function EnvelopeRow({ envelope, onRemove }: { envelope: Envelope; onRemove: () => void }) {
+function EnvelopeRow({
+  envelope,
+  onEdit,
+  onRemove,
+}: {
+  envelope: Envelope;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   return (
     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
       <div className="inline" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
@@ -140,6 +150,9 @@ function EnvelopeRow({ envelope, onRemove }: { envelope: Envelope; onRemove: () 
             {envelope.spent.roundedToUnit.format()}
             <span className="muted" style={{ fontWeight: 400 }}> / {envelope.planned.roundedToUnit.format()}</span>
           </span>
+          <button type="button" className="button button-small" onClick={onEdit}>
+            Modifier
+          </button>
           <button type="button" className="button button-ghost" aria-label={`Supprimer ${envelope.label}`} onClick={onRemove}>
             ✕
           </button>
@@ -164,26 +177,39 @@ function EnvelopeRow({ envelope, onRemove }: { envelope: Envelope; onRemove: () 
 }
 
 function EnvelopeForm({
+  initial,
   currency,
   existing,
   onClose,
   onSubmit,
 }: {
+  initial: Envelope | null;
   currency: Money['currency'];
   existing: readonly ExpenseCategoryId[];
   onClose: () => void;
   onSubmit: (category: ExpenseCategoryId, limit: Money) => void;
 }) {
-  const available = VARIABLE_CATEGORY_IDS.filter((category) => !existing.includes(category));
-  const [category, setCategory] = useState<ExpenseCategoryId>(available[0] ?? 'variable.groceries');
-  const [amount, setAmount] = useState('');
+  // En modification, la catégorie est figée : la changer reviendrait à créer une autre
+  // enveloppe en perdant l'historique de celle-ci.
+  const available = initial
+    ? [initial.category]
+    : VARIABLE_CATEGORY_IDS.filter((category) => !existing.includes(category));
+  const [category, setCategory] = useState<ExpenseCategoryId>(
+    initial?.category ?? available[0] ?? 'variable.groceries',
+  );
+  const [amount, setAmount] = useState(initial ? String(initial.planned.units) : '');
   const parsed = parseAmount(amount, currency);
 
   return (
-    <Modal title="Nouvelle enveloppe" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.label} »` : 'Nouvelle enveloppe'} onClose={onClose}>
       <Field label="Catégorie">
         {(id) => (
-          <select id={id} value={category} onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}>
+          <select
+            id={id}
+            value={category}
+            disabled={initial !== null}
+            onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}
+          >
             {available.map((entry) => (
               <option key={entry} value={entry}>
                 {categoryLabel(entry)}
@@ -209,7 +235,7 @@ function EnvelopeForm({
             onClose();
           }}
         >
-          Créer
+          {initial ? 'Enregistrer' : 'Créer'}
         </button>
       </div>
     </Modal>

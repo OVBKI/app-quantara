@@ -161,6 +161,20 @@ const BUILTIN_RULES: CategorizationRule[] = [
   { pattern: 'LEROY MERLIN', category: 'variable.household' },
   { pattern: 'CASTORAMA', category: 'variable.household' },
   { pattern: 'BRICO', category: 'variable.household' },
+
+  // Enfants et animaux
+  { pattern: 'CRECHE', category: 'variable.children' },
+  { pattern: 'CENTRE DE LOISIRS', category: 'variable.children' },
+  { pattern: 'CANTINE', category: 'variable.children' },
+  { pattern: 'VETERINAIRE', category: 'variable.pets' },
+  { pattern: 'MAXI ZOO', category: 'variable.pets' },
+  { pattern: 'ANIMALERIE', category: 'variable.pets' },
+
+  // Soins personnels
+  { pattern: 'COIFFEUR', category: 'variable.personal' },
+  { pattern: 'SEPHORA', category: 'variable.personal' },
+  { pattern: 'NOCIBE', category: 'variable.personal' },
+  { pattern: 'YVES ROCHER', category: 'variable.personal' },
 ];
 
 /**

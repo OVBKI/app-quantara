@@ -14,6 +14,7 @@ export type IncomeCategory =
   | 'rental'
   | 'investment'
   | 'pension'
+  | 'bonus'
   | 'otherIncome';
 
 export type FixedExpenseCategory =
@@ -44,6 +45,9 @@ export type VariableExpenseCategory =
   | 'gifts'
   | 'travel'
   | 'education'
+  | 'children'
+  | 'pets'
+  | 'personal'
   | 'otherVariable';
 
 /** Identifiant stable, utilisé en base et dans les échanges. Ne jamais le renommer. */
@@ -66,6 +70,7 @@ export const INCOME_LABELS: Record<IncomeCategory, string> = {
   rental: 'Revenus locatifs',
   investment: 'Revenus de placements',
   pension: 'Pension ou retraite',
+  bonus: 'Prime ou bonus',
   otherIncome: 'Autre revenu',
 };
 
@@ -100,6 +105,11 @@ const VARIABLE: Record<VariableExpenseCategory, Omit<CategoryInfo, 'id' | 'kind'
   gifts: { label: 'Cadeaux', essential: false, compressibility: 0.7 },
   travel: { label: 'Voyages', essential: false, compressibility: 0.9 },
   education: { label: 'Formation', essential: false, compressibility: 0.3 },
+  // Les dépenses d'enfants sont essentielles, et pratiquement incompressibles : les
+  // proposer à la coupe dans l'optimisation serait un conseil qu'on ne suit jamais.
+  children: { label: 'Enfants', essential: true, compressibility: 0.1 },
+  pets: { label: 'Animaux', essential: true, compressibility: 0.15 },
+  personal: { label: 'Dépenses personnelles', essential: false, compressibility: 0.6 },
   otherVariable: { label: 'Autre dépense', essential: false, compressibility: 0.5 },
 };
 

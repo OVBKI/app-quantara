@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Money, type Currency } from '../core/money';
 import {
   emptyProfile,
@@ -15,7 +24,7 @@ import {
 import { analyse, type FinancialAnalysis } from '../core/engine/analysis';
 import type { CategorizationRule } from '../core/engine/categorizer';
 import { yearMonthOf, type YearMonth } from '../core/yearMonth';
-import { clearProfile, loadProfile, saveProfile } from '../storage/persistence';
+import { clearProfile, loadStored, saveProfile, unlockStored } from '../storage/persistence';
 
 interface StoreValue {
   readonly profile: FinancialProfile;
@@ -23,7 +32,15 @@ interface StoreValue {
   readonly period: YearMonth;
   readonly ready: boolean;
   readonly error: string | null;
+  /** Le fichier est chiffré et le mot de passe n'a pas encore été fourni. */
+  readonly locked: boolean;
+  readonly encrypted: boolean;
   setPeriod(period: YearMonth): void;
+
+  unlock(password: string): Promise<void>;
+  lock(): void;
+  enableEncryption(password: string): Promise<void>;
+  disableEncryption(): Promise<void>;
 
   addIncome(income: Omit<IncomeSource, 'id'>): void;
   updateIncome(income: IncomeSource): void;
@@ -34,6 +51,7 @@ interface StoreValue {
   removeExpense(id: string): void;
 
   addTransaction(transaction: Omit<Transaction, 'id'>): void;
+  updateTransaction(transaction: Transaction): void;
   addTransactions(transactions: readonly Omit<Transaction, 'id'>[]): void;
   removeTransaction(id: string): void;
   learnCategorization(rule: CategorizationRule): void;
@@ -48,6 +66,7 @@ interface StoreValue {
   removeDebt(id: string): void;
 
   addAccount(account: Omit<Account, 'id'>): void;
+  updateAccount(account: Account): void;
   removeAccount(id: string): void;
 
   setCategoryBudget(budget: CategoryBudget): void;
@@ -71,15 +90,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [period, setPeriod] = useState<YearMonth>(() => yearMonthOf(new Date()));
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [encrypted, setEncrypted] = useState(false);
+  // Le mot de passe ne vit qu'en mémoire, et jamais dans l'état React : il n'a aucune
+  // raison de déclencher un rendu, ni de se retrouver dans un instantané de débogage.
+  const password = useRef<string | null>(null);
 
   // Chargement initial. Tant qu'il n'a pas abouti, rien n'est enregistré : sans ce
   // garde-fou, le profil vide de départ écraserait le fichier existant.
   useEffect(() => {
     let cancelled = false;
-    loadProfile()
+    loadStored()
       .then((stored) => {
         if (cancelled) return;
-        if (stored) setProfile(stored);
+        if (stored.kind === 'profile') setProfile(stored.profile);
+        if (stored.kind === 'encrypted') {
+          setEncrypted(true);
+          setLocked(true);
+        }
       })
       .catch((cause: unknown) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
@@ -93,11 +121,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
-    saveProfile(profile).catch((cause: unknown) => {
+    // Tant que le profil est verrouillé, il est vide en mémoire : l'enregistrer
+    // écraserait le fichier chiffré par un profil sans données.
+    if (!ready || locked) return;
+    saveProfile(profile, password.current).catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : String(cause));
     });
-  }, [profile, ready]);
+  }, [profile, ready, locked]);
 
   const analysis = useMemo(() => analyse(profile, period), [profile, period]);
 
@@ -112,7 +142,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       period,
       ready,
       error,
+      locked,
+      encrypted,
       setPeriod,
+
+      unlock: async (candidate) => {
+        const stored = await unlockStored(candidate);
+        password.current = candidate;
+        setProfile(stored);
+        setLocked(false);
+        setError(null);
+      },
+
+      lock: () => {
+        if (!encrypted) return;
+        password.current = null;
+        setProfile(emptyProfile('EUR'));
+        setLocked(true);
+      },
+
+      enableEncryption: async (candidate) => {
+        await saveProfile(profile, candidate);
+        password.current = candidate;
+        setEncrypted(true);
+      },
+
+      disableEncryption: async () => {
+        await saveProfile(profile, null);
+        password.current = null;
+        setEncrypted(false);
+      },
+
 
       addIncome: (income) => update((p) => ({ ...p, incomes: [...p.incomes, { ...income, id: id() }] })),
       updateIncome: (income) =>
@@ -131,6 +191,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addTransaction: (transaction) =>
         update((p) => ({ ...p, transactions: [...p.transactions, { ...transaction, id: id() }] })),
+      updateTransaction: (transaction) =>
+        update((p) => ({
+          ...p,
+          transactions: p.transactions.map((entry) => (entry.id === transaction.id ? transaction : entry)),
+        })),
 
       // Un import ajoute des centaines de lignes : les insérer une par une déclencherait
       // autant de recalculs complets de l'analyse.
@@ -193,6 +258,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeDebt: (target) => update((p) => ({ ...p, debts: p.debts.filter((entry) => entry.id !== target) })),
 
       addAccount: (account) => update((p) => ({ ...p, accounts: [...p.accounts, { ...account, id: id() }] })),
+      updateAccount: (account) =>
+        update((p) => ({ ...p, accounts: p.accounts.map((entry) => (entry.id === account.id ? account : entry)) })),
       removeAccount: (target) =>
         update((p) => ({ ...p, accounts: p.accounts.filter((entry) => entry.id !== target) })),
 
@@ -219,10 +286,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       reset: async () => {
         await clearProfile();
+        password.current = null;
+        setEncrypted(false);
+        setLocked(false);
         setProfile(emptyProfile('EUR'));
       },
     };
-  }, [profile, analysis, period, ready, error, update]);
+  }, [profile, analysis, period, ready, error, locked, encrypted, update]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

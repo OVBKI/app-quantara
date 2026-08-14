@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -11,11 +11,12 @@ import {
   YAxis,
 } from 'recharts';
 import { Percent } from '../core/money';
-import { categoryLabel } from '../core/categories';
-import { formatYearMonth } from '../core/yearMonth';
+import { VARIABLE_CATEGORY_IDS, categoryLabel, type ExpenseCategoryId } from '../core/categories';
+import { formatDate, formatYearMonth } from '../core/yearMonth';
+import { categorize } from '../core/engine/categorizer';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
-import { Card, ProgressBar, Tile } from './components';
+import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 const SEVERITY_COLOR: Record<InsightSeverity, string> = {
@@ -101,6 +102,8 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
             </div>
           )}
         </section>
+
+        <QuickExpense />
 
         <div className="grid grid-4">
           <Tile
@@ -288,6 +291,118 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
         </Card>
       </div>
     </>
+  );
+}
+
+/**
+ * Saisie rapide d'une dépense, depuis l'accueil (§5).
+ *
+ * Deux champs et un bouton, sans fenêtre à ouvrir : la friction de saisie est la première
+ * cause d'abandon d'une application de budget, et une dépense qu'on note trois jours plus
+ * tard est une dépense qu'on ne note pas. La catégorie est devinée depuis le libellé et
+ * reste corrigeable — le formulaire complet vit dans l'onglet Transactions.
+ */
+function QuickExpense() {
+  const { profile, addTransaction } = useStore();
+  const currency = profile.currency;
+
+  const [amount, setAmount] = useState('');
+  const [label, setLabel] = useState('');
+  const [category, setCategory] = useState<ExpenseCategoryId>('variable.groceries');
+  const [guessed, setGuessed] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const parsed = parseAmount(amount, currency);
+
+  function onLabelChange(text: string): void {
+    setLabel(text);
+    if (text.trim().length < 3) return;
+    const match = categorize(text, profile.categorizationRules);
+    if (match) {
+      setCategory(match.category);
+      setGuessed(true);
+    }
+  }
+
+  function submit(): void {
+    if (!parsed || !parsed.isPositive) return;
+    addTransaction({
+      amount: parsed,
+      date: formatDate(new Date()),
+      kind: 'expense',
+      label: label.trim() || categoryLabel(category),
+      category,
+    });
+    setSaved(`${parsed.roundedTo(2).format()} · ${categoryLabel(category)}`);
+    setAmount('');
+    setLabel('');
+    setGuessed(false);
+  }
+
+  return (
+    <Card title="Noter une dépense">
+      <div className="field-row" style={{ alignItems: 'end' }}>
+        <Field label="Montant">
+          {(id) => (
+            <MoneyInput
+              id={id}
+              value={amount}
+              currency={currency}
+              onChange={setAmount}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') submit();
+              }}
+            />
+          )}
+        </Field>
+        <Field label="Libellé">
+          {(id) => (
+            <input
+              id={id}
+              value={label}
+              onChange={(event) => onLabelChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') submit();
+              }}
+              placeholder="Courses"
+            />
+          )}
+        </Field>
+        <Field label="Catégorie" hint={guessed ? 'Devinée depuis le libellé' : undefined}>
+          {(id) => (
+            <select
+              id={id}
+              value={category}
+              onChange={(event) => {
+                setCategory(event.target.value as ExpenseCategoryId);
+                setGuessed(false);
+              }}
+            >
+              {VARIABLE_CATEGORY_IDS.map((entry) => (
+                <option key={entry} value={entry}>
+                  {categoryLabel(entry)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <div className="field">
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={!parsed || !parsed.isPositive}
+            onClick={submit}
+          >
+            Ajouter
+          </button>
+        </div>
+      </div>
+      {saved && (
+        <p className="rationale" style={{ marginTop: 2 }} role="status">
+          Enregistré : {saved}. Modifiable dans l’onglet Transactions.
+        </p>
+      )}
+    </Card>
   );
 }
 

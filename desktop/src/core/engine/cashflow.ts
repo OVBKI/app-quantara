@@ -66,7 +66,9 @@ export function forecastCashFlow(
     } else {
       events.push({
         id: income.id,
-        date: dateOf(period, 28),
+        // Le 28 par défaut : tant que la date de réception n'est pas connue, mieux vaut
+        // supposer tard dans le mois — une hypothèse optimiste masquerait un découvert.
+        date: dateOf(period, Math.min(Math.max(income.dayOfMonth ?? 28, 1), total)),
         label: income.name,
         amount: monthly,
         kind: 'income',

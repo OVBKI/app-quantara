@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react';
 import { Money, type Currency } from '../core/money';
 
 export function Card({ title, action, children }: { title?: string; action?: ReactNode; children: ReactNode }) {
@@ -107,12 +107,14 @@ export function MoneyInput({
   currency,
   onChange,
   autoFocus,
+  onKeyDown,
 }: {
   id?: string;
   value: string;
   currency: Currency;
   onChange: (value: string) => void;
   autoFocus?: boolean;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
 }) {
   return (
     <div style={{ position: 'relative' }}>
@@ -124,6 +126,7 @@ export function MoneyInput({
         autoFocus={autoFocus}
         placeholder="0,00"
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={onKeyDown}
         style={{ paddingRight: 42 }}
       />
       <span

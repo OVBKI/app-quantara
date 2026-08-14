@@ -9,9 +9,11 @@ import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
 
 export function BudgetScreen() {
-  const { profile, analysis, addIncome, removeIncome, addExpense, removeExpense } = useStore();
-  const [incomeForm, setIncomeForm] = useState(false);
-  const [expenseForm, setExpenseForm] = useState(false);
+  const { profile, analysis, addIncome, updateIncome, removeIncome, addExpense, updateExpense, removeExpense } =
+    useStore();
+  // `true` pour une création, l'entité elle-même pour une modification.
+  const [incomeForm, setIncomeForm] = useState<IncomeSource | true | null>(null);
+  const [expenseForm, setExpenseForm] = useState<RecurringExpense | true | null>(null);
   const [confirmNode, confirm] = useConfirm();
 
   const { summary, allocation } = analysis;
@@ -55,6 +57,7 @@ export function BudgetScreen() {
                     <div className="row-subtitle">
                       {income.amount.format()} · {FREQUENCY_LABELS[income.frequency].toLowerCase()} ·{' '}
                       {INCOME_LABELS[income.category]}
+                      {income.dayOfMonth ? ` · le ${income.dayOfMonth}` : ''}
                       {income.variable && (
                         <span className="badge" style={{ marginLeft: 8 }}>
                           irrégulier
@@ -66,6 +69,13 @@ export function BudgetScreen() {
                     {monthlyEquivalent(income.amount, income.frequency).roundedTo(2).format()}
                     <span className="tertiary" style={{ fontWeight: 400 }}> /mois</span>
                   </div>
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => setIncomeForm(income)}
+                  >
+                    Modifier
+                  </button>
                   <button
                     type="button"
                     className="button button-ghost"
@@ -127,6 +137,13 @@ export function BudgetScreen() {
                   </div>
                   <button
                     type="button"
+                    className="button button-small"
+                    onClick={() => setExpenseForm(expense)}
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
                     className="button button-ghost"
                     aria-label={`Supprimer ${expense.name}`}
                     onClick={() => confirm(`Supprimer la charge « ${expense.name} » ?`, () => removeExpense(expense.id))}
@@ -177,31 +194,57 @@ export function BudgetScreen() {
         </Card>
       </div>
 
-      {incomeForm && <IncomeForm onClose={() => setIncomeForm(false)} onSubmit={addIncome} currency={profile.currency} />}
+      {incomeForm && (
+        <IncomeForm
+          initial={incomeForm === true ? null : incomeForm}
+          onClose={() => setIncomeForm(null)}
+          onSubmit={(draft) => {
+            if (incomeForm === true) addIncome(draft);
+            else updateIncome({ ...incomeForm, ...draft });
+          }}
+          currency={profile.currency}
+        />
+      )}
       {expenseForm && (
-        <ExpenseForm onClose={() => setExpenseForm(false)} onSubmit={addExpense} currency={profile.currency} />
+        <ExpenseForm
+          initial={expenseForm === true ? null : expenseForm}
+          onClose={() => setExpenseForm(null)}
+          onSubmit={(draft) => {
+            if (expenseForm === true) addExpense(draft);
+            else updateExpense({ ...expenseForm, ...draft });
+          }}
+          currency={profile.currency}
+        />
       )}
       {confirmNode}
     </>
   );
 }
 
+/** Montant prêt à être réédité : « 1200 » plutôt que « 1200,00 € ». */
+function editable(amount: Money | undefined): string {
+  return amount ? String(amount.units) : '';
+}
+
 function IncomeForm({
+  initial,
   onClose,
   onSubmit,
   currency,
 }: {
+  initial: IncomeSource | null;
   onClose: () => void;
   onSubmit: (income: Omit<IncomeSource, 'id'>) => void;
   currency: Money['currency'];
 }) {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState<Frequency>('monthly');
-  const [category, setCategory] = useState<IncomeCategory>('salary');
-  const [variable, setVariable] = useState(false);
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [amount, setAmount] = useState(editable(initial?.amount));
+  const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? 'monthly');
+  const [category, setCategory] = useState<IncomeCategory>(initial?.category ?? 'salary');
+  const [variable, setVariable] = useState(initial?.variable ?? false);
+  const [minAmount, setMinAmount] = useState(editable(initial?.minAmount));
+  const [maxAmount, setMaxAmount] = useState(editable(initial?.maxAmount));
+  const [dayOfMonth, setDayOfMonth] = useState(String(initial?.dayOfMonth ?? 28));
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
@@ -209,7 +252,7 @@ function IncomeForm({
   const parsedMax = parseAmount(maxAmount, currency);
 
   return (
-    <Modal title="Nouveau revenu" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.name} »` : 'Nouveau revenu'} onClose={onClose}>
       <Field label="Intitulé">
         {(id) => <input id={id} value={name} onChange={(event) => setName(event.target.value)} placeholder="Salaire" />}
       </Field>
@@ -229,17 +272,31 @@ function IncomeForm({
           )}
         </Field>
       </div>
-      <Field label="Nature">
-        {(id) => (
-          <select id={id} value={category} onChange={(event) => setCategory(event.target.value as IncomeCategory)}>
-            {INCOME_CATEGORIES.map((entry) => (
-              <option key={entry} value={entry}>
-                {INCOME_LABELS[entry]}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+      <div className="field-row">
+        <Field label="Nature">
+          {(id) => (
+            <select id={id} value={category} onChange={(event) => setCategory(event.target.value as IncomeCategory)}>
+              {INCOME_CATEGORIES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {INCOME_LABELS[entry]}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Jour de réception" hint="Décide de la forme de la courbe de trésorerie">
+          {(id) => (
+            <input
+              id={id}
+              type="number"
+              min={1}
+              max={31}
+              value={dayOfMonth}
+              onChange={(event) => setDayOfMonth(event.target.value)}
+            />
+          )}
+        </Field>
+      </div>
       <label className="inline" style={{ marginBottom: 8 }}>
         <input
           type="checkbox"
@@ -295,12 +352,13 @@ function IncomeForm({
               variable,
               minAmount: variable && parsedMin ? parsedMin : undefined,
               maxAmount: variable && parsedMax ? parsedMax : undefined,
-              active: true,
+              dayOfMonth: Math.min(Math.max(Number(dayOfMonth) || 28, 1), 31),
+              active: initial?.active ?? true,
             });
             onClose();
           }}
         >
-          Ajouter
+          {initial ? 'Enregistrer' : 'Ajouter'}
         </button>
       </div>
     </Modal>
@@ -308,26 +366,28 @@ function IncomeForm({
 }
 
 function ExpenseForm({
+  initial,
   onClose,
   onSubmit,
   currency,
 }: {
+  initial: RecurringExpense | null;
   onClose: () => void;
   onSubmit: (expense: Omit<RecurringExpense, 'id'>) => void;
   currency: Money['currency'];
 }) {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState<Frequency>('monthly');
-  const [category, setCategory] = useState<ExpenseCategoryId>('fixed.rent');
-  const [day, setDay] = useState('5');
-  const [subscription, setSubscription] = useState(false);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [amount, setAmount] = useState(editable(initial?.amount));
+  const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? 'monthly');
+  const [category, setCategory] = useState<ExpenseCategoryId>(initial?.category ?? 'fixed.rent');
+  const [day, setDay] = useState(String(initial?.dayOfMonth ?? 5));
+  const [subscription, setSubscription] = useState(initial?.subscription ?? false);
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
 
   return (
-    <Modal title="Nouvelle charge récurrente" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.name} »` : 'Nouvelle charge récurrente'} onClose={onClose}>
       <Field label="Intitulé">
         {(id) => <input id={id} value={name} onChange={(event) => setName(event.target.value)} placeholder="Loyer" />}
       </Field>
@@ -410,12 +470,12 @@ function ExpenseForm({
               category,
               dayOfMonth: Math.min(Math.max(Number(day) || 1, 1), 31),
               subscription,
-              active: true,
+              active: initial?.active ?? true,
             });
             onClose();
           }}
         >
-          Ajouter
+          {initial ? 'Enregistrer' : 'Ajouter'}
         </button>
       </div>
     </Modal>

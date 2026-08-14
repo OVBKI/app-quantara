@@ -4,7 +4,7 @@ Application de bureau de gestion de budget. Interface web, enveloppe native Taur
 données stockées localement.
 
 > **État** — Fonctionnellement complet pour la v1. Le moteur et l'interface compilent,
-> et les 126 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
+> et les 156 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
 > est produit par l'intégration continue.
 
 ---
@@ -42,13 +42,16 @@ src/core/            Moteur financier — aucune dépendance à React
                      Objectifs · Fonds d'urgence · Dettes · Répartition
                      Analyse proactive · Optimisation · Simulation · Rapport mensuel
                      « Puis-je me le permettre » · Catégorisation · Import CSV
+                     Investissement (éducatif) · Alertes
   advisor/           Assistant déterministe : réponses assemblées à partir des moteurs
-  *.test.ts          104 tests, dont les exemples chiffrés du cahier des charges
+  *.test.ts          Tests, dont les exemples chiffrés du cahier des charges
 
 src/state/           État de l'application et persistance
 src/storage/         Lecture et écriture du profil (fichier JSON ou stockage local)
+src/security/        Chiffrement du fichier (PBKDF2 + AES-GCM)
+src/notifications/   Envoi des alertes au centre de notifications du système
 src/ui/              Écrans et composants
-src-tauri/           Enveloppe native : fenêtre, droits d'accès au disque
+src-tauri/           Enveloppe native : fenêtre, droits d'accès au disque, notifications
 ```
 
 ---
@@ -91,6 +94,17 @@ seulement ensuite investir. Chaque ligne affiche la raison du montant proposé.
 **Rien ne sort de la machine.** Aucun appel réseau, aucun compte, aucune télémétrie. Le
 profil est un fichier JSON lisible, exportable à tout moment depuis les réglages.
 
+**Le chiffrement est facultatif, et son périmètre est dit.** Un mot de passe peut être
+posé sur le fichier (PBKDF2-SHA256, 600 000 itérations, puis AES-GCM 256). Il protège une
+sauvegarde ou un disque volé — pas une session déjà ouverte sur la machine. Le mot de
+passe ne vit qu'en mémoire, jamais dans l'état de l'interface ni sur le disque : oublié,
+il rend le fichier définitivement illisible, et c'est écrit avant de l'activer.
+
+**Tout est modifiable.** Revenu, charge, transaction, objectif, dette, compte, enveloppe,
+règle de catégorisation : chaque entité s'édite après coup. Une saisie qu'on ne peut que
+supprimer et ressaisir décourage la correction, et un budget faux qu'on n'ose pas corriger
+ne sert plus à rien.
+
 ---
 
 ## L'assistant ne ment pas, par construction
@@ -111,7 +125,23 @@ manquantes sont signalées plutôt que comblées.
 
 ---
 
+## Notifications
+
+Les alertes partent à l'ouverture de l'application : découvert prévu, prélèvements
+importants dans les trois jours, enveloppe dépassée, palier d'objectif ou de fonds
+d'urgence franchi, bilan du mois. Chacune se désactive séparément.
+
+Limite énoncée franchement : **une application de bureau fermée ne notifie rien.**
+Contrairement à un téléphone, aucun service ne tourne en arrière-plan pour elle. Une
+situation qui dure se rappelle une fois par jour ; un palier, qui ne se franchit qu'une
+fois, ne se répète jamais.
+
+---
+
 ## Ce qui n'est pas encore là
+
+Le modèle freemium : cette version est un outil personnel, un mur de paiement n'y a aucun
+destinataire (voir `docs/04`).
 
 La connexion bancaire automatique — elle suppose un agrégateur agréé (DSP2) et un
 serveur, donc un périmètre au-delà de l'application. L'import CSV couvre le même besoin

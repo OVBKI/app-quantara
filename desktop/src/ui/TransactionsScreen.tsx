@@ -25,10 +25,10 @@ const KIND_LABELS: Record<TransactionKind, string> = {
 };
 
 export function TransactionsScreen() {
-  const { profile, addTransaction, removeTransaction } = useStore();
+  const { profile, addTransaction, updateTransaction, removeTransaction } = useStore();
   const [search, setSearch] = useState('');
   const [kindFilter, setKindFilter] = useState<TransactionKind | 'all'>('all');
-  const [form, setForm] = useState(false);
+  const [form, setForm] = useState<Transaction | true | null>(null);
   const [importing, setImporting] = useState(false);
   const [recurrences, setRecurrences] = useState(false);
   const [confirmNode, confirm] = useConfirm();
@@ -137,7 +137,13 @@ export function TransactionsScreen() {
               </div>
               {entries.map((transaction) => (
                 <div className="row" key={transaction.id}>
-                  <div className="row-main">
+                  <button
+                    type="button"
+                    className="row-main"
+                    onClick={() => setForm(transaction)}
+                    style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', padding: 0 }}
+                    aria-label={`Modifier ${transaction.label}`}
+                  >
                     <div className="row-title">{transaction.label}</div>
                     <div className="row-subtitle">
                       {transaction.category
@@ -147,7 +153,7 @@ export function TransactionsScreen() {
                           : KIND_LABELS[transaction.kind]}
                       {transaction.note ? ` · ${transaction.note}` : ''}
                     </div>
-                  </div>
+                  </button>
                   <div
                     className={`row-amount amount ${transaction.kind === 'income' ? 'positive' : ''}`}
                   >
@@ -173,10 +179,14 @@ export function TransactionsScreen() {
 
       {form && (
         <TransactionForm
+          initial={form === true ? null : form}
           currency={profile.currency}
           rules={profile.categorizationRules}
-          onClose={() => setForm(false)}
-          onSubmit={addTransaction}
+          onClose={() => setForm(null)}
+          onSubmit={(draft) => {
+            if (form === true) addTransaction(draft);
+            else updateTransaction({ ...form, ...draft });
+          }}
         />
       )}
       {importing && <ImportDialog onClose={() => setImporting(false)} />}
@@ -196,23 +206,25 @@ function dayTotal(entries: readonly Transaction[], currency: Money['currency']):
 }
 
 function TransactionForm({
+  initial,
   currency,
   rules,
   onClose,
   onSubmit,
 }: {
+  initial: Transaction | null;
   currency: Money['currency'];
   rules: readonly import('../core/engine/categorizer').CategorizationRule[];
   onClose: () => void;
   onSubmit: (transaction: Omit<Transaction, 'id'>) => void;
 }) {
-  const [amount, setAmount] = useState('');
-  const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<TransactionKind>('expense');
-  const [category, setCategory] = useState<ExpenseCategoryId>('variable.groceries');
-  const [incomeCategory, setIncomeCategory] = useState<IncomeCategory>('salary');
-  const [date, setDate] = useState(() => formatDate(new Date()));
-  const [note, setNote] = useState('');
+  const [amount, setAmount] = useState(initial ? String(initial.amount.units) : '');
+  const [label, setLabel] = useState(initial?.label ?? '');
+  const [kind, setKind] = useState<TransactionKind>(initial?.kind ?? 'expense');
+  const [category, setCategory] = useState<ExpenseCategoryId>(initial?.category ?? 'variable.groceries');
+  const [incomeCategory, setIncomeCategory] = useState<IncomeCategory>(initial?.incomeCategory ?? 'salary');
+  const [date, setDate] = useState(initial?.date ?? formatDate(new Date()));
+  const [note, setNote] = useState(initial?.note ?? '');
   const [autoCategorized, setAutoCategorized] = useState(false);
 
   const parsed = parseAmount(amount, currency);
@@ -230,7 +242,7 @@ function TransactionForm({
   }
 
   return (
-    <Modal title="Nouvelle transaction" onClose={onClose}>
+    <Modal title={initial ? 'Modifier la transaction' : 'Nouvelle transaction'} onClose={onClose}>
       <div className="field-row">
         <Field label="Montant">
           {(id) => <MoneyInput id={id} value={amount} currency={currency} onChange={setAmount} autoFocus />}
@@ -332,7 +344,7 @@ function TransactionForm({
             onClose();
           }}
         >
-          Enregistrer
+          {initial ? 'Enregistrer' : 'Ajouter'}
         </button>
       </div>
     </Modal>

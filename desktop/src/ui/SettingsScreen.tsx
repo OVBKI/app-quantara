@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import { CURRENCIES, Money, type Currency } from '../core/money';
-import type { AccountKind, DebtKind, RiskProfile } from '../core/model';
+import type { Account, AccountKind, Debt, DebtKind, RiskProfile } from '../core/model';
 import { EMERGENCY_FUND_TIERS } from '../core/engine/emergencyFund';
 import { INCOME_PLANNING_LABELS, type IncomePlanningMode } from '../core/engine/income';
 import { useStore } from '../state/store';
 import { deserializeProfile, downloadProfile } from '../storage/persistence';
+import { encryptionAvailable, passwordStrength } from '../security/vault';
 import { Card, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 
 const RISK_LABELS: Record<RiskProfile, string> = {
@@ -38,14 +39,19 @@ export function SettingsScreen() {
     updatePreferences,
     setBalances,
     addAccount,
+    updateAccount,
     removeAccount,
     addDebt,
+    updateDebt,
     removeDebt,
     replaceProfile,
     reset,
+    encrypted,
+    enableEncryption,
+    disableEncryption,
   } = useStore();
-  const [accountForm, setAccountForm] = useState(false);
-  const [debtForm, setDebtForm] = useState(false);
+  const [accountForm, setAccountForm] = useState<Account | true | null>(null);
+  const [debtForm, setDebtForm] = useState<Debt | true | null>(null);
   const [savings, setSavings] = useState(String(profile.savingsBalance.units || ''));
   const [investments, setInvestments] = useState(String(profile.investmentsBalance.units || ''));
   const [importError, setImportError] = useState<string | null>(null);
@@ -206,6 +212,9 @@ export function SettingsScreen() {
                   <div className="row-subtitle">{ACCOUNT_KINDS[account.kind]}</div>
                 </div>
                 <div className="row-amount amount">{account.balance.format()}</div>
+                <button type="button" className="button button-small" onClick={() => setAccountForm(account)}>
+                  Modifier
+                </button>
                 <button
                   type="button"
                   className="button button-ghost"
@@ -248,6 +257,9 @@ export function SettingsScreen() {
                     </div>
                   </div>
                   <div className="row-amount amount">{debt.outstanding.format()}</div>
+                  <button type="button" className="button button-small" onClick={() => setDebtForm(debt)}>
+                    Modifier
+                  </button>
                   <button
                     type="button"
                     className="button button-ghost"
@@ -274,6 +286,74 @@ export function SettingsScreen() {
               )}
             </>
           )}
+        </Card>
+
+        <Card title="Alertes et affichage">
+          <Field
+            label="Taille du texte"
+            hint="S’applique à toute l’interface, graphiques compris."
+          >
+            {(id) => (
+              <select
+                id={id}
+                value={profile.preferences.textScale}
+                onChange={(event) => updatePreferences({ textScale: Number(event.target.value) })}
+              >
+                {[
+                  [0.9, 'Compact'],
+                  [1, 'Normal'],
+                  [1.15, 'Grand'],
+                  [1.3, 'Très grand'],
+                  [1.4, 'Maximum'],
+                ].map(([value, label]) => (
+                  <option key={String(value)} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+
+          <div className="card-title" style={{ marginTop: 18 }}>
+            Notifications système
+          </div>
+          {(
+            [
+              ['upcomingDebits', 'Prélèvements à venir dans les trois jours'],
+              ['overdraft', 'Découvert prévu'],
+              ['envelopes', 'Enveloppe dépassée'],
+              ['milestones', 'Palier d’objectif ou de fonds d’urgence atteint'],
+              ['monthlyReport', 'Bilan de fin de mois'],
+            ] as const
+          ).map(([key, label]) => (
+            <label className="inline" key={key} style={{ marginBottom: 6 }}>
+              <input
+                type="checkbox"
+                checked={profile.preferences.alerts[key]}
+                onChange={(event) =>
+                  updatePreferences({
+                    alerts: { ...profile.preferences.alerts, [key]: event.target.checked },
+                  })
+                }
+                style={{ width: 16 }}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+          <p className="rationale" style={{ marginTop: 10 }}>
+            Les notifications partent à l’ouverture de l’application, et une seule fois par jour pour un même
+            sujet — une seule fois tout court pour un palier, qui ne se franchit qu’une fois. Une application
+            de bureau fermée ne peut rien signaler : contrairement à un téléphone, aucun service ne tourne en
+            arrière-plan pour elle.
+          </p>
+        </Card>
+
+        <Card title="Protection du fichier">
+          <SecuritySection
+            encrypted={encrypted}
+            onEnable={enableEncryption}
+            onDisable={disableEncryption}
+          />
         </Card>
 
         <Card title="Vos données">
@@ -324,30 +404,173 @@ export function SettingsScreen() {
       </div>
 
       {accountForm && (
-        <AccountForm currency={profile.currency} onClose={() => setAccountForm(false)} onSubmit={addAccount} />
+        <AccountForm
+          initial={accountForm === true ? null : accountForm}
+          currency={profile.currency}
+          onClose={() => setAccountForm(null)}
+          onSubmit={(draft) => {
+            if (accountForm === true) addAccount(draft);
+            else updateAccount({ ...accountForm, ...draft });
+          }}
+        />
       )}
-      {debtForm && <DebtForm currency={profile.currency} onClose={() => setDebtForm(false)} onSubmit={addDebt} />}
+      {debtForm && (
+        <DebtForm
+          initial={debtForm === true ? null : debtForm}
+          currency={profile.currency}
+          onClose={() => setDebtForm(null)}
+          onSubmit={(draft) => {
+            if (debtForm === true) addDebt(draft);
+            else updateDebt({ ...debtForm, ...draft });
+          }}
+        />
+      )}
       {confirmNode}
     </>
   );
 }
 
+/**
+ * Chiffrement du profil.
+ *
+ * Facultatif et explicite : sans mot de passe, le fichier reste lisible par quiconque
+ * ouvre le dossier — et l'interface le dit, au lieu de laisser croire à une protection
+ * qui n'existe pas.
+ */
+function SecuritySection({
+  encrypted,
+  onEnable,
+  onDisable,
+}: {
+  encrypted: boolean;
+  onEnable: (password: string) => Promise<void>;
+  onDisable: () => Promise<void>;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const available = encryptionAvailable();
+
+  const strength = password.length > 0 ? passwordStrength(password) : null;
+  const matches = password.length > 0 && password === confirmation;
+
+  if (!available) {
+    return (
+      <p className="muted" style={{ marginTop: 0 }}>
+        Le chiffrement n’est pas disponible dans cet environnement : les fonctions cryptographiques du système
+        ne sont pas accessibles. Plutôt que d’afficher une protection factice, l’option est désactivée.
+      </p>
+    );
+  }
+
+  if (encrypted) {
+    return (
+      <>
+        <p style={{ marginTop: 0, color: 'var(--positive)', fontWeight: 550 }}>
+          ● Votre profil est chiffré sur ce poste
+        </p>
+        <p className="rationale">
+          Le fichier est illisible sans le mot de passe, y compris pour quelqu’un qui copierait le disque.
+          Le mot de passe n’est enregistré nulle part : le perdre signifie perdre les données. Pensez à un
+          export régulier, rangé ailleurs.
+        </p>
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void onDisable().finally(() => setBusy(false));
+          }}
+        >
+          Retirer la protection
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Votre fichier est aujourd’hui <strong>en clair</strong> : n’importe qui ayant accès à cette session
+        Windows peut le lire. Un budget en dit long — revenus, dettes, habitudes, parfois la santé au détour
+        d’une pharmacie.
+      </p>
+
+      {failure && <div className="error-banner">{failure}</div>}
+
+      <div className="field-row">
+        <Field label="Mot de passe" hint={strength ? strength.label : 'Huit caractères au minimum'}>
+          {(id) => (
+            <input
+              id={id}
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Confirmation">
+          {(id) => (
+            <input
+              id={id}
+              type="password"
+              value={confirmation}
+              autoComplete="new-password"
+              onChange={(event) => setConfirmation(event.target.value)}
+            />
+          )}
+        </Field>
+      </div>
+
+      <button
+        type="button"
+        className="button button-primary"
+        disabled={!matches || (strength?.score ?? 0) === 0 || busy}
+        onClick={() => {
+          setBusy(true);
+          setFailure(null);
+          void onEnable(password)
+            .then(() => {
+              setPassword('');
+              setConfirmation('');
+            })
+            .catch((cause: unknown) => setFailure(cause instanceof Error ? cause.message : String(cause)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? 'Chiffrement…' : 'Chiffrer le fichier'}
+      </button>
+
+      <p className="rationale" style={{ marginTop: 12 }}>
+        Chiffrement AES-256, clé dérivée par 600 000 itérations. Cette lenteur volontaire — une demi-seconde à
+        l’ouverture — rend inexploitable une attaque par essais successifs. Le mot de passe n’est écrit nulle
+        part : <strong>le perdre, c’est perdre les données</strong>.
+      </p>
+    </>
+  );
+}
+
 function AccountForm({
+  initial,
   currency,
   onClose,
   onSubmit,
 }: {
+  initial: Account | null;
   currency: Currency;
   onClose: () => void;
   onSubmit: (account: { name: string; kind: AccountKind; balance: Money }) => void;
 }) {
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<AccountKind>('checking');
-  const [balance, setBalance] = useState('');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [kind, setKind] = useState<AccountKind>(initial?.kind ?? 'checking');
+  const [balance, setBalance] = useState(initial ? String(initial.balance.units) : '');
   const parsed = parseAmount(balance, currency) ?? Money.zero(currency);
 
   return (
-    <Modal title="Nouveau compte" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.name} »` : 'Nouveau compte'} onClose={onClose}>
       <Field label="Intitulé">
         {(id) => (
           <input id={id} value={name} onChange={(event) => setName(event.target.value)} placeholder="Compte courant" />
@@ -381,7 +604,7 @@ function AccountForm({
             onClose();
           }}
         >
-          Ajouter
+          {initial ? 'Enregistrer' : 'Ajouter'}
         </button>
       </div>
     </Modal>
@@ -389,10 +612,12 @@ function AccountForm({
 }
 
 function DebtForm({
+  initial,
   currency,
   onClose,
   onSubmit,
 }: {
+  initial: Debt | null;
   currency: Currency;
   onClose: () => void;
   onSubmit: (debt: {
@@ -404,18 +629,18 @@ function DebtForm({
     active: boolean;
   }) => void;
 }) {
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<DebtKind>('consumerLoan');
-  const [outstanding, setOutstanding] = useState('');
-  const [rate, setRate] = useState('4');
-  const [payment, setPayment] = useState('');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [kind, setKind] = useState<DebtKind>(initial?.kind ?? 'consumerLoan');
+  const [outstanding, setOutstanding] = useState(initial ? String(initial.outstanding.units) : '');
+  const [rate, setRate] = useState(initial ? String(initial.annualRate * 100) : '4');
+  const [payment, setPayment] = useState(initial ? String(initial.monthlyPayment.units) : '');
 
   const parsedOutstanding = parseAmount(outstanding, currency);
   const parsedPayment = parseAmount(payment, currency);
   const annualRate = Number(rate.replace(',', '.')) / 100;
 
   return (
-    <Modal title="Nouvelle dette" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.name} »` : 'Nouvelle dette'} onClose={onClose}>
       <Field label="Intitulé">
         {(id) => (
           <input id={id} value={name} onChange={(event) => setName(event.target.value)} placeholder="Crédit auto" />
@@ -461,12 +686,12 @@ function DebtForm({
               outstanding: parsedOutstanding,
               annualRate: Math.max(annualRate, 0),
               monthlyPayment: parsedPayment,
-              active: true,
+              active: initial?.active ?? true,
             });
             onClose();
           }}
         >
-          Ajouter
+          {initial ? 'Enregistrer' : 'Ajouter'}
         </button>
       </div>
     </Modal>

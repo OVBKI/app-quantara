@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { buildAlerts } from './core/engine/alerts';
+import { notify } from './notifications/notifier';
 import { addMonths, formatYearMonth } from './core/yearMonth';
 import { useStore } from './state/store';
 import { HomeScreen } from './ui/HomeScreen';
@@ -9,22 +11,44 @@ import { SettingsScreen } from './ui/SettingsScreen';
 import { AdvisorScreen } from './ui/AdvisorScreen';
 import { ProjectionScreen } from './ui/ProjectionScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
+import { InvestmentScreen } from './ui/InvestmentScreen';
+import { LockScreen } from './ui/LockScreen';
 
-type Screen = 'home' | 'budget' | 'transactions' | 'goals' | 'advisor' | 'projections' | 'settings';
+type Screen =
+  | 'home'
+  | 'budget'
+  | 'transactions'
+  | 'goals'
+  | 'investment'
+  | 'advisor'
+  | 'projections'
+  | 'settings';
 
 const NAV: { id: Screen; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '◆' },
   { id: 'budget', label: 'Budget', icon: '▤' },
   { id: 'transactions', label: 'Transactions', icon: '⇄' },
   { id: 'goals', label: 'Objectifs', icon: '◎' },
+  { id: 'investment', label: 'Investissement', icon: '△' },
   { id: 'advisor', label: 'Assistant', icon: '✦' },
   { id: 'projections', label: 'Projections', icon: '↗' },
   { id: 'settings', label: 'Réglages', icon: '⚙' },
 ];
 
 export function App() {
-  const { profile, ready, error, period, setPeriod } = useStore();
+  const { profile, analysis, ready, error, locked, encrypted, lock, period, setPeriod } = useStore();
   const [screen, setScreen] = useState<Screen>('home');
+
+  // Échelle du texte : appliquée à la racine, donc à toutes les unités relatives.
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${16 * profile.preferences.textScale}px`;
+  }, [profile.preferences.textScale]);
+
+  // Les alertes partent à l'ouverture, une fois le profil déverrouillé et chargé.
+  useEffect(() => {
+    if (!ready || locked) return;
+    void notify(buildAlerts(analysis, profile.preferences.alerts));
+  }, [ready, locked, analysis, profile.preferences.alerts]);
 
   if (!ready) {
     return (
@@ -34,8 +58,13 @@ export function App() {
     );
   }
 
-  // Sans revenu déclaré, aucun calcul n'a de sens : on installe d'abord le nécessaire.
-  if (profile.incomes.length === 0 && profile.recurringExpenses.length === 0) {
+  // Le verrouillage passe avant tout : rien n'est chargé en mémoire sans le mot de passe.
+  if (locked) return <LockScreen />;
+
+  // Tant que la mise en route n'a pas été parcourue, elle passe avant le reste. Le drapeau
+  // fait foi, et non la présence de données : supprimer ses revenus ne doit pas renvoyer
+  // quelqu'un à l'écran d'accueil des premiers jours.
+  if (!profile.preferences.onboardingCompleted) {
     return <OnboardingScreen />;
   }
 
@@ -88,6 +117,15 @@ export function App() {
           </div>
         </div>
 
+        {encrypted && (
+          <button type="button" className="nav-item" onClick={lock} style={{ marginBottom: 4 }}>
+            <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
+              ⌧
+            </span>
+            Verrouiller
+          </button>
+        )}
+
         <p className="nav-footnote">
           Données locales, sur cette machine. Les montants affichés proviennent tous d’un calcul explicite.
         </p>
@@ -99,6 +137,7 @@ export function App() {
         {screen === 'budget' && <BudgetScreen />}
         {screen === 'transactions' && <TransactionsScreen />}
         {screen === 'goals' && <GoalsScreen />}
+        {screen === 'investment' && <InvestmentScreen />}
         {screen === 'advisor' && <AdvisorScreen />}
         {screen === 'projections' && <ProjectionScreen />}
         {screen === 'settings' && <SettingsScreen />}

@@ -1,5 +1,6 @@
 import { Money, isMoneyJSON, type Currency } from '../core/money';
 import { emptyProfile, DEFAULT_PREFERENCES, type FinancialProfile } from '../core/model';
+import { decrypt, encrypt, isEncryptedEnvelope } from '../security/vault';
 
 const FILE_NAME = 'quantara-profile.json';
 const LOCAL_STORAGE_KEY = 'quantara.profile';
@@ -57,7 +58,16 @@ function normalise(raw: Partial<FinancialProfile>): FinancialProfile {
     goals: raw.goals ?? base.goals,
     categoryBudgets: raw.categoryBudgets ?? base.categoryBudgets,
     categorizationRules: raw.categorizationRules ?? base.categorizationRules,
-    preferences: { ...DEFAULT_PREFERENCES, ...(raw.preferences ?? {}) },
+    preferences: {
+      ...DEFAULT_PREFERENCES,
+      ...(raw.preferences ?? {}),
+      alerts: { ...DEFAULT_PREFERENCES.alerts, ...(raw.preferences?.alerts ?? {}) },
+      // Le drapeau est postérieur aux premiers fichiers : un profil qui porte déjà des
+      // données a forcément été mis en route, et ne doit pas y être renvoyé.
+      onboardingCompleted:
+        raw.preferences?.onboardingCompleted ??
+        ((raw.incomes?.length ?? 0) > 0 || (raw.recurringExpenses?.length ?? 0) > 0),
+    },
     // `incomePlanning` est apparu après la première version : un profil enregistré avant
     // ne le porte pas, et `DEFAULT_PREFERENCES` le comble.
     savingsBalance: raw.savingsBalance ?? Money.zero(currency),
@@ -76,24 +86,45 @@ function runningInTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-export async function loadProfile(): Promise<FinancialProfile | null> {
-  try {
-    if (runningInTauri()) {
-      const { readTextFile, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-      const present = await exists(FILE_NAME, { baseDir: BaseDirectory.AppData });
-      if (!present) return null;
-      return deserializeProfile(await readTextFile(FILE_NAME, { baseDir: BaseDirectory.AppData }));
-    }
-    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    return stored ? deserializeProfile(stored) : null;
-  } catch (error) {
-    console.error('Lecture du profil impossible', error);
-    throw error;
+async function readRaw(): Promise<string | null> {
+  if (runningInTauri()) {
+    const { readTextFile, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+    const present = await exists(FILE_NAME, { baseDir: BaseDirectory.AppData });
+    if (!present) return null;
+    return readTextFile(FILE_NAME, { baseDir: BaseDirectory.AppData });
   }
+  return window.localStorage.getItem(LOCAL_STORAGE_KEY);
 }
 
-export async function saveProfile(profile: FinancialProfile): Promise<void> {
-  const payload = serializeProfile(profile);
+export type LoadResult =
+  | { kind: 'empty' }
+  | { kind: 'profile'; profile: FinancialProfile }
+  /** Le fichier existe mais est chiffré : il faut le mot de passe pour aller plus loin. */
+  | { kind: 'encrypted' };
+
+export async function loadStored(): Promise<LoadResult> {
+  const raw = await readRaw();
+  if (!raw) return { kind: 'empty' };
+
+  const parsed: unknown = JSON.parse(raw);
+  if (isEncryptedEnvelope(parsed)) return { kind: 'encrypted' };
+
+  return { kind: 'profile', profile: deserializeProfile(raw) };
+}
+
+export async function unlockStored(password: string): Promise<FinancialProfile> {
+  const raw = await readRaw();
+  if (!raw) throw new Error('Aucun profil enregistré.');
+
+  const parsed: unknown = JSON.parse(raw);
+  if (!isEncryptedEnvelope(parsed)) return deserializeProfile(raw);
+
+  return deserializeProfile(await decrypt(parsed, password));
+}
+
+export async function saveProfile(profile: FinancialProfile, password: string | null = null): Promise<void> {
+  const clear = serializeProfile(profile);
+  const payload = password ? JSON.stringify(await encrypt(clear, password), null, 2) : clear;
   if (runningInTauri()) {
     const { writeTextFile, mkdir, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
     if (!(await exists('', { baseDir: BaseDirectory.AppData }))) {
@@ -116,7 +147,8 @@ export async function clearProfile(): Promise<void> {
   window.localStorage.removeItem(LOCAL_STORAGE_KEY);
 }
 
-/** Export manuel : l'utilisateur doit pouvoir récupérer ses données sans nous. */
+/** L'export est toujours en clair : il sert à récupérer ses données, pas à les archiver
+ *  en sécurité. À l'utilisateur de le ranger où il faut — et l'interface le rappelle. */
 export function downloadProfile(profile: FinancialProfile): void {
   const blob = new Blob([serializeProfile(profile)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

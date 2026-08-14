@@ -37,6 +37,22 @@ describe('Trésorerie', () => {
     expect(forecast.endOfMonthBalance.isPositive).toBe(true);
   });
 
+  it('évite ce creux quand le revenu tombe en début de mois', () => {
+    // Mêmes montants que le cas précédent : seule la date de réception change. Payé le 2
+    // plutôt que le 28, le compte ne descend jamais sous zéro — c'est bien la date, et
+    // non le montant, qui décide du découvert.
+    const profile = {
+      ...emptyProfile(),
+      accounts: [{ id: 'compte', name: 'Compte courant', kind: 'checking' as const, balance: Money.of(800) }],
+      incomes: [{ ...income('Salaire', 2000), dayOfMonth: 2 }],
+      recurringExpenses: [fixedExpense('Loyer', 1200, 'fixed.rent', { dayOfMonth: 5 })],
+    };
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(1));
+    const forecast = forecastCashFlow(profile, summary, MARCH_2026, Money.of(800), referenceDate(1));
+
+    expect(forecast.projectedOverdraft).toBe(false);
+  });
+
   it('ne compte pas deux fois les dépenses déjà passées', () => {
     const profile = standardProfile();
     const summary = monthlySummary(profile, MARCH_2026, referenceDate(20));

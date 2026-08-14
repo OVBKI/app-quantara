@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Money } from '../core/money';
-import type { GoalKind } from '../core/model';
+import type { Goal, GoalKind } from '../core/model';
 import type { GoalPlan } from '../core/engine/goals';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, ProgressBar, parseAmount, useConfirm } from './components';
@@ -12,12 +12,14 @@ const GOAL_KINDS: Record<GoalKind, string> = {
   property: 'Immobilier',
   education: 'Études',
   retirement: 'Retraite',
+  investment: 'Investissement',
+  project: 'Projet personnel',
   otherGoal: 'Autre',
 };
 
 export function GoalsScreen() {
-  const { profile, analysis, addGoal, removeGoal, contributeToGoal } = useStore();
-  const [form, setForm] = useState(false);
+  const { profile, analysis, addGoal, updateGoal, removeGoal, contributeToGoal } = useStore();
+  const [form, setForm] = useState<Goal | true | null>(null);
   const [contributing, setContributing] = useState<GoalPlan | null>(null);
   const [confirmNode, confirm] = useConfirm();
 
@@ -92,6 +94,9 @@ export function GoalsScreen() {
                   </p>
                 </div>
                 <div className="inline">
+                  <button type="button" className="button button-small" onClick={() => setForm(plan.goal)}>
+                    Modifier
+                  </button>
                   <button type="button" className="button button-small" onClick={() => setContributing(plan)}>
                     Verser
                   </button>
@@ -168,9 +173,13 @@ export function GoalsScreen() {
 
       {form && (
         <GoalForm
+          initial={form === true ? null : form}
           currency={profile.currency}
-          onClose={() => setForm(false)}
-          onSubmit={(goal) => addGoal(goal)}
+          onClose={() => setForm(null)}
+          onSubmit={(draft) => {
+            if (form === true) addGoal(draft);
+            else updateGoal({ ...form, ...draft });
+          }}
         />
       )}
       {contributing && (
@@ -187,10 +196,12 @@ export function GoalsScreen() {
 }
 
 function GoalForm({
+  initial,
   currency,
   onClose,
   onSubmit,
 }: {
+  initial: Goal | null;
   currency: Money['currency'];
   onClose: () => void;
   onSubmit: (goal: {
@@ -202,17 +213,17 @@ function GoalForm({
     priority: number;
   }) => void;
 }) {
-  const [name, setName] = useState('');
-  const [target, setTarget] = useState('');
-  const [current, setCurrent] = useState('');
-  const [kind, setKind] = useState<GoalKind>('purchase');
-  const [targetDate, setTargetDate] = useState('');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [target, setTarget] = useState(initial ? String(initial.target.units) : '');
+  const [current, setCurrent] = useState(initial ? String(initial.current.units) : '');
+  const [kind, setKind] = useState<GoalKind>(initial?.kind ?? 'purchase');
+  const [targetDate, setTargetDate] = useState(initial?.targetDate ?? '');
 
   const parsedTarget = parseAmount(target, currency);
   const parsedCurrent = parseAmount(current, currency) ?? Money.zero(currency);
 
   return (
-    <Modal title="Nouvel objectif" onClose={onClose}>
+    <Modal title={initial ? `Modifier « ${initial.name} »` : 'Nouvel objectif'} onClose={onClose}>
       <Field label="Intitulé">
         {(id) => (
           <input
@@ -266,12 +277,12 @@ function GoalForm({
               target: parsedTarget,
               current: parsedCurrent,
               targetDate: targetDate || undefined,
-              priority: 1,
+              priority: initial?.priority ?? 1,
             });
             onClose();
           }}
         >
-          Créer
+          {initial ? 'Enregistrer' : 'Créer'}
         </button>
       </div>
     </Modal>

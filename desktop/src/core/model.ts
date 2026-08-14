@@ -5,6 +5,7 @@ import { categoryInfo } from './categories';
 import { containsDate, parseDate, type YearMonth } from './yearMonth';
 import type { CategorizationRule } from './engine/categorizer';
 import type { IncomePlanningMode } from './engine/income';
+import { DEFAULT_ALERT_PREFERENCES, type AlertPreferences } from './engine/alerts';
 
 /** Toutes les entités sont immuables : un état modifié est un nouvel objet, ce qui rend
  *  le rendu React prévisible et le calcul reproductible. */
@@ -32,6 +33,10 @@ export interface IncomeSource {
   readonly minAmount?: Money;
   /** Mois fort. Facultatif : à défaut, le typique plus 20 %. */
   readonly maxAmount?: Money;
+  /** Jour de réception dans le mois. Détermine la forme de la courbe de trésorerie :
+   *  payé le 2 ou le 28, le point bas du mois n'est pas du tout le même. Absent, la
+   *  prévision retient le 28 — l'hypothèse la moins favorable. */
+  readonly dayOfMonth?: number;
   readonly startDate?: string;
   readonly endDate?: string;
   readonly active: boolean;
@@ -91,7 +96,16 @@ export function isHighInterest(debt: Debt): boolean {
   return debt.annualRate >= HIGH_INTEREST_THRESHOLD;
 }
 
-export type GoalKind = 'emergencyFund' | 'purchase' | 'travel' | 'property' | 'education' | 'retirement' | 'otherGoal';
+export type GoalKind =
+  | 'emergencyFund'
+  | 'purchase'
+  | 'travel'
+  | 'property'
+  | 'education'
+  | 'retirement'
+  | 'investment'
+  | 'project'
+  | 'otherGoal';
 
 export interface Goal {
   readonly id: string;
@@ -124,6 +138,15 @@ export interface BudgetPreferences {
   /** Part du disponible laissée libre quoi qu'il arrive : un plan qui ne laisse rien
    *  pour vivre n'est pas tenu. */
   readonly minimumFreeShare: number;
+  /** Notifications système. Toutes facultatives, toutes désactivables une par une. */
+  readonly alerts: AlertPreferences;
+  /** Échelle du texte, de 0,9 à 1,4. L'équivalent de bureau du Dynamic Type d'iOS :
+   *  une application de finances personnelles se consulte à tout âge. */
+  readonly textScale: number;
+  /** La mise en route a été parcourue jusqu'au bout. Sans ce drapeau, un profil dont on
+   *  aurait supprimé tous les revenus repartirait dans la mise en route — et une mise en
+   *  route entièrement sautée bouclerait indéfiniment. */
+  readonly onboardingCompleted: boolean;
 }
 
 export const DEFAULT_PREFERENCES: BudgetPreferences = {
@@ -132,6 +155,9 @@ export const DEFAULT_PREFERENCES: BudgetPreferences = {
   smoothIncome: true,
   riskProfile: 'balanced',
   minimumFreeShare: 0.1,
+  alerts: DEFAULT_ALERT_PREFERENCES,
+  textScale: 1,
+  onboardingCompleted: false,
 };
 
 export interface FinancialProfile {
