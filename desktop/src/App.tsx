@@ -6,15 +6,19 @@ import { BudgetScreen } from './ui/BudgetScreen';
 import { TransactionsScreen } from './ui/TransactionsScreen';
 import { GoalsScreen } from './ui/GoalsScreen';
 import { SettingsScreen } from './ui/SettingsScreen';
+import { AdvisorScreen } from './ui/AdvisorScreen';
+import { ProjectionScreen } from './ui/ProjectionScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
 
-type Screen = 'home' | 'budget' | 'transactions' | 'goals' | 'settings';
+type Screen = 'home' | 'budget' | 'transactions' | 'goals' | 'advisor' | 'projections' | 'settings';
 
 const NAV: { id: Screen; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '◆' },
   { id: 'budget', label: 'Budget', icon: '▤' },
   { id: 'transactions', label: 'Transactions', icon: '⇄' },
   { id: 'goals', label: 'Objectifs', icon: '◎' },
+  { id: 'advisor', label: 'Assistant', icon: '✦' },
+  { id: 'projections', label: 'Projections', icon: '↗' },
   { id: 'settings', label: 'Réglages', icon: '⚙' },
 ];
 
@@ -91,10 +95,12 @@ export function App() {
 
       <main className="main">
         {error && <div className="error-banner">{error}</div>}
-        {screen === 'home' && <HomeScreen />}
+        {screen === 'home' && <HomeScreen onNavigate={setScreen} />}
         {screen === 'budget' && <BudgetScreen />}
         {screen === 'transactions' && <TransactionsScreen />}
         {screen === 'goals' && <GoalsScreen />}
+        {screen === 'advisor' && <AdvisorScreen />}
+        {screen === 'projections' && <ProjectionScreen />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
     </div>

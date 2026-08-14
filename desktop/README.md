@@ -3,9 +3,9 @@
 Application de bureau de gestion de budget. Interface web, enveloppe native Tauri,
 données stockées localement.
 
-> **État** — Le moteur financier et l'interface compilent, et les 66 tests unitaires
-> passent (vérifiés à chaque `push`). L'installateur Windows est produit par
-> l'intégration continue ; il n'a pas encore été exécuté sur une machine Windows réelle.
+> **État** — Fonctionnellement complet pour la v1. Le moteur et l'interface compilent,
+> et les 104 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
+> est produit par l'intégration continue.
 
 ---
 
@@ -39,8 +39,11 @@ src/core/            Moteur financier — aucune dépendance à React
   yearMonth.ts       Périodes mensuelles, dates locales
   model.ts           Entités et sélecteurs
   engine/            Budget · Trésorerie · Objectifs · Fonds d'urgence · Dettes
-                     Répartition · Analyse proactive · Statistiques
-  *.test.ts          66 tests, dont les exemples chiffrés du cahier des charges
+                     Répartition · Analyse proactive · Optimisation · Simulation
+                     Rapport mensuel · « Puis-je me le permettre » · Catégorisation
+                     Import CSV · Statistiques
+  advisor/           Assistant déterministe : réponses assemblées à partir des moteurs
+  *.test.ts          104 tests, dont les exemples chiffrés du cahier des charges
 
 src/state/           État de l'application et persistance
 src/storage/         Lecture et écriture du profil (fichier JSON ou stockage local)
@@ -77,8 +80,27 @@ profil est un fichier JSON lisible, exportable à tout moment depuis les réglag
 
 ---
 
+## L'assistant ne ment pas, par construction
+
+Chaque phrase qu'il produit est assemblée à partir d'un montant calculé par les moteurs.
+Aucun modèle de langage n'intervient, rien ne quitte la machine, et aucun chiffre ne peut
+donc être inventé — la règle « ne jamais inventer de données financières » du cahier des
+charges est ici une propriété du code, pas une consigne qu'on espère voir respectée.
+
+La contrepartie est assumée : l'assistant ne traite que les questions qu'il sait calculer
+— répartition des dépenses, capacité d'épargne, fonds d'urgence, pistes de réduction,
+santé du budget, dettes, dépense envisagée, effet du temps sur une épargne régulière — et
+répond « je ne sais pas » au-delà. Sur de l'argent, c'est préférable à une réponse
+plausible et fausse.
+
+Un test vérifie qu'aucune réponse ne garantit un rendement, et un autre que les données
+manquantes sont signalées plutôt que comblées.
+
+---
+
 ## Ce qui n'est pas encore là
 
-L'assistant conversationnel, l'optimisation « ✨ Optimiser mon budget », les simulations
-d'investissement, les rapports de fin de mois et l'import CSV. Les moteurs correspondants
-existent côté iOS ; ils seront transposés une fois cette base validée à l'usage.
+La connexion bancaire automatique — elle suppose un agrégateur agréé (DSP2) et un
+serveur, donc un périmètre au-delà de l'application. L'import CSV couvre le même besoin
+sans intermédiaire : le relevé se télécharge depuis le site de la banque et s'importe en
+deux clics, sans que personne d'autre n'y ait accès.

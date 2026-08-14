@@ -13,6 +13,8 @@ import { formatDate, parseDate } from '../core/yearMonth';
 import type { Transaction, TransactionKind } from '../core/model';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
+import { ImportDialog, RecurrenceDialog, downloadTransactionsCsv } from './TransactionTools';
+import { categorize } from '../core/engine/categorizer';
 
 const KIND_LABELS: Record<TransactionKind, string> = {
   expense: 'Dépense',
@@ -27,6 +29,8 @@ export function TransactionsScreen() {
   const [search, setSearch] = useState('');
   const [kindFilter, setKindFilter] = useState<TransactionKind | 'all'>('all');
   const [form, setForm] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [recurrences, setRecurrences] = useState(false);
   const [confirmNode, confirm] = useConfirm();
 
   const filtered = useMemo(() => {
@@ -65,9 +69,25 @@ export function TransactionsScreen() {
             {profile.transactions.length} enregistrée{profile.transactions.length > 1 ? 's' : ''}
           </p>
         </div>
-        <button type="button" className="button button-primary" onClick={() => setForm(true)}>
-          Nouvelle transaction
-        </button>
+        <div className="inline">
+          <button type="button" className="button" onClick={() => setRecurrences(true)}>
+            Détecter les récurrences
+          </button>
+          <button type="button" className="button" onClick={() => setImporting(true)}>
+            Importer un relevé
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={profile.transactions.length === 0}
+            onClick={() => downloadTransactionsCsv(profile.transactions)}
+          >
+            Exporter
+          </button>
+          <button type="button" className="button button-primary" onClick={() => setForm(true)}>
+            Nouvelle transaction
+          </button>
+        </div>
       </header>
 
       <Card>
@@ -152,8 +172,15 @@ export function TransactionsScreen() {
       </Card>
 
       {form && (
-        <TransactionForm currency={profile.currency} onClose={() => setForm(false)} onSubmit={addTransaction} />
+        <TransactionForm
+          currency={profile.currency}
+          rules={profile.categorizationRules}
+          onClose={() => setForm(false)}
+          onSubmit={addTransaction}
+        />
       )}
+      {importing && <ImportDialog onClose={() => setImporting(false)} />}
+      {recurrences && <RecurrenceDialog onClose={() => setRecurrences(false)} />}
       {confirmNode}
     </>
   );
@@ -170,10 +197,12 @@ function dayTotal(entries: readonly Transaction[], currency: Money['currency']):
 
 function TransactionForm({
   currency,
+  rules,
   onClose,
   onSubmit,
 }: {
   currency: Money['currency'];
+  rules: readonly import('../core/engine/categorizer').CategorizationRule[];
   onClose: () => void;
   onSubmit: (transaction: Omit<Transaction, 'id'>) => void;
 }) {
@@ -184,8 +213,21 @@ function TransactionForm({
   const [incomeCategory, setIncomeCategory] = useState<IncomeCategory>('salary');
   const [date, setDate] = useState(() => formatDate(new Date()));
   const [note, setNote] = useState('');
+  const [autoCategorized, setAutoCategorized] = useState(false);
 
   const parsed = parseAmount(amount, currency);
+
+  // Catégorisation locale au fil de la frappe : la friction de saisie est la première
+  // cause d'abandon d'une application de budget.
+  function onLabelChange(text: string): void {
+    setLabel(text);
+    if (kind !== 'expense' || text.trim().length < 3) return;
+    const guessed = categorize(text, rules);
+    if (guessed) {
+      setCategory(guessed.category);
+      setAutoCategorized(true);
+    }
+  }
 
   return (
     <Modal title="Nouvelle transaction" onClose={onClose}>
@@ -212,17 +254,27 @@ function TransactionForm({
 
       <Field label="Libellé">
         {(id) => (
-          <input id={id} value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Courses" />
+          <input id={id} value={label} onChange={(event) => onLabelChange(event.target.value)} placeholder="Courses" />
         )}
       </Field>
 
       {kind === 'expense' && (
-        <Field label="Catégorie" hint="Les catégories variables viennent en premier : ce sont les plus fréquentes.">
+        <Field
+          label="Catégorie"
+          hint={
+            autoCategorized
+              ? 'Catégorie reconnue depuis le libellé — modifiable.'
+              : 'Les catégories variables viennent en premier : ce sont les plus fréquentes.'
+          }
+        >
           {(id) => (
             <select
               id={id}
               value={category}
-              onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}
+              onChange={(event) => {
+                setCategory(event.target.value as ExpenseCategoryId);
+                setAutoCategorized(false);
+              }}
             >
               {[...VARIABLE_CATEGORY_IDS, ...ALL_CATEGORY_IDS.filter((entry) => entry.startsWith('fixed.'))].map(
                 (entry) => (

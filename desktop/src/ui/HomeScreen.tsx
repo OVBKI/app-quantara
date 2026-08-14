@@ -35,7 +35,7 @@ const CHART_COLORS = [
   '#8b949e',
 ];
 
-export function HomeScreen() {
+export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | 'projections') => void }) {
   const { analysis, period } = useStore();
   const { summary, cashFlow, emergencyFund, insights } = analysis;
 
@@ -88,6 +88,17 @@ export function HomeScreen() {
               <>Le mois est terminé : ce montant est ce qui reste une fois toutes les charges honorées.</>
             )}
           </p>
+
+          {onNavigate && (
+            <div className="inline" style={{ marginTop: 18 }}>
+              <button type="button" className="button button-primary" onClick={() => onNavigate('advisor')}>
+                ✨ Optimiser mon budget
+              </button>
+              <button type="button" className="button" onClick={() => onNavigate('projections')}>
+                Voir les projections
+              </button>
+            </div>
+          )}
         </section>
 
         <div className="grid grid-4">

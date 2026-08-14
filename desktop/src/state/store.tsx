@@ -13,6 +13,7 @@ import {
   type Account,
 } from '../core/model';
 import { analyse, type FinancialAnalysis } from '../core/engine/analysis';
+import type { CategorizationRule } from '../core/engine/categorizer';
 import { yearMonthOf, type YearMonth } from '../core/yearMonth';
 import { clearProfile, loadProfile, saveProfile } from '../storage/persistence';
 
@@ -33,7 +34,9 @@ interface StoreValue {
   removeExpense(id: string): void;
 
   addTransaction(transaction: Omit<Transaction, 'id'>): void;
+  addTransactions(transactions: readonly Omit<Transaction, 'id'>[]): void;
   removeTransaction(id: string): void;
+  learnCategorization(rule: CategorizationRule): void;
 
   addGoal(goal: Omit<Goal, 'id' | 'createdAt' | 'achieved'>): void;
   updateGoal(goal: Goal): void;
@@ -128,6 +131,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addTransaction: (transaction) =>
         update((p) => ({ ...p, transactions: [...p.transactions, { ...transaction, id: id() }] })),
+
+      // Un import ajoute des centaines de lignes : les insérer une par une déclencherait
+      // autant de recalculs complets de l'analyse.
+      addTransactions: (entries) =>
+        update((p) => ({
+          ...p,
+          transactions: [...p.transactions, ...entries.map((entry) => ({ ...entry, id: id() }))],
+        })),
+
+      learnCategorization: (rule) =>
+        update((p) => ({
+          ...p,
+          categorizationRules: [
+            ...p.categorizationRules.filter((entry) => entry.pattern !== rule.pattern),
+            rule,
+          ],
+        })),
       removeTransaction: (target) =>
         update((p) => ({ ...p, transactions: p.transactions.filter((entry) => entry.id !== target) })),
 

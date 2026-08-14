@@ -3,6 +3,7 @@ import type { Frequency } from './frequency';
 import type { ExpenseCategoryId, IncomeCategory } from './categories';
 import { categoryInfo } from './categories';
 import { containsDate, parseDate, type YearMonth } from './yearMonth';
+import type { CategorizationRule } from './engine/categorizer';
 
 /** Toutes les entités sont immuables : un état modifié est un nouvel objet, ce qui rend
  *  le rendu React prévisible et le calcul reproductible. */
@@ -132,6 +133,9 @@ export interface FinancialProfile {
   readonly debts: readonly Debt[];
   readonly goals: readonly Goal[];
   readonly categoryBudgets: readonly CategoryBudget[];
+  /** Règles apprises quand l'utilisateur corrige une catégorie : il ne doit pas avoir
+   *  à recorriger le même marchand le mois suivant. */
+  readonly categorizationRules: readonly CategorizationRule[];
   readonly preferences: BudgetPreferences;
   readonly savingsBalance: Money;
   readonly investmentsBalance: Money;
@@ -147,6 +151,7 @@ export function emptyProfile(currency: Currency = 'EUR'): FinancialProfile {
     debts: [],
     goals: [],
     categoryBudgets: [],
+    categorizationRules: [],
     preferences: DEFAULT_PREFERENCES,
     savingsBalance: Money.zero(currency),
     investmentsBalance: Money.zero(currency),
