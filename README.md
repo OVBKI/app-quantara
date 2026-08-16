@@ -23,6 +23,7 @@ Gestion de budget avec assistant financier. Deux applications, un même modèle 
 | [`docs/02-architecture.md`](docs/02-architecture.md) | Architecture technique, écrans, modèles de données, moteur de calcul budgétaire |
 | [`docs/03-moteur-ia.md`](docs/03-moteur-ia.md) | Pack de faits, prompt système, outils, garanties anti-hallucination |
 | [`docs/04-couverture-du-cahier-des-charges.md`](docs/04-couverture-du-cahier-des-charges.md) | Les 26 sections, une par une : fait, partiel ou écarté — et pourquoi |
+| [`docs/05-audit-et-plan.md`](docs/05-audit-et-plan.md) | Audit de la version Windows, plan par priorité, et bilan de ce qui a été livré |
 
 ---
 
@@ -54,7 +55,7 @@ Quantara/              Application SwiftUI
 Quantara.xcodeproj/    Projet Xcode (dossier synchronisé, Xcode 16+)
 
 desktop/               Application Windows — voir desktop/README.md
-  src/core/            Moteur financier en TypeScript, 156 tests
+  src/core/            Moteur financier en TypeScript, 189 tests
   src/security/        Chiffrement du fichier (PBKDF2 + AES-GCM)
   src/ui/              Écrans
   src-tauri/           Enveloppe native

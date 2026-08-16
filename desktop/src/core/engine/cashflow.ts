@@ -1,6 +1,6 @@
 import { Money } from '../money';
 import { approximateDayInterval, monthlyEquivalent } from '../frequency';
-import { activeDebts, activeIncomes, activeRecurringExpenses, type FinancialProfile } from '../model';
+import { activeDebts, activeIncomes, activeRecurringExpenses, availableBalance, type FinancialProfile } from '../model';
 import { daysInMonth, dateOf, type YearMonth } from '../yearMonth';
 import type { MonthlySummary } from './budget';
 
@@ -142,7 +142,6 @@ export function forecastCashFlow(
   };
 }
 
-export function openingBalanceOf(profile: FinancialProfile): Money {
-  const checking = profile.accounts.filter((account) => account.kind === 'checking' || account.kind === 'cash');
-  return Money.sum(checking.map((account) => account.balance), profile.currency);
+export function openingBalanceOf(profile: FinancialProfile, reference: Date = new Date()): Money {
+  return availableBalance(profile, reference);
 }

@@ -5,11 +5,12 @@ import {
   INCOME_CATEGORIES,
   INCOME_LABELS,
   VARIABLE_CATEGORY_IDS,
+  allCategories,
   categoryLabel,
   type ExpenseCategoryId,
   type IncomeCategory,
 } from '../core/categories';
-import { formatDate, parseDate } from '../core/yearMonth';
+import { containsDate, formatDate, parseDate } from '../core/yearMonth';
 import type { Transaction, TransactionKind } from '../core/model';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
@@ -24,10 +25,23 @@ const KIND_LABELS: Record<TransactionKind, string> = {
   debtPayment: 'Remboursement',
 };
 
+type PeriodFilter = 'currentMonth' | 'threeMonths' | 'year' | 'all';
+
+const PERIOD_LABELS: Record<PeriodFilter, string> = {
+  currentMonth: 'Mois affiché',
+  threeMonths: '3 derniers mois',
+  year: '12 derniers mois',
+  all: 'Tout',
+};
+
 export function TransactionsScreen() {
-  const { profile, addTransaction, updateTransaction, removeTransaction } = useStore();
+  const { profile, period, addTransaction, updateTransaction, removeTransaction } = useStore();
   const [search, setSearch] = useState('');
   const [kindFilter, setKindFilter] = useState<TransactionKind | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseCategoryId | 'all'>('all');
+  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('currentMonth');
+  const [minAmount, setMinAmount] = useState('');
   const [form, setForm] = useState<Transaction | true | null>(null);
   const [importing, setImporting] = useState(false);
   const [recurrences, setRecurrences] = useState(false);
@@ -35,8 +49,35 @@ export function TransactionsScreen() {
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
+    const floor = parseAmount(minAmount, profile.currency);
+
+    // Fenêtre de dates. Par défaut le mois affiché dans la barre latérale : sans cela, la
+    // liste ignore le sélecteur de mois et deux notions de « maintenant » coexistent.
+    const start = new Date(period.year, period.month - 1, 1);
+    const bound =
+      periodFilter === 'currentMonth'
+        ? null
+        : periodFilter === 'threeMonths'
+          ? new Date(period.year, period.month - 4, 1)
+          : periodFilter === 'year'
+            ? new Date(period.year - 1, period.month - 1, 1)
+            : null;
+
     return [...profile.transactions]
+      .filter((transaction) => {
+        if (periodFilter === 'all') return true;
+        const date = parseDate(transaction.date);
+        if (periodFilter === 'currentMonth') return containsDate(period, date);
+        return bound !== null && date >= bound && date <= new Date(start.getFullYear(), start.getMonth() + 1, 0);
+      })
       .filter((transaction) => (kindFilter === 'all' ? true : transaction.kind === kindFilter))
+      .filter((transaction) => (categoryFilter === 'all' ? true : transaction.category === categoryFilter))
+      .filter((transaction) =>
+        accountFilter === 'all'
+          ? true
+          : transaction.accountId === accountFilter || transaction.toAccountId === accountFilter,
+      )
+      .filter((transaction) => (floor === null ? true : transaction.amount.greaterThanOrEqual(floor)))
       .filter((transaction) => {
         if (needle === '') return true;
         const haystack = [
@@ -49,7 +90,7 @@ export function TransactionsScreen() {
         return haystack.includes(needle);
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [profile.transactions, search, kindFilter]);
+  }, [profile.transactions, profile.currency, period, search, kindFilter, categoryFilter, accountFilter, periodFilter, minAmount]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Transaction[]>();
@@ -91,13 +132,24 @@ export function TransactionsScreen() {
       </header>
 
       <Card>
-        <div className="field-row" style={{ marginBottom: 16 }}>
+        <div className="field-row" style={{ marginBottom: 12 }}>
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Rechercher un libellé, une catégorie…"
             aria-label="Rechercher"
           />
+          <select
+            value={periodFilter}
+            onChange={(event) => setPeriodFilter(event.target.value as PeriodFilter)}
+            aria-label="Filtrer par période"
+          >
+            {(Object.keys(PERIOD_LABELS) as PeriodFilter[]).map((entry) => (
+              <option key={entry} value={entry}>
+                {PERIOD_LABELS[entry]}
+              </option>
+            ))}
+          </select>
           <select
             value={kindFilter}
             onChange={(event) => setKindFilter(event.target.value as TransactionKind | 'all')}
@@ -111,6 +163,60 @@ export function TransactionsScreen() {
             ))}
           </select>
         </div>
+
+        <div className="field-row" style={{ marginBottom: 16 }}>
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            aria-label="Filtrer par catégorie"
+          >
+            <option value="all">Toutes les catégories</option>
+            {allCategories().map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={accountFilter}
+            onChange={(event) => setAccountFilter(event.target.value)}
+            aria-label="Filtrer par compte"
+            disabled={profile.accounts.length === 0}
+          >
+            <option value="all">Tous les comptes</option>
+            {profile.accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+          <MoneyInput
+            value={minAmount}
+            currency={profile.currency}
+            onChange={setMinAmount}
+            label="Montant minimum"
+          />
+        </div>
+
+        {filtered.length !== profile.transactions.length && (
+          <p className="rationale" style={{ marginTop: 0, marginBottom: 12 }}>
+            {filtered.length} sur {profile.transactions.length} transactions affichées.{' '}
+            <button
+              type="button"
+              className="button button-ghost button-small"
+              onClick={() => {
+                setSearch('');
+                setKindFilter('all');
+                setCategoryFilter('all');
+                setAccountFilter('all');
+                setPeriodFilter('all');
+                setMinAmount('');
+              }}
+            >
+              Tout afficher
+            </button>
+          </p>
+        )}
 
         {grouped.length === 0 ? (
           <EmptyState
@@ -160,6 +266,20 @@ export function TransactionsScreen() {
                     {transaction.kind === 'income' ? '+ ' : transaction.kind === 'transfer' ? '' : '− '}
                     {transaction.amount.format()}
                   </div>
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    aria-label={`Dupliquer ${transaction.label}`}
+                    title="Dupliquer"
+                    onClick={() => {
+                      // Dupliquée à la date du jour : on duplique une dépense parce
+                      // qu'elle se répète, pas pour recréer celle du mois dernier.
+                      const { id: _id, ...rest } = transaction;
+                      addTransaction({ ...rest, date: formatDate(new Date()) });
+                    }}
+                  >
+                    ⧉
+                  </button>
                   <button
                     type="button"
                     className="button button-ghost"
@@ -225,9 +345,27 @@ function TransactionForm({
   const [incomeCategory, setIncomeCategory] = useState<IncomeCategory>(initial?.incomeCategory ?? 'salary');
   const [date, setDate] = useState(initial?.date ?? formatDate(new Date()));
   const [note, setNote] = useState(initial?.note ?? '');
+  const [accountId, setAccountId] = useState(initial?.accountId ?? '');
+  const [toAccountId, setToAccountId] = useState(initial?.toAccountId ?? '');
   const [autoCategorized, setAutoCategorized] = useState(false);
 
+  const { profile } = useStore();
+  const accounts = profile.accounts.filter((account) => !account.archived);
+  const movesBetweenAccounts = kind === 'transfer' || kind === 'savings';
+
   const parsed = parseAmount(amount, currency);
+  const error =
+    amount.trim() !== '' && parsed === null
+      ? 'Ce montant n’est pas un nombre valide. Utilisez la virgule ou le point pour les centimes.'
+      : parsed?.isNegative
+        ? 'Un montant se saisit toujours positif : c’est la nature choisie ci-dessus qui décide du sens.'
+        : parsed?.isZero && amount.trim() !== ''
+          ? 'Un montant nul n’a aucun effet sur le budget.'
+          : Number.isNaN(new Date(date).getTime())
+            ? 'La date n’est pas valide.'
+            : movesBetweenAccounts && accountId !== '' && accountId === toAccountId
+              ? 'Un virement doit relier deux comptes différents.'
+              : null;
 
   // Catégorisation locale au fil de la frappe : la friction de saisie est la première
   // cause d'abandon d'une application de budget.
@@ -269,6 +407,37 @@ function TransactionForm({
           <input id={id} value={label} onChange={(event) => onLabelChange(event.target.value)} placeholder="Courses" />
         )}
       </Field>
+
+      {accounts.length > 0 && (
+        <div className="field-row">
+          <Field label={movesBetweenAccounts ? 'Depuis le compte' : kind === 'income' ? 'Versé sur' : 'Payé depuis'}>
+            {(id) => (
+              <select id={id} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                <option value="">Non précisé</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          {movesBetweenAccounts && (
+            <Field label="Vers le compte" hint="Un virement déplace l’argent, il ne le dépense pas.">
+              {(id) => (
+                <select id={id} value={toAccountId} onChange={(event) => setToAccountId(event.target.value)}>
+                  <option value="">Non précisé</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          )}
+        </div>
+      )}
 
       {kind === 'expense' && (
         <Field
@@ -322,6 +491,8 @@ function TransactionForm({
         {(id) => <input id={id} value={note} onChange={(event) => setNote(event.target.value)} />}
       </Field>
 
+      {error && <p className="error-text">{error}</p>}
+
       <div className="modal-actions">
         <button type="button" className="button" onClick={onClose}>
           Annuler
@@ -329,7 +500,7 @@ function TransactionForm({
         <button
           type="button"
           className="button button-primary"
-          disabled={!parsed || !parsed.isPositive}
+          disabled={!parsed || !parsed.isPositive || error !== null}
           onClick={() => {
             if (!parsed) return;
             onSubmit({
@@ -340,6 +511,8 @@ function TransactionForm({
               category: kind === 'expense' ? category : undefined,
               incomeCategory: kind === 'income' ? incomeCategory : undefined,
               note: note.trim() || undefined,
+              accountId: accountId || undefined,
+              toAccountId: movesBetweenAccounts && toAccountId ? toAccountId : undefined,
             });
             onClose();
           }}

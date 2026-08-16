@@ -51,7 +51,15 @@ export type VariableExpenseCategory =
   | 'otherVariable';
 
 /** Identifiant stable, utilisé en base et dans les échanges. Ne jamais le renommer. */
-export type ExpenseCategoryId = `fixed.${FixedExpenseCategory}` | `variable.${VariableExpenseCategory}`;
+/**
+ * Identifiant stable d'une catégorie.
+ *
+ * Les catégories livrées portent un identifiant connu à la compilation ; celles créées
+ * par l'utilisateur, non. Le type reste donc ouvert (`string`), au prix de
+ * l'exhaustivité — c'est le prix à payer pour que « Jardinage » existe.
+ */
+export type BuiltinCategoryId = `fixed.${FixedExpenseCategory}` | `variable.${VariableExpenseCategory}`;
+export type ExpenseCategoryId = BuiltinCategoryId | (string & {});
 
 export interface CategoryInfo {
   readonly id: ExpenseCategoryId;
@@ -61,6 +69,12 @@ export interface CategoryInfo {
   /** 0 = incompressible, 1 = entièrement discrétionnaire. */
   readonly compressibility: number;
   readonly debtRelated: boolean;
+  /** Couleur d'affichage, stable dans le temps : l'œil apprend une couleur, il ne faut
+   *  pas la lui changer d'un mois à l'autre. */
+  readonly color: string;
+  readonly icon: string;
+  readonly custom: boolean;
+  readonly hidden: boolean;
 }
 
 export const INCOME_LABELS: Record<IncomeCategory, string> = {
@@ -76,7 +90,16 @@ export const INCOME_LABELS: Record<IncomeCategory, string> = {
 
 export const INCOME_CATEGORIES = Object.keys(INCOME_LABELS) as IncomeCategory[];
 
-const FIXED: Record<FixedExpenseCategory, Omit<CategoryInfo, 'id' | 'kind' | 'compressibility'>> = {
+/** Ce qui distingue une catégorie livrée d'une autre. La couleur et l'icône sont
+ *  attribuées plus bas, à partir de la palette. */
+interface CategorySeed {
+  readonly label: string;
+  readonly essential: boolean;
+  readonly compressibility?: number;
+  readonly debtRelated?: boolean;
+}
+
+const FIXED: Record<FixedExpenseCategory, CategorySeed> = {
   rent: { label: 'Loyer', essential: true, debtRelated: false },
   mortgage: { label: 'Crédit immobilier', essential: true, debtRelated: true },
   electricity: { label: 'Électricité', essential: true, debtRelated: false },
@@ -93,7 +116,7 @@ const FIXED: Record<FixedExpenseCategory, Omit<CategoryInfo, 'id' | 'kind' | 'co
   otherFixed: { label: 'Autre charge fixe', essential: false, debtRelated: false },
 };
 
-const VARIABLE: Record<VariableExpenseCategory, Omit<CategoryInfo, 'id' | 'kind' | 'debtRelated'>> = {
+const VARIABLE: Record<VariableExpenseCategory, CategorySeed> = {
   groceries: { label: 'Courses', essential: true, compressibility: 0.25 },
   restaurants: { label: 'Restaurants', essential: false, compressibility: 0.8 },
   fuel: { label: 'Carburant', essential: true, compressibility: 0.2 },
@@ -113,16 +136,110 @@ const VARIABLE: Record<VariableExpenseCategory, Omit<CategoryInfo, 'id' | 'kind'
   otherVariable: { label: 'Autre dépense', essential: false, compressibility: 0.5 },
 };
 
-export const CATEGORIES: Record<ExpenseCategoryId, CategoryInfo> = Object.fromEntries([
-  ...Object.entries(FIXED).map(([key, value]) => {
-    const id = `fixed.${key}` as ExpenseCategoryId;
-    return [id, { ...value, id, kind: 'fixed' as const, compressibility: 0 }];
-  }),
-  ...Object.entries(VARIABLE).map(([key, value]) => {
-    const id = `variable.${key}` as ExpenseCategoryId;
-    return [id, { ...value, id, kind: 'variable' as const, debtRelated: false }];
-  }),
-]) as Record<ExpenseCategoryId, CategoryInfo>;
+/**
+ * Palette des catégories.
+ *
+ * Assignée une fois pour toutes, par catégorie et non par rang : « Courses » garde la
+ * même couleur quel que soit son classement du mois. Teintes distinguables, y compris
+ * pour une déficience de la vision des couleurs — et jamais porteuses seules d'un sens,
+ * le libellé accompagne toujours la pastille.
+ */
+const PALETTE = [
+  '#4c9aff', '#a371f7', '#3fb950', '#d29922', '#ff7b72', '#56d4dd',
+  '#e685b5', '#8b949e', '#f0883e', '#6ea8fe', '#79c0ff', '#d2a8ff',
+  '#7ee787', '#ffa657', '#ff9492', '#39c5cf', '#db61a2', '#a5a5a5',
+  '#ffab70', '#85e89d', '#b392f0', '#f97583', '#79b8ff', '#ffea7f',
+];
+
+function paletteFor(index: number): string {
+  return PALETTE[index % PALETTE.length] ?? '#8b949e';
+}
+
+const BUILTIN_ICONS: Record<string, string> = {
+  'fixed.rent': '🏠', 'fixed.mortgage': '🏦', 'fixed.electricity': '💡', 'fixed.water': '💧',
+  'fixed.gas': '🔥', 'fixed.internet': '🌐', 'fixed.phone': '📱', 'fixed.insurance': '🛡️',
+  'fixed.subscriptions': '🔁', 'fixed.childcare': '🧸', 'fixed.schooling': '🎓',
+  'fixed.loanRepayment': '💳', 'fixed.taxes': '🏛️', 'fixed.otherFixed': '📄',
+  'variable.groceries': '🛒', 'variable.restaurants': '🍽️', 'variable.fuel': '⛽',
+  'variable.publicTransport': '🚆', 'variable.leisure': '🎬', 'variable.clothing': '👕',
+  'variable.health': '⚕️', 'variable.household': '🧰', 'variable.gifts': '🎁',
+  'variable.travel': '✈️', 'variable.education': '📚', 'variable.children': '👶',
+  'variable.pets': '🐾', 'variable.personal': '💇', 'variable.otherVariable': '•',
+};
+
+export const BUILTIN_CATEGORIES: Record<string, CategoryInfo> = Object.fromEntries(
+  [
+    ...Object.entries(FIXED).map(
+      ([key, seed]) => [`fixed.${key}`, seed, 'fixed'] as const,
+    ),
+    ...Object.entries(VARIABLE).map(
+      ([key, seed]) => [`variable.${key}`, seed, 'variable'] as const,
+    ),
+  ].map(([id, seed, kind], index) => [
+    id,
+    {
+      id,
+      kind,
+      label: seed.label,
+      essential: seed.essential,
+      compressibility: kind === 'fixed' ? 0 : (seed.compressibility ?? 0.5),
+      debtRelated: seed.debtRelated ?? false,
+      color: paletteFor(index),
+      icon: BUILTIN_ICONS[id] ?? '•',
+      custom: false,
+      hidden: false,
+    } satisfies CategoryInfo,
+  ]),
+);
+
+/**
+ * Catalogue effectif : les catégories livrées, complétées et redéfinies par celles de
+ * l'utilisateur.
+ *
+ * C'est un registre de module, alimenté par le magasin avant chaque calcul. Les moteurs
+ * n'ont ainsi pas à recevoir le profil pour connaître le libellé d'une catégorie — au
+ * prix d'un état global, assumé pour de la donnée de référence qui ne change qu'à la
+ * modification du profil.
+ */
+let registry: Record<string, CategoryInfo> = { ...BUILTIN_CATEGORIES };
+
+export interface CategoryDefinition {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: 'fixed' | 'variable';
+  readonly essential: boolean;
+  readonly compressibility: number;
+  readonly color: string;
+  readonly icon: string;
+  readonly hidden?: boolean;
+}
+
+export function applyCategories(custom: readonly CategoryDefinition[]): void {
+  const next: Record<string, CategoryInfo> = { ...BUILTIN_CATEGORIES };
+  for (const entry of custom) {
+    const base = BUILTIN_CATEGORIES[entry.id];
+    next[entry.id] = {
+      id: entry.id,
+      kind: entry.kind,
+      label: entry.label,
+      essential: entry.essential,
+      compressibility: entry.kind === 'fixed' ? 0 : entry.compressibility,
+      debtRelated: base?.debtRelated ?? false,
+      color: entry.color,
+      icon: entry.icon,
+      custom: base === undefined,
+      hidden: entry.hidden ?? false,
+    };
+  }
+  registry = next;
+}
+
+/** Remet le catalogue livré. Utile aux tests, qui doivent partir d'un état connu. */
+export function resetCategories(): void {
+  registry = { ...BUILTIN_CATEGORIES };
+}
+
+export const CATEGORIES: Record<string, CategoryInfo> = BUILTIN_CATEGORIES;
 
 export const FIXED_CATEGORY_IDS = Object.keys(FIXED).map(
   (key) => `fixed.${key}` as ExpenseCategoryId,
@@ -134,10 +251,43 @@ export const VARIABLE_CATEGORY_IDS = Object.keys(VARIABLE).map(
 
 export const ALL_CATEGORY_IDS: ExpenseCategoryId[] = [...FIXED_CATEGORY_IDS, ...VARIABLE_CATEGORY_IDS];
 
+/**
+ * Description d'une catégorie.
+ *
+ * Ne lève jamais : une catégorie inconnue — supprimée d'un profil, ou lue depuis un
+ * fichier plus récent — renvoie une entrée neutre. Faire planter l'affichage d'un budget
+ * parce qu'un libellé manque serait une réaction disproportionnée.
+ */
 export function categoryInfo(id: ExpenseCategoryId): CategoryInfo {
-  const info = CATEGORIES[id];
-  if (!info) throw new Error(`Catégorie inconnue : ${id}`);
-  return info;
+  const info = registry[id];
+  if (info) return info;
+  return {
+    id,
+    kind: String(id).startsWith('fixed.') ? 'fixed' : 'variable',
+    label: 'Catégorie supprimée',
+    essential: false,
+    compressibility: 0.5,
+    debtRelated: false,
+    color: '#8b949e',
+    icon: '•',
+    custom: true,
+    hidden: false,
+  };
+}
+
+/** Toutes les catégories utilisables, catalogue livré et créations comprises. */
+export function allCategories(): CategoryInfo[] {
+  return Object.values(registry).filter((entry) => !entry.hidden);
+}
+
+export function visibleCategoryIds(kind?: 'fixed' | 'variable'): ExpenseCategoryId[] {
+  return allCategories()
+    .filter((entry) => (kind ? entry.kind === kind : true))
+    .map((entry) => entry.id);
+}
+
+export function categoryColor(id: ExpenseCategoryId): string {
+  return categoryInfo(id).color;
 }
 
 export function categoryLabel(id: ExpenseCategoryId): string {

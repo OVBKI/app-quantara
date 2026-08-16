@@ -1,7 +1,11 @@
 # Audit de l'application Windows, et plan d'amélioration
 
-Audit de l'existant (`desktop/`), à jour du commit `2db044c`. Aucune modification de code
-n'accompagne ce document : il sert à décider quoi faire, dans quel ordre.
+Audit de l'existant (`desktop/`), établi sur le commit `2db044c`.
+
+> **État — priorités 1 et 2 livrées.** Les constats ci-dessous décrivent l'application
+> *avant* correction ; ils sont conservés tels quels pour garder trace de ce qui n'allait
+> pas. Ce qui a été fait, et ce qui ne l'a pas été, figure dans le bilan en fin de
+> document.
 
 Méthode : lecture du code, pas des intentions. Chaque constat ci-dessous renvoie à un
 fichier et à une ligne, et a été vérifié dans la source.
@@ -236,3 +240,84 @@ conseiller. L'écran actuel fait exactement l'inverse — il conseille les préa
 n'enregistre rien. Le remplacer entièrement ferait perdre les garde-fous réglementaires
 déjà écrits et testés. La proposition est d'ajouter le suivi comme contenu principal et de
 conserver la partie éducative en second, repliée.
+
+
+---
+
+## Bilan après implémentation
+
+Périmètre retenu : **priorités 1 et 2**, avec trois arbitrages tranchés — responsive
+limité aux fenêtres étroites, suivi de portefeuille placé devant l'éducatif, et les deux
+priorités livrées d'une traite.
+
+### Les trois erreurs de conception, corrigées
+
+| Erreur | Correction | Vérifié par |
+|---|---|---|
+| Double comptage de l'épargne | `savingsBalance` et `investmentsBalance` supprimés du modèle ; les comptes sont l'unique source de vérité, et les anciens champs sont migrés en comptes à la lecture du fichier | `persistence.test.ts`, `accounts.test.ts` |
+| Épargner n'augmentait pas l'épargne | Un versement sur objectif est devenu un mouvement réel : il débite un compte courant et crédite un compte d'épargne | `store.tsx` |
+| Les comptes ne servaient à rien | Le solde n'est plus stocké mais **déduit** d'un relevé daté plus les mouvements postérieurs ; il se corrige donc tout seul quand une transaction est modifiée ou supprimée | `accounts.test.ts` |
+
+Le double comptage des placements a été évité au passage par une règle unique : une ligne
+de portefeuille rattachée à un compte remplace le solde de ce compte, elle ne s'y ajoute
+pas.
+
+### Priorité 1
+
+- **Catégories personnalisées** — création, renommage, couleur, icône, plafond, marge de
+  réduction. Une catégorie livrée se masque plutôt que de se détruire ; une suppression
+  demande toujours dans quelle catégorie reclasser les transactions concernées.
+- **Couleurs stables** — attribuées par catégorie et non par rang. « Courses » garde sa
+  couleur d'un mois à l'autre.
+- **Accueil en trois niveaux** — le solde disponible d'abord, puis revenus / dépenses /
+  épargne / placé avec leurs parts du revenu, puis les constats.
+- **Responsive** — barre latérale repliée en barre d'onglets sous 900 px, cibles tactiles
+  de 44 px, grilles empilées, tableaux qui défilent dans leur cadre.
+- **Filtres des transactions** — période, catégorie, nature, compte, montant plancher, en
+  plus de la recherche. Par défaut la liste suit le mois affiché dans la barre latérale.
+- **Validation expliquée** — montant non numérique, montant nul, date invalide, virement
+  vers le même compte, nom de catégorie déjà pris : chaque refus dit pourquoi.
+
+### Priorité 2
+
+- **Répartition réglable** — parts en pourcentage du revenu, avec contrôle de la somme.
+  En deçà de 100 %, l'écart est annoncé (« il vous reste 8 % à attribuer ») ; au-delà, le
+  dépassement l'est aussi. Tant que le compte n'y est pas, la cascade par priorité reste
+  appliquée plutôt que de produire un plan faux en silence.
+- **Portefeuille** — lignes avec somme versée, valeur actuelle datée, plus-value,
+  répartition par famille d'actifs. Aucun cours n'est consulté : les valeurs sont les
+  vôtres, et une valorisation de plus de 90 jours est signalée comme telle.
+- **Abonnements** — coût mensuel *et* annuel, part du revenu, repérage des doublons.
+- **Calendrier** — le mois en grille, avec les échéances à leur date et un marqueur les
+  jours où le solde passerait sous zéro.
+- **Comparaisons** — mois précédent, moyennes 3, 6 et 12 mois. Les mois sans dépense
+  saisie sont écartés du calcul : un mois vide n'est pas un mois sobre.
+- **Santé financière** — six critères, chacun vert / orange / rouge, l'état d'ensemble
+  étant le plus mauvais des six. Pas de note sur 100 : un score unique paraît précis et ne
+  dit jamais quoi faire.
+- **Dupliquer et annuler** — duplication d'une transaction à la date du jour, annulation
+  des vingt dernières modifications (`Ctrl+Z`).
+
+### Ce qui n'a pas été fait
+
+- **Priorité 3** dans son ensemble : navigation par URL et retour arrière, découpage du
+  bundle, prévision de fin de mois consolidée sur un écran dédié, raccourcis clavier
+  au-delà de `Ctrl+Z`.
+- **Usage réel sur téléphone** : écarté d'un commun accord. L'interface se comporte
+  correctement dans une fenêtre étroite, mais l'application reste un exécutable Windows —
+  elle ne s'installe pas sur un téléphone.
+- **Le freemium** (§25 du cahier des charges initial) reste écarté, pour les raisons
+  données dans `docs/04`.
+
+### Réserve, à dire clairement
+
+Tout ceci est vérifié par 189 tests, un typecheck strict et une compilation réussie. Rien
+n'a été **exécuté dans la fenêtre Tauri** : l'ergonomie réelle des nouveaux écrans, le
+comportement du calendrier sur un vrai profil et la lisibilité de la barre d'onglets sur
+un petit écran ne seront jugeables qu'à l'usage.
+
+Un point mérite une attention particulière au premier lancement : la migration des soldes.
+Les comptes existants reçoivent la date du jour comme date de relevé, ce qui est le choix
+prudent — les transactions déjà enregistrées sont réputées comprises dans le solde. Si
+votre solde saisi ne tenait en réalité pas compte de certaines dépenses déjà notées,
+corrigez la date du relevé dans les Réglages : tout le reste en découle.

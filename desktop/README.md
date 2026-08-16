@@ -4,8 +4,9 @@ Application de bureau de gestion de budget. Interface web, enveloppe native Taur
 données stockées localement.
 
 > **État** — Fonctionnellement complet pour la v1. Le moteur et l'interface compilent,
-> et les 156 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
-> est produit par l'intégration continue.
+> et les 189 tests unitaires passent (vérifiés à chaque `push`). L'installateur Windows
+> est produit par l'intégration continue. L'audit et le plan d'amélioration sont dans
+> `docs/05-audit-et-plan.md`.
 
 ---
 
@@ -42,6 +43,7 @@ src/core/            Moteur financier — aucune dépendance à React
                      Objectifs · Fonds d'urgence · Dettes · Répartition
                      Analyse proactive · Optimisation · Simulation · Rapport mensuel
                      « Puis-je me le permettre » · Catégorisation · Import CSV
+                     Portefeuille · Abonnements · Comparaisons · Santé financière
                      Investissement (éducatif) · Alertes
   advisor/           Assistant déterministe : réponses assemblées à partir des moteurs
   *.test.ts          Tests, dont les exemples chiffrés du cahier des charges
@@ -90,6 +92,22 @@ Un poste sans enveloppe n'a aucune décision à tenir : il est extrapolé au ryt
 **La répartition suit le risque, pas le rendement.** Sécuriser un mois de dépenses,
 éteindre les dettes coûteuses, compléter le fonds d'urgence, financer les objectifs, et
 seulement ensuite investir. Chaque ligne affiche la raison du montant proposé.
+
+**Les comptes sont la seule source de vérité.** Un compte porte un solde **relevé à une
+date**, pas un solde courant : le solde d'aujourd'hui se déduit du relevé et des mouvements
+postérieurs. Corriger ou supprimer une transaction remet donc le solde d'aplomb tout seul,
+là où un solde stocké aurait dérivé. Un virement déplace l'argent d'un compte à l'autre
+sans compter comme une dépense, et un versement sur objectif en est un : épargner fait
+vraiment monter l'épargne.
+
+**Une couleur par catégorie, pas par rang.** « Courses » garde la même teinte qu'elle soit
+première ou quatrième du mois. L'œil apprend une couleur ; la lui changer d'un mois sur
+l'autre lui apprend faux.
+
+**Le portefeuille enregistre, il ne conseille pas.** Somme versée, valeur actuelle à la
+date que vous indiquez, plus-value. Aucun cours n'est consulté, aucun rendement n'est
+projeté : tout chiffre affiché vient de vous. Une valorisation de plus de 90 jours est
+signalée comme périmée plutôt que présentée comme actuelle.
 
 **Rien ne sort de la machine.** Aucun appel réseau, aucun compte, aucune télémétrie. Le
 profil est un fichier JSON lisible, exportable à tout moment depuis les réglages.

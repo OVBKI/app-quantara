@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../money';
+import { totalSavingsBalance } from '../model';
 import { emptyProfile } from '../model';
 import {
-  MARCH_2026,
   debt as makeDebt,
   fixedExpense,
   goal as makeGoal,
   income,
+  MARCH_2026,
   referenceDate,
+  savingsAccount,
   standardProfile,
 } from '../testing/fixtures';
 import { monthlySummary, savingsCapacity } from './budget';
@@ -133,7 +135,7 @@ describe('Répartition du disponible', () => {
   function planFor(profile = standardProfile()) {
     const summary = monthlySummary(profile, MARCH_2026, referenceDate(31));
     const capacity = savingsCapacity(summary, profile.preferences.minimumFreeShare);
-    const savings = profile.savingsBalance;
+    const savings = totalSavingsBalance(profile);
     return allocate({
       summary,
       capacity,
@@ -154,19 +156,19 @@ describe('Répartition du disponible', () => {
   });
 
   it('constitue le matelas de sécurité en premier quand l’épargne est vide', () => {
-    const plan = planFor(standardProfile({ savingsBalance: Money.zero() }));
+    const plan = planFor(standardProfile({ accounts: [] }));
     expect(plan.lines[0]?.bucket).toBe('safetyBuffer');
   });
 
   it('retient l’investissement tant que le fonds d’urgence est incomplet', () => {
-    const plan = planFor(standardProfile({ savingsBalance: Money.of(500) }));
+    const plan = planFor(standardProfile({ accounts: [savingsAccount(500)] }));
     expect(allocatedTo(plan, 'investment').isZero).toBe(true);
     expect(plan.skippedSteps.some((step) => step.includes('fonds d’urgence'))).toBe(true);
   });
 
   it('retient l’investissement tant qu’une dette coûteuse subsiste', () => {
     const profile = standardProfile({
-      savingsBalance: Money.of(30000), // fonds d'urgence largement couvert
+      accounts: [savingsAccount(30000)], // fonds d'urgence largement couvert
       debts: [makeDebt('Réserve d’argent', 3000, 0.18, 100, 'creditCard')],
     });
     const plan = planFor(profile);
@@ -175,7 +177,7 @@ describe('Répartition du disponible', () => {
   });
 
   it('investit une fois la sécurité assurée', () => {
-    const plan = planFor(standardProfile({ savingsBalance: Money.of(30000) }));
+    const plan = planFor(standardProfile({ accounts: [savingsAccount(30000)] }));
     expect(allocatedTo(plan, 'investment').isPositive).toBe(true);
     expect(plan.skippedSteps).toHaveLength(0);
   });

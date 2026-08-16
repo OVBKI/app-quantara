@@ -16,7 +16,18 @@ export interface Account {
   readonly id: string;
   readonly name: string;
   readonly kind: AccountKind;
-  readonly balance: Money;
+  /**
+   * Solde constaté à la date `balanceDate`, et rien d'autre.
+   *
+   * Le solde courant n'est pas stocké : il se déduit de ce point de départ et des
+   * mouvements postérieurs (`accountBalance`). Un solde stocké et mis à jour à la main
+   * dérive dès qu'une transaction est corrigée ou supprimée ; un solde déduit se répare
+   * tout seul.
+   */
+  readonly openingBalance: Money;
+  /** Date du relevé ci-dessus. Les mouvements antérieurs y sont déjà inclus. */
+  readonly balanceDate: string;
+  readonly archived?: boolean;
 }
 
 export interface IncomeSource {
@@ -70,7 +81,11 @@ export interface Transaction {
   readonly incomeCategory?: IncomeCategory;
   readonly note?: string;
   readonly goalId?: string;
+  /** Compte d'où part l'argent (ou vers lequel il arrive, pour un revenu). */
   readonly accountId?: string;
+  /** Compte destinataire d'un virement ou d'un versement d'épargne. Un virement n'est
+   *  pas une dépense : il déplace de l'argent, il n'en fait pas disparaître. */
+  readonly toAccountId?: string;
   /** Renseigné quand la transaction matérialise une charge déjà déclarée comme
    *  récurrente : elle est alors exclue du variable, sinon elle compterait deux fois. */
   readonly recurringExpenseId?: string;
@@ -125,6 +140,71 @@ export interface CategoryBudget {
   readonly limit: Money;
 }
 
+export type AssetClassId = 'etf' | 'stocks' | 'bonds' | 'funds' | 'realEstate' | 'cashEquivalent' | 'otherAsset';
+
+/**
+ * Une ligne de portefeuille.
+ *
+ * L'application enregistre ce que vous décidez de placer et ce que cela vaut aujourd'hui.
+ * Elle ne recommande aucun produit et ne va chercher aucun cours : la valeur actuelle est
+ * saisie par vous, à la date que vous voulez.
+ */
+export interface Holding {
+  readonly id: string;
+  readonly name: string;
+  readonly assetClass: AssetClassId;
+  /** Somme réellement versée, hors plus-value. Sert à mesurer l'évolution. */
+  readonly invested: Money;
+  /** Valeur au dernier relevé. */
+  readonly currentValue: Money;
+  readonly valuedOn: string;
+  readonly accountId?: string;
+  readonly note?: string;
+}
+
+/**
+ * Catégorie définie par l'utilisateur, ou redéfinition d'une catégorie livrée.
+ *
+ * Le catalogue par défaut couvre le cas courant ; il ne couvre pas tout le monde. Une
+ * entrée dont l'`id` reprend celui d'une catégorie livrée la remplace — c'est ainsi qu'on
+ * renomme « Courses » en « Alimentation » sans casser les transactions déjà classées.
+ */
+export interface CustomCategory {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: 'fixed' | 'variable';
+  readonly essential: boolean;
+  /** 0 = incompressible, 1 = entièrement discrétionnaire. */
+  readonly compressibility: number;
+  readonly color: string;
+  readonly icon: string;
+  /** Une catégorie livrée qu'on ne veut pas voir : masquée plutôt que supprimée, pour ne
+   *  pas orpheliner les transactions historiques. */
+  readonly hidden?: boolean;
+}
+
+/** Répartition cible du revenu, en parts. Modifiable, contrôlée à 100 %. */
+export interface AllocationTargets {
+  /** Actif : le plan suit ces parts. Inactif : la cascade par défaut s'applique. */
+  readonly enabled: boolean;
+  readonly needs: number;
+  readonly savings: number;
+  readonly investment: number;
+  readonly free: number;
+}
+
+export const DEFAULT_ALLOCATION_TARGETS: AllocationTargets = {
+  enabled: false,
+  needs: 0.5,
+  savings: 0.2,
+  investment: 0.2,
+  free: 0.1,
+};
+
+export function allocationTotal(targets: AllocationTargets): number {
+  return targets.needs + targets.savings + targets.investment + targets.free;
+}
+
 export type RiskProfile = 'cautious' | 'balanced' | 'dynamic';
 
 export interface BudgetPreferences {
@@ -147,6 +227,8 @@ export interface BudgetPreferences {
    *  aurait supprimé tous les revenus repartirait dans la mise en route — et une mise en
    *  route entièrement sautée bouclerait indéfiniment. */
   readonly onboardingCompleted: boolean;
+  /** Répartition cible du revenu, si l'utilisateur en a défini une. */
+  readonly allocationTargets: AllocationTargets;
 }
 
 export const DEFAULT_PREFERENCES: BudgetPreferences = {
@@ -158,6 +240,7 @@ export const DEFAULT_PREFERENCES: BudgetPreferences = {
   alerts: DEFAULT_ALERT_PREFERENCES,
   textScale: 1,
   onboardingCompleted: false,
+  allocationTargets: DEFAULT_ALLOCATION_TARGETS,
 };
 
 export interface FinancialProfile {
@@ -172,9 +255,10 @@ export interface FinancialProfile {
   /** Règles apprises quand l'utilisateur corrige une catégorie : il ne doit pas avoir
    *  à recorriger le même marchand le mois suivant. */
   readonly categorizationRules: readonly CategorizationRule[];
+  /** Catégories créées ou redéfinies par l'utilisateur. */
+  readonly categories: readonly CustomCategory[];
+  readonly holdings: readonly Holding[];
   readonly preferences: BudgetPreferences;
-  readonly savingsBalance: Money;
-  readonly investmentsBalance: Money;
 }
 
 export function emptyProfile(currency: Currency = 'EUR'): FinancialProfile {
@@ -188,9 +272,9 @@ export function emptyProfile(currency: Currency = 'EUR'): FinancialProfile {
     goals: [],
     categoryBudgets: [],
     categorizationRules: [],
+    categories: [],
+    holdings: [],
     preferences: DEFAULT_PREFERENCES,
-    savingsBalance: Money.zero(currency),
-    investmentsBalance: Money.zero(currency),
   };
 }
 
@@ -232,9 +316,102 @@ export function isEssential(expense: RecurringExpense): boolean {
   return expense.essentialOverride ?? categoryInfo(expense.category).essential;
 }
 
-export function totalSavingsBalance(profile: FinancialProfile): Money {
+/**
+ * Effet d'une transaction sur le solde d'un compte.
+ *
+ * Une seule table, à un seul endroit. C'est ce qui permet de déduire un solde au lieu de
+ * le stocker, et donc de le voir se corriger tout seul quand une transaction est modifiée
+ * ou supprimée.
+ */
+function movementOn(accountId: string, transaction: Transaction): Money | null {
+  const currency = transaction.amount.currency;
+  const leaves = transaction.accountId === accountId;
+  const arrives = transaction.toAccountId === accountId;
+
+  switch (transaction.kind) {
+    case 'income':
+      return leaves ? transaction.amount : null;
+    case 'expense':
+    case 'debtPayment':
+      return leaves ? Money.zero(currency).minus(transaction.amount) : null;
+    case 'savings':
+    case 'transfer':
+      // Sort d'un compte, entre dans l'autre. Le total du patrimoine ne bouge pas.
+      if (leaves) return Money.zero(currency).minus(transaction.amount);
+      if (arrives) return transaction.amount;
+      return null;
+  }
+}
+
+/**
+ * Solde d'un compte : son relevé, plus les mouvements postérieurs.
+ *
+ * Les transactions antérieures à `balanceDate` sont ignorées : elles sont déjà comprises
+ * dans le relevé. Sans cette règle, importer un an d'historique ferait exploser le solde.
+ */
+export function accountBalance(
+  profile: FinancialProfile,
+  account: Account,
+  reference: Date = new Date(),
+): Money {
+  const since = parseDate(account.balanceDate);
+  let balance = account.openingBalance;
+
+  for (const transaction of profile.transactions) {
+    const date = parseDate(transaction.date);
+    if (date <= since || date > reference) continue;
+    const movement = movementOn(account.id, transaction);
+    if (movement) balance = balance.plus(movement);
+  }
+  return balance;
+}
+
+function balanceOfKinds(
+  profile: FinancialProfile,
+  kinds: readonly AccountKind[],
+  reference: Date,
+): Money {
+  return Money.sum(
+    profile.accounts
+      .filter((account) => !account.archived && kinds.includes(account.kind))
+      .map((account) => accountBalance(profile, account, reference)),
+    profile.currency,
+  );
+}
+
+/** Argent immédiatement disponible : comptes courants et espèces. */
+export function availableBalance(profile: FinancialProfile, reference: Date = new Date()): Money {
+  return balanceOfKinds(profile, ['checking', 'cash'], reference);
+}
+
+export function totalSavingsBalance(profile: FinancialProfile, reference: Date = new Date()): Money {
+  return balanceOfKinds(profile, ['savings'], reference);
+}
+
+/**
+ * Valeur des placements.
+ *
+ * Une ligne de portefeuille rattachée à un compte remplace le solde de ce compte : sans
+ * cette règle, détailler ses placements les compterait deux fois — l'erreur exacte que
+ * l'ancien `savingsBalance` produisait à côté des comptes d'épargne.
+ */
+export function totalInvestmentsBalance(profile: FinancialProfile, reference: Date = new Date()): Money {
+  const detailed = new Set(profile.holdings.map((holding) => holding.accountId).filter(Boolean));
   const fromAccounts = profile.accounts
-    .filter((account) => account.kind === 'savings')
-    .map((account) => account.balance);
-  return Money.sum([profile.savingsBalance, ...fromAccounts], profile.currency);
+    .filter((account) => !account.archived && account.kind === 'investment' && !detailed.has(account.id))
+    .map((account) => accountBalance(profile, account, reference));
+  const fromHoldings = profile.holdings.map((holding) => holding.currentValue);
+  return Money.sum([...fromAccounts, ...fromHoldings], profile.currency);
+}
+
+/** Total net : disponible + épargne + placements. */
+export function netWorth(profile: FinancialProfile, reference: Date = new Date()): Money {
+  return Money.sum(
+    [
+      availableBalance(profile, reference),
+      totalSavingsBalance(profile, reference),
+      totalInvestmentsBalance(profile, reference),
+    ],
+    profile.currency,
+  );
 }

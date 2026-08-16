@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Money } from '../money';
 import { emptyProfile } from '../model';
 import {
-  MARCH_2026,
+  account,
   debt as makeDebt,
   expense,
   fixedExpense,
   income,
+  MARCH_2026,
   referenceDate,
   standardProfile,
 } from '../testing/fixtures';
@@ -122,7 +123,7 @@ describe('Simulation', () => {
 
 describe('« Puis-je me le permettre ? »', () => {
   const profile = standardProfile({
-    accounts: [{ id: 'c', name: 'Compte', kind: 'checking', balance: Money.of(8000) }],
+    accounts: [account('Compte', 8000)],
   });
   const analysis = analyse(profile, MARCH_2026, TODAY);
 

@@ -5,6 +5,8 @@ import { formatDate, yearMonth, dateOf, type YearMonth } from '../yearMonth';
 import {
   DEFAULT_PREFERENCES,
   emptyProfile,
+  type Account,
+  type AccountKind,
   type Debt,
   type FinancialProfile,
   type Goal,
@@ -24,6 +26,21 @@ let counter = 0;
 function nextId(prefix: string): string {
   counter += 1;
   return `${prefix}-${counter}`;
+}
+
+/** Un compte dont le relevé date d'avant la période testée : les mouvements du mois
+ *  s'y ajoutent, ce qui est précisément ce qu'on veut vérifier. */
+export function account(
+  name: string,
+  balance: number,
+  kind: AccountKind = 'checking',
+  balanceDate = '2026-02-28',
+): Account {
+  return { id: nextId('account'), name, kind, openingBalance: Money.of(balance), balanceDate };
+}
+
+export function savingsAccount(balance: number): Account {
+  return account('Livret', balance, 'savings');
 }
 
 export function income(
@@ -145,7 +162,7 @@ export function standardProfile(overrides: Partial<FinancialProfile> = {}): Fina
       fixedExpense('Streaming', 30, 'fixed.subscriptions', { subscription: true }),
     ],
     transactions: [expense(400, 'variable.groceries', 5), expense(120, 'variable.restaurants', 12)],
-    savingsBalance: Money.of(5000),
+    accounts: [savingsAccount(5000)],
     preferences: DEFAULT_PREFERENCES,
     ...overrides,
   };

@@ -1,5 +1,5 @@
 import { Money, isMoneyJSON, type Currency } from '../core/money';
-import { emptyProfile, DEFAULT_PREFERENCES, type FinancialProfile } from '../core/model';
+import { emptyProfile, DEFAULT_PREFERENCES, type Account, type FinancialProfile } from '../core/model';
 import { decrypt, encrypt, isEncryptedEnvelope } from '../security/vault';
 
 const FILE_NAME = 'quantara-profile.json';
@@ -41,16 +41,78 @@ export function deserializeProfile(text: string): FinancialProfile {
   return normalise(parsed.profile as Partial<FinancialProfile>);
 }
 
+/**
+ * Forme d'un profil enregistré par une version antérieure.
+ *
+ * Ces champs n'existent plus dans le modèle : ils sont convertis en comptes à la lecture,
+ * une fois, puis disparaissent du fichier au prochain enregistrement.
+ */
+interface LegacyFields {
+  readonly savingsBalance?: Money;
+  readonly investmentsBalance?: Money;
+}
+
+/** `balance` était l'ancien nom, et il ne portait pas de date. */
+type LegacyAccount = Omit<Account, 'openingBalance' | 'balanceDate'> & {
+  readonly openingBalance?: Money;
+  readonly balanceDate?: string;
+  readonly balance?: Money;
+};
+
+/**
+ * Migration des soldes vers les comptes.
+ *
+ * Avant, l'épargne vivait à deux endroits : un champ `savingsBalance` et les comptes de
+ * type épargne, dont la somme était comptée deux fois. Les deux deviennent des comptes,
+ * seule source de vérité. Le relevé est daté d'aujourd'hui : les transactions déjà
+ * enregistrées sont donc réputées comprises dans le solde, ce qui évite de les
+ * décompter une seconde fois.
+ */
+function migrateAccounts(raw: Partial<FinancialProfile> & LegacyFields, currency: Currency): Account[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const existing = (raw.accounts ?? []) as readonly LegacyAccount[];
+  const accounts: Account[] = existing.map((account) => ({
+    id: account.id,
+    name: account.name,
+    kind: account.kind,
+    // `balance` est l'ancien nom du champ ; `openingBalance` le nouveau.
+    openingBalance: account.openingBalance ?? account.balance ?? Money.zero(currency),
+    balanceDate: account.balanceDate ?? today,
+    ...(account.archived ? { archived: true } : {}),
+  }));
+
+  if (raw.savingsBalance?.isPositive) {
+    accounts.push({
+      id: 'migrated-savings',
+      name: 'Épargne',
+      kind: 'savings',
+      openingBalance: raw.savingsBalance,
+      balanceDate: today,
+    });
+  }
+  if (raw.investmentsBalance?.isPositive) {
+    accounts.push({
+      id: 'migrated-investments',
+      name: 'Placements',
+      kind: 'investment',
+      openingBalance: raw.investmentsBalance,
+      balanceDate: today,
+    });
+  }
+  return accounts;
+}
+
 /** Un fichier peut venir d'une version antérieure : on complète les champs manquants
  *  plutôt que de laisser l'interface planter sur un `undefined`. */
-function normalise(raw: Partial<FinancialProfile>): FinancialProfile {
+function normalise(input: Partial<FinancialProfile>): FinancialProfile {
+  const raw = input as Partial<FinancialProfile> & LegacyFields;
   const currency: Currency = raw.currency ?? 'EUR';
   const base = emptyProfile(currency);
   return {
     ...base,
     ...raw,
     currency,
-    accounts: raw.accounts ?? base.accounts,
+    accounts: migrateAccounts(raw, currency),
     incomes: raw.incomes ?? base.incomes,
     recurringExpenses: raw.recurringExpenses ?? base.recurringExpenses,
     transactions: raw.transactions ?? base.transactions,
@@ -58,20 +120,22 @@ function normalise(raw: Partial<FinancialProfile>): FinancialProfile {
     goals: raw.goals ?? base.goals,
     categoryBudgets: raw.categoryBudgets ?? base.categoryBudgets,
     categorizationRules: raw.categorizationRules ?? base.categorizationRules,
+    categories: raw.categories ?? base.categories,
+    holdings: raw.holdings ?? base.holdings,
     preferences: {
       ...DEFAULT_PREFERENCES,
       ...(raw.preferences ?? {}),
       alerts: { ...DEFAULT_PREFERENCES.alerts, ...(raw.preferences?.alerts ?? {}) },
+      allocationTargets: {
+        ...DEFAULT_PREFERENCES.allocationTargets,
+        ...(raw.preferences?.allocationTargets ?? {}),
+      },
       // Le drapeau est postérieur aux premiers fichiers : un profil qui porte déjà des
       // données a forcément été mis en route, et ne doit pas y être renvoyé.
       onboardingCompleted:
         raw.preferences?.onboardingCompleted ??
         ((raw.incomes?.length ?? 0) > 0 || (raw.recurringExpenses?.length ?? 0) > 0),
     },
-    // `incomePlanning` est apparu après la première version : un profil enregistré avant
-    // ne le porte pas, et `DEFAULT_PREFERENCES` le comble.
-    savingsBalance: raw.savingsBalance ?? Money.zero(currency),
-    investmentsBalance: raw.investmentsBalance ?? Money.zero(currency),
   };
 }
 

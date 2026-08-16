@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { Money } from '../money';
 import { emptyProfile } from '../model';
 import {
-  MARCH_2026,
+  account,
   debt as makeDebt,
   expense,
   fixedExpense,
   income,
+  MARCH_2026,
   referenceDate,
+  savingsAccount,
   savingsTransaction,
   standardProfile,
 } from '../testing/fixtures';
@@ -25,7 +27,7 @@ describe('Trésorerie', () => {
     // au milieu du mois, alors même que le solde de fin de mois est positif.
     const profile = {
       ...emptyProfile(),
-      accounts: [{ id: 'compte', name: 'Compte courant', kind: 'checking' as const, balance: Money.of(800) }],
+      accounts: [account('Compte courant', 800, 'checking')],
       incomes: [income('Salaire', 2000)],
       recurringExpenses: [fixedExpense('Loyer', 1200, 'fixed.rent', { dayOfMonth: 5 })],
     };
@@ -43,7 +45,7 @@ describe('Trésorerie', () => {
     // non le montant, qui décide du découvert.
     const profile = {
       ...emptyProfile(),
-      accounts: [{ id: 'compte', name: 'Compte courant', kind: 'checking' as const, balance: Money.of(800) }],
+      accounts: [account('Compte courant', 800, 'checking')],
       incomes: [{ ...income('Salaire', 2000), dayOfMonth: 2 }],
       recurringExpenses: [fixedExpense('Loyer', 1200, 'fixed.rent', { dayOfMonth: 5 })],
     };
@@ -103,7 +105,7 @@ describe('Analyse proactive', () => {
   });
 
   it('félicite un fonds d’urgence complet', () => {
-    const profile = standardProfile({ savingsBalance: Money.of(30000) });
+    const profile = standardProfile({ accounts: [savingsAccount(30000)] });
     expect(insightKinds(profile)).toContain('emergencyFundComplete');
   });
 

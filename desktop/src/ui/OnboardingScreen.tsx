@@ -9,7 +9,7 @@ import {
 import { FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from '../core/frequency';
 import { emptyProfile, type Debt, type DebtKind, type FinancialProfile, type RiskProfile } from '../core/model';
 import { analyse } from '../core/engine/analysis';
-import { yearMonthOf } from '../core/yearMonth';
+import { formatDate, yearMonthOf } from '../core/yearMonth';
 import { useStore } from '../state/store';
 import { Field, MoneyInput, parseAmount } from './components';
 
@@ -154,6 +154,7 @@ export function OnboardingScreen() {
     const base = emptyProfile(currency);
     const savingsBalance = parseAmount(savings, currency) ?? Money.zero(currency);
     const createdAt = new Date().toISOString();
+    const today = formatDate(new Date());
 
     return {
       ...base,
@@ -200,8 +201,18 @@ export function OnboardingScreen() {
         const limit = parseAmount(envelopes[category] ?? '', currency);
         return limit && limit.isPositive ? [{ category, limit }] : [];
       }),
+      accounts: savingsBalance.isPositive
+        ? [
+            {
+              id: id(),
+              name: 'Épargne',
+              kind: 'savings' as const,
+              openingBalance: savingsBalance,
+              balanceDate: today,
+            },
+          ]
+        : [],
       preferences: { ...base.preferences, riskProfile: risk, onboardingCompleted: true },
-      savingsBalance,
     };
     // `draft` ne sert qu'à l'aperçu du plan et à l'enregistrement final ; le recalculer à
     // chaque frappe reste sans effet perceptible sur un profil de cette taille.

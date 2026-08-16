@@ -12,6 +12,8 @@ import { Money, type Currency } from '../core/money';
 import {
   emptyProfile,
   type BudgetPreferences,
+  type CustomCategory,
+  type Holding,
   type Debt,
   type FinancialProfile,
   type Goal,
@@ -21,6 +23,8 @@ import {
   type CategoryBudget,
   type Account,
 } from '../core/model';
+import type { ExpenseCategoryId } from '../core/categories';
+import { applyCategories } from '../core/categories';
 import { analyse, type FinancialAnalysis } from '../core/engine/analysis';
 import type { CategorizationRule } from '../core/engine/categorizer';
 import { yearMonthOf, type YearMonth } from '../core/yearMonth';
@@ -72,9 +76,18 @@ interface StoreValue {
   setCategoryBudget(budget: CategoryBudget): void;
   removeCategoryBudget(category: CategoryBudget['category']): void;
 
+  addHolding(holding: Omit<Holding, 'id'>): void;
+  updateHolding(holding: Holding): void;
+  removeHolding(id: string): void;
+
+  saveCategory(category: CustomCategory): void;
+  removeCategory(id: string, reassignTo: ExpenseCategoryId): void;
+
   updatePreferences(preferences: Partial<BudgetPreferences>): void;
   setCurrency(currency: Currency): void;
-  setBalances(savings: Money, investments: Money): void;
+  /** Revient à l'état précédant la dernière modification. */
+  undo(): void;
+  readonly canUndo: boolean;
   replaceProfile(profile: FinancialProfile): void;
   reset(): Promise<void>;
 }
@@ -95,6 +108,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Le mot de passe ne vit qu'en mémoire, et jamais dans l'état React : il n'a aucune
   // raison de déclencher un rendu, ni de se retrouver dans un instantané de débogage.
   const password = useRef<string | null>(null);
+  // Historique d'annulation. Borné : garder tout un profil par frappe finirait par peser,
+  // et personne ne revient vingt modifications en arrière.
+  const history = useRef<FinancialProfile[]>([]);
+  const [historyDepth, setHistoryDepth] = useState(0);
 
   // Chargement initial. Tant qu'il n'a pas abouti, rien n'est enregistré : sans ce
   // garde-fou, le profil vide de départ écraserait le fichier existant.
@@ -129,10 +146,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, [profile, ready, locked]);
 
-  const analysis = useMemo(() => analyse(profile, period), [profile, period]);
+  const analysis = useMemo(() => {
+    // Le catalogue de catégories est de la donnée de référence : il doit être en place
+    // avant que les moteurs ne l'interrogent, sans quoi une catégorie créée par
+    // l'utilisateur serait inconnue le temps d'un rendu.
+    applyCategories(profile.categories);
+    return analyse(profile, period);
+  }, [profile, period]);
+
+  const HISTORY_LIMIT = 20;
 
   const update = useCallback((change: (current: FinancialProfile) => FinancialProfile) => {
-    setProfile((current) => change(current));
+    setProfile((current) => {
+      const next = change(current);
+      if (next === current) return current;
+      history.current = [...history.current.slice(-(HISTORY_LIMIT - 1)), current];
+      setHistoryDepth(history.current.length);
+      return next;
+    });
   }, []);
 
   const value = useMemo<StoreValue>(() => {
@@ -225,32 +256,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((p) => ({ ...p, goals: p.goals.map((entry) => (entry.id === goal.id ? goal : entry)) })),
       removeGoal: (target) => update((p) => ({ ...p, goals: p.goals.filter((entry) => entry.id !== target) })),
 
-      // Un versement alimente l'objectif et laisse une trace dans les transactions :
-      // sans elle, le taux d'épargne du mois ignorerait l'effort réalisé.
+      /**
+       * Un versement sur objectif est un mouvement d'argent réel, pas un compteur.
+       *
+       * Il quitte un compte courant et rejoint un compte d'épargne : le solde disponible
+       * baisse, l'épargne monte, et le fonds d'urgence en tient compte. Avant, seul le
+       * compteur de l'objectif bougeait — il fallait corriger l'épargne à la main, et
+       * personne ne le faisait.
+       */
       contributeToGoal: (target, amount) =>
-        update((p) => ({
-          ...p,
-          goals: p.goals.map((entry) =>
-            entry.id === target
-              ? {
-                  ...entry,
-                  current: entry.current.plus(amount),
-                  achieved: entry.current.plus(amount).greaterThanOrEqual(entry.target),
-                }
-              : entry,
-          ),
-          transactions: [
-            ...p.transactions,
-            {
-              id: id(),
-              amount,
-              date: new Date().toISOString().slice(0, 10),
-              kind: 'savings' as const,
-              label: p.goals.find((entry) => entry.id === target)?.name ?? 'Épargne',
-              goalId: target,
-            },
-          ],
-        })),
+        update((p) => {
+          const from = p.accounts.find((entry) => !entry.archived && entry.kind === 'checking');
+          const to = p.accounts.find((entry) => !entry.archived && entry.kind === 'savings');
+          return {
+            ...p,
+            goals: p.goals.map((entry) =>
+              entry.id === target
+                ? {
+                    ...entry,
+                    current: entry.current.plus(amount),
+                    achieved: entry.current.plus(amount).greaterThanOrEqual(entry.target),
+                  }
+                : entry,
+            ),
+            transactions: [
+              ...p.transactions,
+              {
+                id: id(),
+                amount,
+                date: new Date().toISOString().slice(0, 10),
+                kind: 'savings' as const,
+                label: p.goals.find((entry) => entry.id === target)?.name ?? 'Épargne',
+                goalId: target,
+                ...(from ? { accountId: from.id } : {}),
+                ...(to ? { toAccountId: to.id } : {}),
+              },
+            ],
+          };
+        }),
 
       addDebt: (debt) => update((p) => ({ ...p, debts: [...p.debts, { ...debt, id: id() }] })),
       updateDebt: (debt) =>
@@ -279,8 +322,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       setCurrency: (currency) => update((p) => ({ ...p, currency })),
 
-      setBalances: (savings, investments) =>
-        update((p) => ({ ...p, savingsBalance: savings, investmentsBalance: investments })),
+      addHolding: (holding) => update((p) => ({ ...p, holdings: [...p.holdings, { ...holding, id: id() }] })),
+      updateHolding: (holding) =>
+        update((p) => ({ ...p, holdings: p.holdings.map((entry) => (entry.id === holding.id ? holding : entry)) })),
+      removeHolding: (target) =>
+        update((p) => ({ ...p, holdings: p.holdings.filter((entry) => entry.id !== target) })),
+
+      saveCategory: (category) =>
+        update((p) => ({
+          ...p,
+          categories: p.categories.some((entry) => entry.id === category.id)
+            ? p.categories.map((entry) => (entry.id === category.id ? category : entry))
+            : [...p.categories, category],
+        })),
+
+      // Supprimer une catégorie ne doit jamais orpheliner une transaction : tout ce qui y
+      // était classé bascule vers la catégorie choisie, y compris les charges et les
+      // enveloppes. Sans cela, des montants disparaîtraient des totaux.
+      removeCategory: (target, reassignTo) =>
+        update((p) => ({
+          ...p,
+          categories: p.categories.filter((entry) => entry.id !== target),
+          transactions: p.transactions.map((entry) =>
+            entry.category === target ? { ...entry, category: reassignTo } : entry,
+          ),
+          recurringExpenses: p.recurringExpenses.map((entry) =>
+            entry.category === target ? { ...entry, category: reassignTo } : entry,
+          ),
+          categoryBudgets: p.categoryBudgets
+            .filter((entry) => entry.category !== target)
+            .concat(
+              p.categoryBudgets
+                .filter((entry) => entry.category === target)
+                .map((entry) => ({ ...entry, category: reassignTo })),
+            ),
+          categorizationRules: p.categorizationRules.map((entry) =>
+            entry.category === target ? { ...entry, category: reassignTo } : entry,
+          ),
+        })),
+
+      undo: () => {
+        const previous = history.current.pop();
+        if (previous) {
+          setProfile(previous);
+          setHistoryDepth(history.current.length);
+        }
+      },
+      canUndo: historyDepth > 0,
 
       replaceProfile: (next) => setProfile(next),
 
@@ -292,7 +380,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setProfile(emptyProfile('EUR'));
       },
     };
-  }, [profile, analysis, period, ready, error, locked, encrypted, update]);
+  }, [profile, analysis, period, ready, error, locked, encrypted, update, historyDepth]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

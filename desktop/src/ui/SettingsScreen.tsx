@@ -1,6 +1,16 @@
 import { useRef, useState } from 'react';
 import { CURRENCIES, Money, type Currency } from '../core/money';
-import type { Account, AccountKind, Debt, DebtKind, RiskProfile } from '../core/model';
+import {
+  accountBalance,
+  allocationTotal,
+  type Account,
+  type AccountKind,
+  type AllocationTargets,
+  type Debt,
+  type DebtKind,
+  type RiskProfile,
+} from '../core/model';
+import { formatDate } from '../core/yearMonth';
 import { EMERGENCY_FUND_TIERS } from '../core/engine/emergencyFund';
 import { INCOME_PLANNING_LABELS, type IncomePlanningMode } from '../core/engine/income';
 import { useStore } from '../state/store';
@@ -37,7 +47,6 @@ export function SettingsScreen() {
     analysis,
     setCurrency,
     updatePreferences,
-    setBalances,
     addAccount,
     updateAccount,
     removeAccount,
@@ -52,8 +61,6 @@ export function SettingsScreen() {
   } = useStore();
   const [accountForm, setAccountForm] = useState<Account | true | null>(null);
   const [debtForm, setDebtForm] = useState<Debt | true | null>(null);
-  const [savings, setSavings] = useState(String(profile.savingsBalance.units || ''));
-  const [investments, setInvestments] = useState(String(profile.investmentsBalance.units || ''));
   const [importError, setImportError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [confirmNode, confirm] = useConfirm();
@@ -166,30 +173,7 @@ export function SettingsScreen() {
           </label>
         </Card>
 
-        <Card title="Épargne et placements">
-          <div className="field-row">
-            <Field label="Épargne disponible" hint="Sert de base au calcul du fonds d’urgence.">
-              {(id) => <MoneyInput id={id} value={savings} currency={profile.currency} onChange={setSavings} />}
-            </Field>
-            <Field label="Placements">
-              {(id) => (
-                <MoneyInput id={id} value={investments} currency={profile.currency} onChange={setInvestments} />
-              )}
-            </Field>
-          </div>
-          <button
-            type="button"
-            className="button"
-            onClick={() =>
-              setBalances(
-                parseAmount(savings, profile.currency) ?? Money.zero(profile.currency),
-                parseAmount(investments, profile.currency) ?? Money.zero(profile.currency),
-              )
-            }
-          >
-            Enregistrer les soldes
-          </button>
-        </Card>
+        <AllocationTargetsCard />
 
         <Card
           title="Comptes"
@@ -209,9 +193,12 @@ export function SettingsScreen() {
               <div className="row" key={account.id}>
                 <div className="row-main">
                   <div className="row-title">{account.name}</div>
-                  <div className="row-subtitle">{ACCOUNT_KINDS[account.kind]}</div>
+                  <div className="row-subtitle">
+                    {ACCOUNT_KINDS[account.kind]} · relevé du{' '}
+                    {new Date(account.balanceDate).toLocaleDateString('fr-FR')}
+                  </div>
                 </div>
-                <div className="row-amount amount">{account.balance.format()}</div>
+                <div className="row-amount amount">{accountBalance(profile, account).format()}</div>
                 <button type="button" className="button button-small" onClick={() => setAccountForm(account)}>
                   Modifier
                 </button>
@@ -553,6 +540,93 @@ function SecuritySection({
   );
 }
 
+/**
+ * Répartition cible du revenu.
+ *
+ * Les parts s'appliquent au revenu, comme dans les règles qu'elles imitent (50/30/20 et
+ * consorts). Tant qu'elles ne totalisent pas 100 %, elles ne sont pas appliquées : une
+ * répartition incomplète donnerait un plan faux sans le dire.
+ *
+ * Désactivée, l'application revient à sa cascade par défaut — sécuriser, éteindre les
+ * dettes chères, construire, puis investir — qui tient compte de la situation réelle là
+ * où un pourcentage fixe l'ignore.
+ */
+function AllocationTargetsCard() {
+  const { profile, updatePreferences } = useStore();
+  const targets = profile.preferences.allocationTargets;
+  const total = allocationTotal(targets);
+  const balanced = Math.abs(total - 1) < 0.005;
+  const gap = 1 - total;
+
+  const parts: { key: keyof Omit<AllocationTargets, 'enabled'>; label: string; hint: string }[] = [
+    { key: 'needs', label: 'Besoins', hint: 'Logement, énergie, courses, transport' },
+    { key: 'savings', label: 'Épargne', hint: 'Fonds d’urgence et objectifs' },
+    { key: 'investment', label: 'Investissement', hint: 'Placements long terme' },
+    { key: 'free', label: 'Libre', hint: 'Loisirs et imprévus' },
+  ];
+
+  function setPart(key: keyof Omit<AllocationTargets, 'enabled'>, percent: number) {
+    updatePreferences({
+      allocationTargets: { ...targets, [key]: Math.min(Math.max(percent, 0), 100) / 100 },
+    });
+  }
+
+  return (
+    <Card title="Répartition de votre revenu">
+      <label className="inline" style={{ marginBottom: 12 }}>
+        <input
+          type="checkbox"
+          checked={targets.enabled}
+          onChange={(event) => updatePreferences({ allocationTargets: { ...targets, enabled: event.target.checked } })}
+          style={{ width: 16 }}
+        />
+        <span>Répartir selon mes propres pourcentages</span>
+      </label>
+
+      <p className="section-note">
+        Désactivé, le plan suit un ordre de priorité qui s’adapte à votre situation : sécuriser un mois de
+        dépenses, éteindre les dettes coûteuses, compléter le fonds d’urgence, financer les objectifs, puis
+        investir. Activé, il suit vos parts, quelles que soient les circonstances.
+      </p>
+
+      <div className="field-row">
+        {parts.map((part) => (
+          <Field key={part.key} label={`${part.label} — ${Math.round(targets[part.key] * 100)} %`} hint={part.hint}>
+            {(id) => (
+              <input
+                id={id}
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                disabled={!targets.enabled}
+                value={Math.round(targets[part.key] * 100)}
+                onChange={(event) => setPart(part.key, Number(event.target.value))}
+              />
+            )}
+          </Field>
+        ))}
+      </div>
+
+      {targets.enabled && !balanced && (
+        <p className="error-text">
+          {gap > 0
+            ? `Il vous reste ${Math.round(gap * 100)} % de votre revenu à attribuer. Tant que le total n’atteint pas 100 %, la répartition par priorité reste appliquée.`
+            : `Vos parts totalisent ${Math.round(total * 100)} %, soit ${Math.round(-gap * 100)} % de trop. Réduisez un poste : on ne peut pas répartir plus que ce qui entre.`}
+        </p>
+      )}
+
+      {targets.enabled && balanced && (
+        <p className="rationale">
+          Total : 100 %. Sur un revenu de {profile.currency === 'EUR' ? '2 500 €' : '2 500'}, cela ferait{' '}
+          {Math.round(targets.savings * 2500)} d’épargne et {Math.round(targets.investment * 2500)} de placement
+          par mois.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function AccountForm({
   initial,
   currency,
@@ -562,11 +636,12 @@ function AccountForm({
   initial: Account | null;
   currency: Currency;
   onClose: () => void;
-  onSubmit: (account: { name: string; kind: AccountKind; balance: Money }) => void;
+  onSubmit: (account: Omit<Account, 'id'>) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [kind, setKind] = useState<AccountKind>(initial?.kind ?? 'checking');
-  const [balance, setBalance] = useState(initial ? String(initial.balance.units) : '');
+  const [balance, setBalance] = useState(initial ? String(initial.openingBalance.units) : '');
+  const [balanceDate, setBalanceDate] = useState(initial?.balanceDate ?? formatDate(new Date()));
   const parsed = parseAmount(balance, currency) ?? Money.zero(currency);
 
   return (
@@ -588,10 +663,25 @@ function AccountForm({
             </select>
           )}
         </Field>
-        <Field label="Solde">
+        <Field label="Solde relevé">
           {(id) => <MoneyInput id={id} value={balance} currency={currency} onChange={setBalance} autoFocus />}
         </Field>
+        <Field label="À la date du">
+          {(id) => (
+            <input
+              id={id}
+              type="date"
+              value={balanceDate}
+              onChange={(event) => setBalanceDate(event.target.value)}
+            />
+          )}
+        </Field>
       </div>
+      <p className="field-hint" style={{ marginBottom: 4 }}>
+        Recopiez le solde affiché par votre banque, avec sa date. Les transactions
+        <strong> postérieures</strong> à cette date s’y ajouteront automatiquement — celles d’avant sont
+        considérées comme déjà comprises dedans.
+      </p>
       <div className="modal-actions">
         <button type="button" className="button" onClick={onClose}>
           Annuler
@@ -600,7 +690,12 @@ function AccountForm({
           type="button"
           className="button button-primary"
           onClick={() => {
-            onSubmit({ name: name.trim() || ACCOUNT_KINDS[kind], kind, balance: parsed });
+            onSubmit({
+              name: name.trim() || ACCOUNT_KINDS[kind],
+              kind,
+              openingBalance: parsed,
+              balanceDate,
+            });
             onClose();
           }}
         >

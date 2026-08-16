@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../core/money';
-import { emptyProfile } from '../core/model';
+import { emptyProfile, totalSavingsBalance } from '../core/model';
 import { deserializeProfile, serializeProfile } from './persistence';
 
 /** Un profil enregistré tel que l'écrivait une version antérieure du format. */
@@ -10,11 +10,45 @@ function legacyFile(profile: Record<string, unknown>): string {
 
 describe('Sauvegarde et relecture', () => {
   it('restitue les montants en Money, et non en nombres', () => {
-    const profile = { ...emptyProfile(), savingsBalance: Money.of(1234.56) };
+    const profile = {
+      ...emptyProfile(),
+      accounts: [
+        {
+          id: 'a',
+          name: 'Livret',
+          kind: 'savings' as const,
+          openingBalance: Money.of(1234.56),
+          balanceDate: '2026-03-01',
+        },
+      ],
+    };
     const restored = deserializeProfile(serializeProfile(profile));
 
-    expect(restored.savingsBalance).toBeInstanceOf(Money);
-    expect(restored.savingsBalance.equals(Money.of(1234.56))).toBe(true);
+    expect(restored.accounts[0]?.openingBalance).toBeInstanceOf(Money);
+    expect(restored.accounts[0]?.openingBalance.equals(Money.of(1234.56))).toBe(true);
+  });
+
+  it('convertit l’ancienne épargne globale en compte, sans la compter deux fois', () => {
+    // Le bug d'origine : `savingsBalance` s'additionnait aux comptes d'épargne.
+    const restored = deserializeProfile(
+      legacyFile({
+        currency: 'EUR',
+        savingsBalance: Money.of(8000),
+        accounts: [{ id: 'a', name: 'Livret', kind: 'savings', balance: Money.of(2000) }],
+      }),
+    );
+
+    expect(restored.accounts).toHaveLength(2);
+    expect(totalSavingsBalance(restored).equals(Money.of(10000))).toBe(true);
+  });
+
+  it('reprend le solde des anciens comptes sans date de relevé', () => {
+    const restored = deserializeProfile(
+      legacyFile({ currency: 'EUR', accounts: [{ id: 'a', name: 'Compte', kind: 'checking', balance: Money.of(500) }] }),
+    );
+
+    expect(restored.accounts[0]?.openingBalance.equals(Money.of(500))).toBe(true);
+    expect(restored.accounts[0]?.balanceDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('refuse un fichier venant d’un format plus récent', () => {

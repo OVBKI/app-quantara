@@ -568,3 +568,249 @@ textarea:focus {
   padding: 10px 14px;
   margin-bottom: 18px;
 }
+
+/* --- Petits écrans et fenêtres étroites --- */
+
+/*
+ * L'application est une fenêtre de bureau : on la réduit, on la met à côté d'un
+ * navigateur, on la consulte sur un portable de 13 pouces. La barre latérale fixe de
+ * 232 px devient alors la moitié de l'écran — elle passe donc en barre de navigation
+ * horizontale, en bas, là où le pouce et le curseur l'atteignent sans traverser l'écran.
+ */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .sidebar {
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Toujours accessible, même quand la page défile. */
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+  }
+
+  /* Le titre et le sélecteur de mois n'ont pas leur place dans une barre d'onglets. */
+  .sidebar .brand,
+  .sidebar .nav-footnote,
+  .nav-spacer {
+    display: none;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 10px;
+    font-size: 11px;
+    min-width: 62px;
+    /* Cible tactile : en dessous, on vise à côté. */
+    min-height: 44px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .main {
+    padding: 18px 16px 28px;
+  }
+
+  .page-title {
+    font-size: 21px;
+  }
+
+  .hero {
+    padding: 20px;
+  }
+
+  .hero-value {
+    font-size: 34px;
+  }
+
+  /* Les grilles fines s'empilent : deux colonnes de 150 px ne se lisent plus. */
+  .grid-2,
+  .grid-3,
+  .grid-4,
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+  }
+
+  .overlay {
+    padding: 12px;
+    /* Sur écran étroit, une feuille partant du bas se referme plus naturellement. */
+    align-items: end;
+  }
+}
+
+/* Le sélecteur de mois, replacé en haut sur écran étroit. */
+.period-bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .period-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-small);
+  }
+}
+
+@media (max-width: 560px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Une rangée de boutons d'en-tête déborde : elle passe en grille de deux. */
+  .page-header .inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .page-header .inline > .button {
+    width: 100%;
+  }
+
+  .hero-value {
+    font-size: 30px;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .row-amount {
+    margin-left: auto;
+  }
+}
+
+/* Un tableau ou un graphique large défile dans son propre cadre : la page, elle, ne
+ * défile jamais horizontalement. */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- Éléments ajoutés --- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.health-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 7px;
+}
+
+.swatch {
+  height: 28px;
+  border-radius: var(--radius-small);
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.swatch[aria-pressed='true'] {
+  border-color: var(--text);
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.calendar-cell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 6px;
+  min-height: 66px;
+  font-size: 11px;
+  background: var(--surface);
+}
+
+.calendar-cell.today {
+  border-color: var(--accent);
+}
+
+.calendar-day {
+  color: var(--text-tertiary);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.calendar-entry {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error-text {
+  color: var(--critical);
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.section-note {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 14px;
+  max-width: 74ch;
+}

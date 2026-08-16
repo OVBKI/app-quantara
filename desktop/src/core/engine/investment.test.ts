@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../money';
-import { emptyProfile } from '../model';
-import { MARCH_2026, debt as makeDebt, fixedExpense, income, referenceDate, standardProfile } from '../testing/fixtures';
+import { emptyProfile, totalSavingsBalance } from '../model';
+import {
+  debt as makeDebt,
+  fixedExpense,
+  income,
+  MARCH_2026,
+  referenceDate,
+  savingsAccount,
+  standardProfile,
+} from '../testing/fixtures';
 import { monthlySummary } from './budget';
 import { emergencyFundStatus } from './emergencyFund';
 import { ASSET_CLASSES, investmentGuidance } from './investment';
@@ -12,7 +20,7 @@ function guidanceFor(profile = standardProfile(), monthly = Money.of(200)) {
   const summary = monthlySummary(profile, MARCH_2026, TODAY);
   const emergency = emergencyFundStatus(
     summary,
-    profile.savingsBalance,
+    totalSavingsBalance(profile),
     profile.preferences.emergencyFundMonths,
     Money.of(300),
   );
@@ -21,7 +29,7 @@ function guidanceFor(profile = standardProfile(), monthly = Money.of(200)) {
 
 describe('Préalables à l’investissement', () => {
   it('bloque tant que le fonds d’urgence est incomplet', () => {
-    const guidance = guidanceFor(standardProfile({ savingsBalance: Money.of(500) }));
+    const guidance = guidanceFor(standardProfile({ accounts: [savingsAccount(500)] }));
 
     expect(guidance.state).toBe('blocked');
     expect(guidance.checks.find((check) => check.id === 'emergencyFund')?.passed).toBe(false);
@@ -31,7 +39,7 @@ describe('Préalables à l’investissement', () => {
 
   it('bloque tant qu’une dette coûteuse subsiste', () => {
     const profile = standardProfile({
-      savingsBalance: Money.of(30000),
+      accounts: [savingsAccount(30000)],
       debts: [makeDebt('Revolving', 4000, 0.18, 150, 'creditCard')],
     });
     const guidance = guidanceFor(profile);
@@ -47,7 +55,7 @@ describe('Préalables à l’investissement', () => {
       ...emptyProfile(),
       incomes: [income('Salaire', 1200)],
       recurringExpenses: [fixedExpense('Loyer', 1100, 'fixed.rent')],
-      savingsBalance: Money.of(50000),
+      accounts: [savingsAccount(50000)],
     };
     const guidance = guidanceFor(profile, Money.zero());
 
@@ -57,7 +65,7 @@ describe('Préalables à l’investissement', () => {
 
   it('signale un revenu instable sans bloquer pour autant', () => {
     const profile = standardProfile({
-      savingsBalance: Money.of(30000),
+      accounts: [savingsAccount(30000)],
       incomes: [
         {
           ...income('Freelance', 3000),
@@ -77,7 +85,7 @@ describe('Préalables à l’investissement', () => {
   });
 
   it('ouvre la voie quand tout est en place', () => {
-    const guidance = guidanceFor(standardProfile({ savingsBalance: Money.of(30000) }));
+    const guidance = guidanceFor(standardProfile({ accounts: [savingsAccount(30000)] }));
 
     expect(guidance.state).toBe('ready');
     expect(guidance.checks.every((check) => check.passed)).toBe(true);

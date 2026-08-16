@@ -67,9 +67,10 @@ export function analyse(
     goalPlans,
     highInterestOutstanding,
     riskProfile: profile.preferences.riskProfile,
+    targets: profile.preferences.allocationTargets,
   });
 
-  const cashFlow = forecastCashFlow(profile, summary, period, openingBalanceOf(profile), reference);
+  const cashFlow = forecastCashFlow(profile, summary, period, openingBalanceOf(profile, reference), reference);
 
   const volatility = summary.incomeDetail.volatility;
   const buffer = summary.incomeDetail.hasVariableSource

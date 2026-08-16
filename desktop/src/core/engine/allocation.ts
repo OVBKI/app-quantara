@@ -1,5 +1,5 @@
 import { Money } from '../money';
-import type { RiskProfile } from '../model';
+import { allocationTotal, type AllocationTargets, type RiskProfile } from '../model';
 import type { MonthlySummary } from './budget';
 import type { EmergencyFundStatus } from './emergencyFund';
 import type { GoalPlan } from './goals';
@@ -46,6 +46,79 @@ const INVESTMENT_SHARE: Record<RiskProfile, number> = {
   dynamic: 0.5,
 };
 
+/**
+ * Répartition dirigée par des parts choisies.
+ *
+ * L'utilisateur décide : 50 % aux besoins, 20 % à l'épargne, etc. Les parts s'appliquent
+ * au **revenu**, comme dans la règle qu'elles imitent, et non au seul disponible — sans
+ * quoi « 20 % d'épargne » voudrait dire tout autre chose que ce que l'utilisateur croit
+ * avoir demandé.
+ *
+ * Les charges déjà engagées viennent en déduction de la part « besoins » : elles sont
+ * payées, qu'on le veuille ou non. Si elles la dépassent, le dépassement est signalé
+ * plutôt que masqué.
+ */
+function allocateByTargets(input: AllocationInput, targets: AllocationTargets): AllocationPlan {
+  const { summary } = input;
+  const currency = summary.currency;
+  const disposable = summary.disposable.clampedToZero;
+  const income = summary.income;
+
+  const lines: AllocationLine[] = [];
+  const skipped: string[] = [];
+  let remaining = disposable;
+
+  const take = (requested: Money): Money => {
+    const amount = Money.min(requested, remaining).clampedToZero;
+    remaining = remaining.minus(amount);
+    return amount;
+  };
+
+  const needsTarget = income.times(targets.needs);
+  const committed = summary.totalExpenses.minus(summary.savingsContributions).clampedToZero;
+  if (committed.greaterThan(needsTarget)) {
+    skipped.push(
+      `Vos charges atteignent ${committed.roundedToUnit.format()}, soit plus que les ` +
+        `${Math.round(targets.needs * 100)} % prévus pour les besoins ` +
+        `(${needsTarget.roundedToUnit.format()}). Le reste du plan s'ajuste sur ce qui subsiste.`,
+    );
+  }
+
+  const savings = take(income.times(targets.savings));
+  if (savings.isPositive) {
+    lines.push({
+      bucket: 'emergencyFund',
+      label: 'Épargne',
+      amount: savings,
+      rationale: `${Math.round(targets.savings * 100)} % du revenu, selon la répartition que vous avez définie.`,
+    });
+  }
+
+  const investment = take(income.times(targets.investment));
+  if (investment.isPositive) {
+    lines.push({
+      bucket: 'investment',
+      label: BUCKET_LABELS.investment,
+      amount: investment,
+      rationale:
+        `${Math.round(targets.investment * 100)} % du revenu, selon votre répartition. ` +
+        'Un placement peut perdre de la valeur — aucun rendement n’est garanti.',
+    });
+  }
+
+  if (remaining.isPositive) {
+    lines.push({
+      bucket: 'freeMoney',
+      label: BUCKET_LABELS.freeMoney,
+      amount: remaining,
+      rationale: 'Ce qui reste après vos parts : libre d’emploi.',
+    });
+  }
+
+  const allocated = Money.sum(lines.map((line) => line.amount), currency);
+  return { disposable, lines, allocated, unallocated: disposable.minus(allocated).clampedToZero, skippedSteps: skipped };
+}
+
 export interface AllocationInput {
   readonly summary: MonthlySummary;
   readonly capacity: Money;
@@ -53,6 +126,8 @@ export interface AllocationInput {
   readonly goalPlans: readonly GoalPlan[];
   readonly highInterestOutstanding: Money;
   readonly riskProfile: RiskProfile;
+  /** Parts choisies par l'utilisateur. Absentes ou incohérentes : la cascade s'applique. */
+  readonly targets?: AllocationTargets;
 }
 
 /**
@@ -64,6 +139,10 @@ export interface AllocationInput {
  * 50/30/20, qui ignore la situation réelle du foyer.
  */
 export function allocate(input: AllocationInput): AllocationPlan {
+  if (input.targets?.enabled && Math.abs(allocationTotal(input.targets) - 1) < 0.005) {
+    return allocateByTargets(input, input.targets);
+  }
+
   const { summary, capacity, emergencyFund, goalPlans, highInterestOutstanding, riskProfile } = input;
   const currency = summary.currency;
   const disposable = summary.disposable.clampedToZero;

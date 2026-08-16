@@ -11,32 +11,54 @@ import { SettingsScreen } from './ui/SettingsScreen';
 import { AdvisorScreen } from './ui/AdvisorScreen';
 import { ProjectionScreen } from './ui/ProjectionScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
-import { InvestmentScreen } from './ui/InvestmentScreen';
+import { PortfolioScreen } from './ui/PortfolioScreen';
+import { SubscriptionsScreen } from './ui/SubscriptionsScreen';
+import { CalendarScreen } from './ui/CalendarScreen';
+import { HealthScreen } from './ui/HealthScreen';
+import { CategoriesScreen } from './ui/CategoriesScreen';
 import { LockScreen } from './ui/LockScreen';
 
-type Screen =
+export type Screen =
   | 'home'
   | 'budget'
   | 'transactions'
   | 'goals'
-  | 'investment'
+  | 'portfolio'
+  | 'health'
+  | 'calendar'
+  | 'subscriptions'
+  | 'categories'
   | 'advisor'
   | 'projections'
   | 'settings';
 
-const NAV: { id: Screen; label: string; icon: string }[] = [
+/**
+ * Navigation.
+ *
+ * Six entrées principales, celles du parcours quotidien — gagner, planifier, dépenser,
+ * épargner, investir, comprendre. Les écrans d'appoint vivent dans un second groupe :
+ * douze entrées de même rang, c'est une liste qu'on ne lit plus.
+ */
+const PRIMARY: { id: Screen; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '◆' },
   { id: 'budget', label: 'Budget', icon: '▤' },
   { id: 'transactions', label: 'Transactions', icon: '⇄' },
   { id: 'goals', label: 'Objectifs', icon: '◎' },
-  { id: 'investment', label: 'Investissement', icon: '△' },
-  { id: 'advisor', label: 'Assistant', icon: '✦' },
+  { id: 'portfolio', label: 'Placements', icon: '△' },
+  { id: 'health', label: 'Ma situation', icon: '❤' },
+];
+
+const SECONDARY: { id: Screen; label: string; icon: string }[] = [
+  { id: 'calendar', label: 'Calendrier', icon: '▦' },
+  { id: 'subscriptions', label: 'Abonnements', icon: '🔁' },
+  { id: 'categories', label: 'Catégories', icon: '🏷' },
   { id: 'projections', label: 'Projections', icon: '↗' },
+  { id: 'advisor', label: 'Assistant', icon: '✦' },
   { id: 'settings', label: 'Réglages', icon: '⚙' },
 ];
 
 export function App() {
-  const { profile, analysis, ready, error, locked, encrypted, lock, period, setPeriod } = useStore();
+  const { profile, analysis, ready, error, locked, encrypted, lock, period, setPeriod, undo, canUndo } = useStore();
   const [screen, setScreen] = useState<Screen>('home');
 
   // Échelle du texte : appliquée à la racine, donc à toutes les unités relatives.
@@ -49,6 +71,21 @@ export function App() {
     if (!ready || locked) return;
     void notify(buildAlerts(analysis, profile.preferences.alerts));
   }, [ready, locked, analysis, profile.preferences.alerts]);
+
+  // Ctrl+Z annule la dernière modification, comme partout ailleurs.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      if (typing) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undo();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [undo]);
 
   if (!ready) {
     return (
@@ -68,6 +105,47 @@ export function App() {
     return <OnboardingScreen />;
   }
 
+  const periodPicker = (
+    <div className="inline" style={{ justifyContent: 'space-between', width: '100%' }}>
+      <button
+        type="button"
+        className="button button-ghost button-small"
+        aria-label="Mois précédent"
+        onClick={() => setPeriod(addMonths(period, -1))}
+      >
+        ‹
+      </button>
+      <span className="row-subtitle" style={{ textTransform: 'capitalize' }}>
+        {formatYearMonth(period)}
+      </span>
+      <button
+        type="button"
+        className="button button-ghost button-small"
+        aria-label="Mois suivant"
+        onClick={() => setPeriod(addMonths(period, 1))}
+      >
+        ›
+      </button>
+    </div>
+  );
+
+  function navButton(entry: { id: Screen; label: string; icon: string }) {
+    return (
+      <button
+        key={entry.id}
+        type="button"
+        className="nav-item"
+        aria-current={screen === entry.id ? 'page' : undefined}
+        onClick={() => setScreen(entry.id)}
+      >
+        <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
+          {entry.icon}
+        </span>
+        {entry.label}
+      </button>
+    );
+  }
+
   return (
     <div className="app">
       <nav className="sidebar" aria-label="Navigation principale">
@@ -76,46 +154,24 @@ export function App() {
           Quantara
         </div>
 
-        {NAV.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            className="nav-item"
-            aria-current={screen === entry.id ? 'page' : undefined}
-            onClick={() => setScreen(entry.id)}
-          >
-            <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
-              {entry.icon}
-            </span>
-            {entry.label}
-          </button>
-        ))}
+        {PRIMARY.map(navButton)}
+
+        <div style={{ height: 1, background: 'var(--border)', margin: '10px 12px' }} />
+
+        {SECONDARY.map(navButton)}
 
         <div className="nav-spacer" />
 
-        <div style={{ padding: '0 4px 8px' }}>
-          <div className="inline" style={{ justifyContent: 'space-between' }}>
-            <button
-              type="button"
-              className="button button-ghost button-small"
-              aria-label="Mois précédent"
-              onClick={() => setPeriod(addMonths(period, -1))}
-            >
-              ‹
-            </button>
-            <span className="row-subtitle" style={{ textTransform: 'capitalize' }}>
-              {formatYearMonth(period)}
+        <div style={{ padding: '0 4px 8px' }}>{periodPicker}</div>
+
+        {canUndo && (
+          <button type="button" className="nav-item" onClick={undo}>
+            <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
+              ↶
             </span>
-            <button
-              type="button"
-              className="button button-ghost button-small"
-              aria-label="Mois suivant"
-              onClick={() => setPeriod(addMonths(period, 1))}
-            >
-              ›
-            </button>
-          </div>
-        </div>
+            Annuler
+          </button>
+        )}
 
         {encrypted && (
           <button type="button" className="nav-item" onClick={lock} style={{ marginBottom: 4 }}>
@@ -132,12 +188,27 @@ export function App() {
       </nav>
 
       <main className="main">
+        {/* Sur écran étroit, la barre latérale devient une barre d'onglets : le sélecteur
+            de mois et l'annulation remontent alors en haut du contenu. */}
+        <div className="period-bar">
+          {periodPicker}
+          {canUndo && (
+            <button type="button" className="button button-small" onClick={undo} aria-label="Annuler">
+              ↶
+            </button>
+          )}
+        </div>
+
         {error && <div className="error-banner">{error}</div>}
         {screen === 'home' && <HomeScreen onNavigate={setScreen} />}
         {screen === 'budget' && <BudgetScreen />}
         {screen === 'transactions' && <TransactionsScreen />}
         {screen === 'goals' && <GoalsScreen />}
-        {screen === 'investment' && <InvestmentScreen />}
+        {screen === 'portfolio' && <PortfolioScreen />}
+        {screen === 'health' && <HealthScreen />}
+        {screen === 'calendar' && <CalendarScreen />}
+        {screen === 'subscriptions' && <SubscriptionsScreen />}
+        {screen === 'categories' && <CategoriesScreen />}
         {screen === 'advisor' && <AdvisorScreen />}
         {screen === 'projections' && <ProjectionScreen />}
         {screen === 'settings' && <SettingsScreen />}

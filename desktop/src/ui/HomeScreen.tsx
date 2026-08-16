@@ -10,14 +10,42 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Percent } from '../core/money';
-import { VARIABLE_CATEGORY_IDS, categoryLabel, type ExpenseCategoryId } from '../core/categories';
-import { formatDate, formatYearMonth } from '../core/yearMonth';
+import { Money, Percent } from '../core/money';
+import { VARIABLE_CATEGORY_IDS, categoryColor, categoryLabel, type ExpenseCategoryId } from '../core/categories';
+import { availableBalance, totalInvestmentsBalance, type FinancialProfile } from '../core/model';
+import { containsDate, daysInMonth, formatDate, formatYearMonth, parseDate, type YearMonth } from '../core/yearMonth';
+import { assessHealth, type HealthLevel } from '../core/engine/health';
 import { categorize } from '../core/engine/categorizer';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
+
+export type HomeTarget = 'advisor' | 'projections' | 'health';
+
+const HEALTH_COLOR: Record<HealthLevel, string> = {
+  good: 'var(--positive)',
+  watch: 'var(--warning)',
+  alert: 'var(--critical)',
+};
+
+/** Ce qui est parti vers un compte de placement ce mois-ci. */
+function investedThisMonth(profile: FinancialProfile, period: YearMonth): Money {
+  const investmentAccounts = new Set(
+    profile.accounts.filter((account) => account.kind === 'investment').map((account) => account.id),
+  );
+  return Money.sum(
+    profile.transactions
+      .filter(
+        (transaction) =>
+          transaction.toAccountId !== undefined &&
+          investmentAccounts.has(transaction.toAccountId) &&
+          containsDate(period, parseDate(transaction.date)),
+      )
+      .map((transaction) => transaction.amount),
+    profile.currency,
+  );
+}
 
 const SEVERITY_COLOR: Record<InsightSeverity, string> = {
   critical: 'var(--critical)',
@@ -26,20 +54,20 @@ const SEVERITY_COLOR: Record<InsightSeverity, string> = {
   positive: 'var(--positive)',
 };
 
-const CHART_COLORS = [
-  '#4c9aff',
-  '#a371f7',
-  '#3fb950',
-  '#d29922',
-  '#ff7b72',
-  '#56d4dd',
-  '#e685b5',
-  '#8b949e',
-];
 
-export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | 'projections') => void }) {
-  const { analysis, period } = useStore();
+export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) => void }) {
+  const { profile, analysis, period } = useStore();
   const { summary, cashFlow, emergencyFund, insights } = analysis;
+
+  const available = availableBalance(profile);
+  const invested = totalInvestmentsBalance(profile);
+  const health = useMemo(() => assessHealth(analysis), [analysis]);
+
+  // Ce qui est réellement sorti ce mois-ci, épargne exclue : mettre de côté n'est pas
+  // dépenser, et le confondre ferait paraître dépensier quelqu'un d'économe.
+  const spent = summary.fixedExpenses.plus(summary.variableSpentToDate).plus(summary.debtPayments);
+  const spentShare = spent.ratioTo(summary.income);
+  const investedShare = investedThisMonth(profile, period).ratioTo(summary.income);
 
   const cashFlowData = useMemo(
     () => cashFlow.points.map((point) => ({ day: point.day, solde: Number(point.balance.units.toFixed(2)) })),
@@ -53,6 +81,9 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
         .slice(0, 8)
         .map((total) => ({
           name: categoryLabel(total.category),
+          // La couleur vient de la catégorie, jamais de son rang du mois : « Courses »
+          // doit rester de la même couleur qu'elle soit première ou quatrième.
+          color: categoryColor(total.category),
           value: Number(total.amount.units.toFixed(2)),
         })),
     [summary],
@@ -71,28 +102,40 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
 
       <div className="stack">
         <section className="hero">
-          <div className="hero-label">
-            {summary.daysRemaining > 0 ? 'Reste à vivre par jour' : 'Disponible en fin de mois'}
-          </div>
-          <div className={`hero-value amount ${overspending ? 'critical' : ''}`}>
-            {summary.daysRemaining > 0
-              ? summary.safeToSpendPerDay.roundedToUnit.format()
-              : summary.disposable.roundedToUnit.format()}
+          <div className="hero-label">Disponible sur vos comptes</div>
+          <div className={`hero-value amount ${available.isNegative ? 'critical' : ''}`}>
+            {available.roundedToUnit.format()}
           </div>
           <p className="hero-note">
-            {summary.daysRemaining > 0 ? (
+            {profile.accounts.length === 0 ? (
               <>
-                Il reste {summary.daysRemaining} jour{summary.daysRemaining > 1 ? 's' : ''} avant la fin du mois.
-                Ce montant tient compte des charges déjà prélevées, de celles à venir et de ce que vous avez
-                déjà dépensé.
+                Aucun compte enregistré. Ajoutez-en un dans les Réglages : c’est ce solde qui répond à la
+                première question — combien ai-je, maintenant.
+              </>
+            ) : summary.daysRemaining > 0 ? (
+              <>
+                Soit <strong className="amount">{summary.safeToSpendPerDay.roundedToUnit.format()}</strong> par
+                jour jusqu’à la fin du mois, une fois provisionnées les échéances à venir. Solde prévu au{' '}
+                {daysInMonth(period)} :{' '}
+                <strong className="amount">{cashFlow.endOfMonthBalance.roundedToUnit.format()}</strong>.
               </>
             ) : (
               <>Le mois est terminé : ce montant est ce qui reste une fois toutes les charges honorées.</>
             )}
           </p>
 
+          <div className="inline" style={{ marginTop: 16 }}>
+            <span className="health-light" style={{ background: HEALTH_COLOR[health.level] }} aria-hidden="true" />
+            <strong>{health.headline}</strong>
+            {onNavigate && (
+              <button type="button" className="button button-small" onClick={() => onNavigate('health')}>
+                Voir le détail
+              </button>
+            )}
+          </div>
+
           {onNavigate && (
-            <div className="inline" style={{ marginTop: 18 }}>
+            <div className="inline" style={{ marginTop: 14 }}>
               <button type="button" className="button button-primary" onClick={() => onNavigate('advisor')}>
                 ✨ Optimiser mon budget
               </button>
@@ -107,7 +150,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
 
         <div className="grid grid-4">
           <Tile
-            label="Revenus"
+            label="Revenus du mois"
             value={summary.income.roundedToUnit.format()}
             tone="positive"
             note={
@@ -117,12 +160,31 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
             }
           />
           <Tile
+            label="Dépenses du mois"
+            value={spent.roundedToUnit.format()}
+            note={spentShare !== null ? `${Percent.format(spentShare, 'fr-FR', 0)} du revenu` : undefined}
+          />
+          <Tile
+            label="Épargne du mois"
+            value={summary.savingsContributions.roundedToUnit.format()}
+            tone={summary.savingsContributions.isPositive ? 'positive' : undefined}
+            note={summary.savingsRate !== null ? `${Percent.format(summary.savingsRate, 'fr-FR', 0)} du revenu` : undefined}
+          />
+          <Tile
+            label="Placé"
+            value={invested.roundedToUnit.format()}
+            note={investedShare !== null ? `${Percent.format(investedShare, 'fr-FR', 0)} du revenu ce mois-ci` : 'Aucun placement suivi'}
+          />
+        </div>
+
+        <div className="grid grid-3">
+          <Tile
             label="Charges fixes"
             value={summary.fixedExpenses.roundedToUnit.format()}
             note={summary.fixedRatio !== null ? `${Percent.format(summary.fixedRatio, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
-            label="Dépenses variables"
+            label="Dépenses variables prévues"
             value={summary.variableReserved.roundedToUnit.format()}
             note={
               summary.variablePlanned.isPositive
@@ -135,10 +197,10 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
             }
           />
           <Tile
-            label="Disponible"
+            label="Reste à répartir"
             value={summary.disposable.roundedToUnit.format()}
             tone={overspending ? 'critical' : 'positive'}
-            note={summary.savingsRate !== null ? `Épargné : ${Percent.format(summary.savingsRate, 'fr-FR', 0)}` : undefined}
+            note={overspending ? 'Le mois est déficitaire' : 'Après toutes les charges du mois'}
           />
         </div>
 
@@ -208,8 +270,8 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
                         paddingAngle={2}
                         stroke="none"
                       >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        {categoryData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -225,12 +287,9 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: 'advisor' | '
                   </ResponsiveContainer>
                 </div>
                 <div className="legend">
-                  {categoryData.map((entry, index) => (
+                  {categoryData.map((entry) => (
                     <span className="legend-item" key={entry.name}>
-                      <span
-                        className="legend-swatch"
-                        style={{ background: CHART_COLORS[index % CHART_COLORS.length] }}
-                      />
+                      <span className="legend-swatch" style={{ background: entry.color }} />
                       {entry.name}
                     </span>
                   ))}

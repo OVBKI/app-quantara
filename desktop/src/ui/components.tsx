@@ -108,6 +108,7 @@ export function MoneyInput({
   onChange,
   autoFocus,
   onKeyDown,
+  label,
 }: {
   id?: string;
   value: string;
@@ -115,6 +116,8 @@ export function MoneyInput({
   onChange: (value: string) => void;
   autoFocus?: boolean;
   onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
+  /** Pour les champs sans `<Field>` autour, qui n'ont donc pas d'étiquette visible. */
+  label?: string;
 }) {
   return (
     <div style={{ position: 'relative' }}>
@@ -124,6 +127,7 @@ export function MoneyInput({
         inputMode="decimal"
         value={value}
         autoFocus={autoFocus}
+        aria-label={label}
         placeholder="0,00"
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}

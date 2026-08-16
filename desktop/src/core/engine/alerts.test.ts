@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../money';
 import { emptyProfile } from '../model';
-import { MARCH_2026, expense, fixedExpense, income, referenceDate } from '../testing/fixtures';
+import {
+  account,
+  expense,
+  fixedExpense,
+  income,
+  MARCH_2026,
+  referenceDate,
+  savingsAccount,
+} from '../testing/fixtures';
 import { analyse } from './analysis';
 import { DEFAULT_ALERT_PREFERENCES, alertSignature, buildAlerts } from './alerts';
 
@@ -9,7 +17,7 @@ describe('Alertes système', () => {
   it('annonce un découvert prévu', () => {
     const profile = {
       ...emptyProfile(),
-      accounts: [{ id: 'c', name: 'Compte', kind: 'checking' as const, balance: Money.of(300) }],
+      accounts: [account('Compte', 300, 'checking')],
       incomes: [income('Salaire', 2000)],
       recurringExpenses: [fixedExpense('Loyer', 1200, 'fixed.rent', { dayOfMonth: 5 })],
     };
@@ -111,7 +119,7 @@ describe('Alertes système', () => {
       ...emptyProfile(),
       incomes: [income('Salaire', 3000)],
       recurringExpenses: [fixedExpense('Loyer', 1000, 'fixed.rent', { dayOfMonth: 5 })],
-      savingsBalance: Money.of(3500),
+      accounts: [savingsAccount(3500)],
     };
     const alerts = buildAlerts(
       analyse(profile, MARCH_2026, referenceDate(15)),
@@ -128,7 +136,7 @@ describe('Alertes système', () => {
   it('respecte chaque préférence désactivée', () => {
     const profile = {
       ...emptyProfile(),
-      accounts: [{ id: 'c', name: 'Compte', kind: 'checking' as const, balance: Money.of(100) }],
+      accounts: [account('Compte', 100, 'checking')],
       incomes: [income('Salaire', 2000)],
       recurringExpenses: [fixedExpense('Loyer', 1500, 'fixed.rent', { dayOfMonth: 5 })],
     };
