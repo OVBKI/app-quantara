@@ -71,13 +71,15 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
     () =>
       summary.categoryTotals
         .filter((total) => total.amount.isPositive)
-        .slice(0, 8)
+        .slice(0, 12)
         .map((total) => ({
+          key: total.category,
           name: categoryLabel(total.category),
           // La couleur vient de la catégorie, jamais de son rang du mois : « Courses »
           // doit rester de la même couleur qu'elle soit première ou quatrième.
           color: categoryColor(total.category),
           value: Number(total.amount.units.toFixed(2)),
+          formatted: total.amount.roundedToUnit.format(),
         })),
     [summary],
   );
@@ -203,6 +205,9 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             categoryData={categoryData}
             currency={summary.currency}
             cashFlow={cashFlow}
+            totalFormatted={summary.variableSpentToDate
+              .plus(summary.fixedExpenses)
+              .roundedToUnit.formatCompact()}
           />
         </Suspense>
 

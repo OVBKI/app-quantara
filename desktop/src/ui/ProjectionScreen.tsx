@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Money, Percent } from '../core/money';
 import { categoryLabel } from '../core/categories';
 import { addMonths, daysInMonth, formatYearMonth } from '../core/yearMonth';
@@ -9,6 +8,7 @@ import { RISK_DISCLAIMER, inRealTerms, scenarios } from '../core/engine/simulati
 import { buildMonthlyReport } from '../core/engine/monthlyReport';
 import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, Tile, parseAmount } from './components';
+import { BarList, MultiTrend, foldSlices, type Slice } from './charts';
 
 export function ProjectionScreen() {
   return (
@@ -180,18 +180,46 @@ function SimulationCard() {
     [parsedMonthly, parsedInitial, months, currency],
   );
 
-  const chartData = useMemo(() => {
+  // Un point par an : à l'échelle de dix ans, un point par mois ne se lit pas et ne
+  // dit rien de plus.
+  const chart = useMemo(() => {
     const [prudent, middle, dynamic] = results;
-    if (!prudent || !middle || !dynamic) return [];
-    return prudent.result.points
-      .filter((point) => point.month % 6 === 0)
-      .map((point, index) => ({
-        annee: Number((point.month / 12).toFixed(1)),
-        prudent: Number(point.total.units.toFixed(0)),
-        intermediaire: Number((middle.result.points[index * 6 + 5]?.total.units ?? 0).toFixed(0)),
-        dynamique: Number((dynamic.result.points[index * 6 + 5]?.total.units ?? 0).toFixed(0)),
-        verse: Number(point.contributed.units.toFixed(0)),
-      }));
+    if (!prudent || !middle || !dynamic) return null;
+
+    const yearly = prudent.result.points.filter((point) => point.month % 12 === 0);
+    const pick = (scenario: typeof prudent, index: number) =>
+      Number(scenario.result.points[index * 12]?.total.units.toFixed(0) ?? 0);
+
+    return {
+      labels: yearly.map((point) => `${point.month / 12}`),
+      series: [
+        {
+          key: 'verse',
+          label: 'Versé, sans rendement',
+          color: 'var(--text-tertiary)',
+          reference: true,
+          values: yearly.map((point) => Number(point.contributed.units.toFixed(0))),
+        },
+        {
+          key: 'prudent',
+          label: prudent.label,
+          color: 'var(--series-3)',
+          values: yearly.map((_, index) => pick(prudent, index)),
+        },
+        {
+          key: 'intermediaire',
+          label: middle.label,
+          color: 'var(--series-1)',
+          values: yearly.map((_, index) => pick(middle, index)),
+        },
+        {
+          key: 'dynamique',
+          label: dynamic.label,
+          color: 'var(--series-7)',
+          values: yearly.map((_, index) => pick(dynamic, index)),
+        },
+      ],
+    };
   }, [results]);
 
   const middle = results[1];
@@ -212,35 +240,23 @@ function SimulationCard() {
         </Field>
       </div>
 
-      <div style={{ height: 260, marginTop: 8 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-            <XAxis
-              dataKey="annee"
-              stroke="var(--text-tertiary)"
-              fontSize={11}
-              tickLine={false}
-              label={{ value: 'années', position: 'insideBottomRight', fill: 'var(--text-tertiary)', fontSize: 11 }}
-            />
-            <YAxis stroke="var(--text-tertiary)" fontSize={11} tickLine={false} width={70} />
-            <Tooltip
-              contentStyle={{
-                background: 'var(--surface-raised)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                color: 'var(--text)',
-              }}
-              formatter={(value) => `${Number(value ?? 0).toLocaleString('fr-FR')} ${currency}`}
-              labelFormatter={(annee) => `${annee} an${Number(annee) > 1 ? 's' : ''}`}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="verse" name="Versé" stroke="var(--text-tertiary)" strokeDasharray="4 4" dot={false} />
-            <Line type="monotone" dataKey="prudent" name="Prudent (2 %)" stroke="#3fb950" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="intermediaire" name="Intermédiaire (4 %)" stroke="#4c9aff" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="dynamique" name="Dynamique (7 %)" stroke="#a371f7" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {chart && (
+        <div style={{ marginTop: 8 }}>
+          <MultiTrend
+            series={chart.series}
+            labels={chart.labels}
+            height={250}
+            formatValue={(value) =>
+              `${Math.round(value).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}`
+            }
+          />
+          <p className="figure-hint">
+            Le trait pointillé est la somme que vous aurez versée, sans aucun rendement. L’écart entre lui et
+            les courbes est l’effet du temps — et rien ne le garantit : ce sont des hypothèses, pas des
+            promesses. Une seule échelle verticale, pour que les quatre courbes restent comparables.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
         {results.map((scenario) => (
@@ -330,23 +346,29 @@ function MonthlyReportCard() {
           </div>
 
           {(report.increases.length > 0 || report.decreases.length > 0) && (
-            <div className="grid grid-2" style={{ marginTop: 18 }}>
+            <div className="grid grid-2" style={{ marginTop: 20 }}>
               <div>
                 <div className="card-title">En hausse</div>
                 {report.increases.length === 0 ? (
                   <p className="muted">Aucune catégorie en hausse.</p>
                 ) : (
-                  report.increases.map((delta) => (
-                    <div className="row" key={delta.category}>
-                      <div className="row-main">
-                        <div className="row-title">{categoryLabel(delta.category)}</div>
-                        <div className="row-subtitle">
-                          {delta.previous.roundedToUnit.format()} → {delta.current.roundedToUnit.format()}
-                        </div>
-                      </div>
-                      <div className="row-amount amount critical">+{delta.delta.roundedToUnit.format()}</div>
-                    </div>
-                  ))
+                  <BarList
+                    slices={foldSlices(
+                      report.increases.map(
+                        (delta): Slice => ({
+                          key: delta.category,
+                          label: categoryLabel(delta.category),
+                          value: Number(delta.delta.units.toFixed(2)),
+                          // Les hausses portent la couleur d'un état, pas d'une série :
+                          // ici la couleur veut dire « ça monte », pas « c'est Courses ».
+                          color: 'var(--serious)',
+                          formatted: `+${delta.delta.roundedToUnit.format()}`,
+                        }),
+                      ),
+                      4,
+                    )}
+                    showShare={false}
+                  />
                 )}
               </div>
               <div>
@@ -354,21 +376,30 @@ function MonthlyReportCard() {
                 {report.decreases.length === 0 ? (
                   <p className="muted">Aucune catégorie en baisse.</p>
                 ) : (
-                  report.decreases.map((delta) => (
-                    <div className="row" key={delta.category}>
-                      <div className="row-main">
-                        <div className="row-title">{categoryLabel(delta.category)}</div>
-                        <div className="row-subtitle">
-                          {delta.previous.roundedToUnit.format()} → {delta.current.roundedToUnit.format()}
-                        </div>
-                      </div>
-                      <div className="row-amount amount positive">{delta.delta.roundedToUnit.format()}</div>
-                    </div>
-                  ))
+                  <BarList
+                    slices={foldSlices(
+                      report.decreases.map(
+                        (delta): Slice => ({
+                          key: delta.category,
+                          label: categoryLabel(delta.category),
+                          value: Math.abs(Number(delta.delta.units.toFixed(2))),
+                          color: 'var(--positive)',
+                          formatted: delta.delta.roundedToUnit.format(),
+                        }),
+                      ),
+                      4,
+                    )}
+                    showShare={false}
+                  />
                 )}
               </div>
             </div>
           )}
+
+          <p className="figure-hint">
+            La longueur des barres compare les écarts entre eux, pas les montants dépensés : c’est le
+            mouvement d’un mois à l’autre qui est en question ici.
+          </p>
         </>
       )}
     </Card>

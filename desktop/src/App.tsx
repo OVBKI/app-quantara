@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { buildAlerts } from './core/engine/alerts';
 import { notify } from './notifications/notifier';
 import { addMonths, formatYearMonth } from './core/yearMonth';
@@ -66,8 +66,8 @@ const PRIMARY: { id: Screen; label: string; icon: string }[] = [
 
 const SECONDARY: { id: Screen; label: string; icon: string }[] = [
   { id: 'calendar', label: 'Calendrier', icon: '▦' },
-  { id: 'subscriptions', label: 'Abonnements', icon: '🔁' },
-  { id: 'categories', label: 'Catégories', icon: '🏷' },
+  { id: 'subscriptions', label: 'Abonnements', icon: '↻' },
+  { id: 'categories', label: 'Catégories', icon: '⬡' },
   { id: 'projections', label: 'Projections', icon: '↗' },
   { id: 'advisor', label: 'Assistant', icon: '✦' },
   { id: 'settings', label: 'Réglages', icon: '⚙' },
@@ -79,6 +79,7 @@ export function App() {
   const { profile, analysis, ready, error, locked, encrypted, lock, period, setPeriod, undo, canUndo } = useStore();
   const [screen, setScreen] = useHashRoute<Screen>(SCREENS, 'home');
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
 
   // Échelle du texte : appliquée à la racine, donc à toutes les unités relatives.
   useEffect(() => {
@@ -90,6 +91,15 @@ export function App() {
     if (!ready || locked) return;
     void notify(buildAlerts(analysis, profile.preferences.alerts));
   }, [ready, locked, analysis, profile.preferences.alerts]);
+
+  // Sur écran étroit, la navigation est une barre d'onglets qui défile : l'entrée
+  // courante peut se retrouver hors champ après un changement d'écran au clavier ou
+  // depuis un bouton. On l'y ramène.
+  useEffect(() => {
+    navRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [screen]);
 
   const noteExpense = useCallback(() => {
     setScreen('home');
@@ -199,7 +209,7 @@ export function App() {
 
   return (
     <div className="app">
-      <nav className="sidebar" aria-label="Navigation principale">
+      <nav className="sidebar" aria-label="Navigation principale" ref={navRef}>
         <div className="brand">
           <span className="brand-mark" />
           Quantara
@@ -235,7 +245,7 @@ export function App() {
 
         <button type="button" className="nav-item" onClick={() => setShowShortcuts(true)}>
           <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
-            ⌨
+            ⌘
           </span>
           Raccourcis
         </button>

@@ -4,6 +4,7 @@ import { FREQUENCY_LABELS } from '../core/frequency';
 import { summarizeSubscriptions } from '../core/engine/subscriptions';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Tile, useConfirm } from './components';
+import { BarList, foldSlices, type Slice } from './charts';
 
 /**
  * Abonnements.
@@ -61,6 +62,26 @@ export function SubscriptionsScreen() {
             />
           ) : (
             <>
+              <BarList
+                slices={foldSlices(
+                  summary.lines.map(
+                    (line): Slice => ({
+                      key: line.expense.id,
+                      label: line.expense.name,
+                      value: Number(line.monthly.units.toFixed(2)),
+                      color: 'var(--series-1)',
+                      formatted: `${line.monthly.roundedToUnit.format()} / mois`,
+                    }),
+                  ),
+                  6,
+                )}
+              />
+
+              <p className="figure-hint" style={{ marginBottom: 18 }}>
+                Une seule couleur : il n’y a qu’une série ici, et colorer chaque barre différemment ferait
+                croire à une distinction qui n’existe pas.
+              </p>
+
               <div className="scroll-x">
                 {summary.lines.map((line) => (
                   <div className="row" key={line.expense.id}>

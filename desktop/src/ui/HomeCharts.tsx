@@ -1,133 +1,104 @@
-import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Currency } from '../core/money';
 import type { CashFlowForecast } from '../core/engine/cashflow';
 import { Card } from './components';
-
-export interface ChartPoint {
-  readonly day: number;
-  readonly solde: number;
-}
+import { BarList, Donut, Figure, Legend, TrendChart, foldSlices, type Slice, type TrendPoint } from './charts';
 
 export interface CategorySlice {
+  readonly key: string;
   readonly name: string;
   readonly color: string;
   readonly value: number;
+  readonly formatted: string;
 }
 
 /**
- * Les deux graphiques de l'accueil, isolés dans leur propre module.
+ * Les graphiques de l'accueil, isolés dans leur propre module.
  *
- * Recharts pèse à lui seul la majeure partie du paquet. Le charger séparément permet à
- * l'accueil de s'afficher — solde, tuiles, constats — avant que la bibliothèque de
- * graphiques ne soit arrivée. Les chiffres passent en premier ; les courbes suivent.
+ * Deux questions, deux formes différentes, et c'est délibéré :
+ *
+ * - « Comment évolue mon solde ce mois-ci ? » est une question de **tendance** : une
+ *   courbe, avec le creux marqué, parce que c'est lui qui provoque un découvert.
+ * - « Où part mon argent ? » est une question de **composition** : un anneau donne le
+ *   poids d'un poste dans le tout d'un seul regard — mais l'œil ne compare pas des
+ *   angles, alors les barres à côté donnent le classement exact.
+ *
+ * Le même jeu de données, deux lectures, chacune faite pour ce qu'elle sait faire.
  */
 export default function HomeCharts({
   cashFlowData,
   categoryData,
   currency,
   cashFlow,
+  totalFormatted,
 }: {
-  cashFlowData: readonly ChartPoint[];
+  cashFlowData: readonly { day: number; solde: number }[];
   categoryData: readonly CategorySlice[];
   currency: Currency;
   cashFlow: CashFlowForecast;
+  totalFormatted: string;
 }) {
-  return (
-    <>
-      <div className="grid grid-2">
-          <Card title="Trésorerie du mois">
-            <div style={{ height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={cashFlowData} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
-                  <defs>
-                    <linearGradient id="soldeFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="day" stroke="var(--text-tertiary)" fontSize={11} tickLine={false} />
-                  <YAxis stroke="var(--text-tertiary)" fontSize={11} tickLine={false} width={62} />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--surface-raised)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      color: 'var(--text)',
-                    }}
-                    labelFormatter={(day) => `Jour ${day}`}
-                    formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} ${currency}`, 'Solde']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="solde"
-                    stroke="var(--accent)"
-                    strokeWidth={2}
-                    fill="url(#soldeFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="rationale">
-              {cashFlow.projectedOverdraft && cashFlow.lowestBalanceDate ? (
-                <span className="critical">
-                  Creux à {cashFlow.lowestBalance.roundedToUnit.format()} le{' '}
-                  {cashFlow.lowestBalanceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} :
-                  c’est ce point bas qui provoque un découvert, pas le solde de fin de mois.
-                </span>
-              ) : (
-                <>
-                  Point bas prévu : {cashFlow.lowestBalance.roundedToUnit.format()}. Le solde tient compte des
-                  échéances à leur date réelle, pas d’une moyenne mensuelle.
-                </>
-              )}
-            </p>
-          </Card>
+  const points: TrendPoint[] = cashFlowData.map((point) => ({
+    x: point.day,
+    y: point.solde,
+    label: `Jour ${point.day}`,
+    formatted: `${point.solde.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${currency}`,
+  }));
 
-          <Card title="Répartition des dépenses">
-            {categoryData.length === 0 ? (
-              <p className="muted">Aucune dépense enregistrée pour ce mois.</p>
-            ) : (
-              <>
-                <div style={{ height: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={58}
-                        outerRadius={88}
-                        paddingAngle={2}
-                        stroke="none"
-                      >
-                        {categoryData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: 'var(--surface-raised)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          color: 'var(--text)',
-                        }}
-                        formatter={(value) => `${Number(value ?? 0).toLocaleString('fr-FR')} ${currency}`}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="legend">
-                  {categoryData.map((entry) => (
-                    <span className="legend-item" key={entry.name}>
-                      <span className="legend-swatch" style={{ background: entry.color }} />
-                      {entry.name}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-          </Card>
-        </div>
-    </>
+  const lowestIndex = cashFlow.lowestBalanceDate ? cashFlow.lowestBalanceDate.getDate() - 1 : undefined;
+
+  const slices: Slice[] = foldSlices(
+    categoryData.map((entry) => ({
+      key: entry.key,
+      label: entry.name,
+      value: entry.value,
+      color: entry.color,
+      formatted: entry.formatted,
+    })),
+  );
+
+  return (
+    <div className="grid grid-2">
+      <Card title="Trésorerie du mois">
+        <Figure
+          title={
+            cashFlow.projectedOverdraft
+              ? `Point bas : ${cashFlow.lowestBalance.roundedToUnit.format()}`
+              : `Fin de mois : ${cashFlow.endOfMonthBalance.roundedToUnit.format()}`
+          }
+          hint={
+            cashFlow.projectedOverdraft
+              ? 'Le point marqué est le jour où le solde descend le plus bas. C’est lui qui provoque un découvert, pas le solde de fin de mois.'
+              : 'Chaque échéance est placée à sa date réelle, jamais lissée sur le mois : c’est ce qui rend le creux visible.'
+          }
+        >
+          <TrendChart
+            points={points}
+            color={cashFlow.projectedOverdraft ? 'var(--critical)' : 'var(--series-1)'}
+            markerAt={lowestIndex}
+          />
+        </Figure>
+      </Card>
+
+      <Card title="Où part l’argent">
+        {slices.length === 0 ? (
+          <p className="muted">Aucune dépense enregistrée pour ce mois.</p>
+        ) : (
+          <>
+            <div className="donut-layout">
+              <Donut slices={slices} centerValue={totalFormatted} centerLabel="dépensés" />
+              <div>
+                <BarList slices={slices} />
+              </div>
+            </div>
+            <p className="figure-hint">
+              L’anneau donne le poids de chaque poste d’un coup d’œil ; les barres, le classement exact — l’œil
+              compare des longueurs, pas des angles. Une couleur appartient à une catégorie et ne change pas
+              d’un mois à l’autre.
+            </p>
+            <Legend items={slices.map((slice) => ({ label: slice.label, color: slice.color }))} />
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

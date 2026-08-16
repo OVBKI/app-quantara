@@ -11,11 +11,23 @@ import type { CustomCategory } from '../core/model';
 import { useStore } from '../state/store';
 import { Card, Field, Modal, MoneyInput, ProgressBar, parseAmount } from './components';
 
-/** Palette proposée. Rien n'empêche une autre couleur, mais celles-ci se distinguent
- *  entre elles, y compris en cas de déficience de la vision des couleurs. */
+/**
+ * Nuancier proposé.
+ *
+ * Les huit teintes du système, et rien d'autre : leur ordre et leurs pas ont été
+ * vérifiés par calcul, y compris sous simulation de déficience de la vision des
+ * couleurs, contre les deux fonds de l'application. Ce sont des jetons de thème et non
+ * des couleurs figées — le choix reste juste en clair comme en sombre.
+ */
 const SWATCHES = [
-  '#4c9aff', '#6ea8fe', '#56d4dd', '#3fb950', '#7ee787', '#d29922',
-  '#f0883e', '#ff7b72', '#db61a2', '#a371f7', '#d2a8ff', '#8b949e',
+  'var(--series-1)',
+  'var(--series-2)',
+  'var(--series-3)',
+  'var(--series-4)',
+  'var(--series-5)',
+  'var(--series-6)',
+  'var(--series-7)',
+  'var(--series-8)',
 ];
 
 const ICONS = [
@@ -71,7 +83,9 @@ export function CategoriesScreen() {
                 borderRadius: 9,
                 display: 'grid',
                 placeItems: 'center',
-                background: `${info.color}22`,
+                // `color-mix` plutôt qu'un hex suffixé d'alpha : la couleur est un
+                // jeton de thème, pas une chaîne hexadécimale qu'on peut concaténer.
+                background: `color-mix(in srgb, ${info.color} 14%, transparent)`,
                 border: `1px solid ${info.color}`,
                 flex: 'none',
               }}

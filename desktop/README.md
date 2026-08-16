@@ -78,6 +78,26 @@ intermédiaires avant l'arrondi au centime. Mille additions d'un centime font ex
 **Multiplier avant de diviser.** `1 200 × (1/12)` rend 99,9996 ; `1 200 × 1 ÷ 12` rend
 exactement 100. Toute conversion de périodicité passe par une fraction exacte.
 
+**Les couleurs sont calculées, pas choisies à l'œil.** Huit teintes, dans un ordre fixe,
+vérifiées par un validateur contre les deux fonds de l'application : bande de clarté,
+plancher de saturation, séparation sous simulation protanope et tritanope, contraste. Une
+neuvième couleur n'existe pas — au-delà, deux séries deviennent indiscernables, et le
+surplus se replie sur « Autre ». Une catégorie garde sa teinte d'un mois à l'autre, et
+deux parts d'un même graphique n'en partagent jamais une.
+
+**La forme suit la question.** Un anneau pour une composition — le poids d'un poste dans
+un tout, six parts au plus. Des barres pour une comparaison, parce que l'œil compare des
+longueurs et non des angles. Une courbe pour une tendance. Les deux premières
+s'accompagnent systématiquement : l'anneau donne l'impression, les barres donnent le
+classement.
+
+**Une seule échelle verticale, toujours.** Jamais deux axes : leur alignement relatif est
+arbitraire, et le lecteur y voit une corrélation que les données ne portent pas.
+
+**Les graphiques sont écrits à la main, en SVG.** Aucune bibliothèque de tracé : ce sont
+des arcs, des barres et des polylignes, et une dépendance de 300 ko payée à chaque
+ouverture ne se justifiait pas.
+
 **Les seuils sont explicites.** Charges fixes au-delà de 50 % du revenu, remboursements
 au-delà d'un tiers, abonnements au-delà de 2 % : ce sont des choix de produit, réunis
 dans un seul fichier et discutables, pas des constantes éparpillées.

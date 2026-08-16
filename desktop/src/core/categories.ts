@@ -145,14 +145,27 @@ const VARIABLE: Record<VariableExpenseCategory, CategorySeed> = {
  * le libellé accompagne toujours la pastille.
  */
 const PALETTE = [
-  '#4c9aff', '#a371f7', '#3fb950', '#d29922', '#ff7b72', '#56d4dd',
-  '#e685b5', '#8b949e', '#f0883e', '#6ea8fe', '#79c0ff', '#d2a8ff',
-  '#7ee787', '#ffa657', '#ff9492', '#39c5cf', '#db61a2', '#a5a5a5',
-  '#ffab70', '#85e89d', '#b392f0', '#f97583', '#79b8ff', '#ffea7f',
+  'var(--series-1)',
+  'var(--series-2)',
+  'var(--series-3)',
+  'var(--series-4)',
+  'var(--series-5)',
+  'var(--series-6)',
+  'var(--series-7)',
+  'var(--series-8)',
 ];
 
+/**
+ * Couleur par défaut d'une catégorie.
+ *
+ * Les huit teintes tournent au-delà de la huitième catégorie, et c'est assumé : aucun
+ * graphique n'affiche plus de six parts — le reste se replie sur « Autre » — si bien
+ * que deux catégories de même teinte ne se retrouvent pratiquement jamais côte à côte.
+ * Et quand cela arrive, chaque part porte son libellé : la couleur n'est jamais seule
+ * à distinguer.
+ */
 function paletteFor(index: number): string {
-  return PALETTE[index % PALETTE.length] ?? '#8b949e';
+  return PALETTE[index % PALETTE.length] ?? 'var(--text-tertiary)';
 }
 
 const BUILTIN_ICONS: Record<string, string> = {
@@ -268,7 +281,7 @@ export function categoryInfo(id: ExpenseCategoryId): CategoryInfo {
     essential: false,
     compressibility: 0.5,
     debtRelated: false,
-    color: '#8b949e',
+    color: 'var(--text-tertiary)',
     icon: '•',
     custom: true,
     hidden: false,

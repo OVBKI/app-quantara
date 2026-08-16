@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Money, Percent, type Currency } from '../core/money';
 import { totalInvestmentsBalance, type AssetClassId, type Holding } from '../core/model';
 import { formatDate } from '../core/yearMonth';
@@ -9,15 +8,17 @@ import { investmentGuidance } from '../core/engine/investment';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, Tile, parseAmount, useConfirm } from './components';
 import { ReadinessSection } from './InvestmentGuidance';
+import { BarList, Donut, Legend, type Slice } from './charts';
 
+/** Sept familles, sept jetons de la palette validée, dans l'ordre fixe. */
 const ASSET_COLORS: Record<AssetClassId, string> = {
-  etf: '#4c9aff',
-  stocks: '#a371f7',
-  bonds: '#3fb950',
-  funds: '#d29922',
-  realEstate: '#ff7b72',
-  cashEquivalent: '#56d4dd',
-  otherAsset: '#8b949e',
+  etf: 'var(--series-1)',
+  stocks: 'var(--series-2)',
+  bonds: 'var(--series-3)',
+  funds: 'var(--series-4)',
+  realEstate: 'var(--series-5)',
+  cashEquivalent: 'var(--series-6)',
+  otherAsset: 'var(--text-tertiary)',
 };
 
 /**
@@ -50,10 +51,12 @@ export function PortfolioScreen() {
     [profile, analysis],
   );
 
-  const chartData = portfolio.byAssetClass.map((slice) => ({
-    name: slice.label,
+  const slices: Slice[] = portfolio.byAssetClass.map((slice) => ({
+    key: slice.assetClass,
+    label: slice.label,
     value: Number(slice.value.units.toFixed(2)),
     color: ASSET_COLORS[slice.assetClass],
+    formatted: slice.value.roundedToUnit.format(),
   }));
 
   return (
@@ -152,37 +155,23 @@ export function PortfolioScreen() {
           )}
         </Card>
 
-        {chartData.length > 1 && (
+        {slices.length > 1 && (
           <Card title="Répartition par famille">
-            <div style={{ height: 210 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={84} stroke="none">
-                    {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'var(--surface-raised)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      color: 'var(--text)',
-                    }}
-                    formatter={(value) => `${Number(value ?? 0).toLocaleString('fr-FR')} ${profile.currency}`}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="donut-layout">
+              <Donut
+                slices={slices}
+                centerValue={portfolio.currentValue.roundedToUnit.formatCompact()}
+                centerLabel="au total"
+              />
+              <div>
+                <BarList slices={slices} />
+              </div>
             </div>
-            <div className="legend">
-              {portfolio.byAssetClass.map((slice) => (
-                <span className="legend-item" key={slice.assetClass}>
-                  <span className="legend-swatch" style={{ background: ASSET_COLORS[slice.assetClass] }} />
-                  {slice.label}
-                  {slice.share !== null && ` · ${Percent.format(slice.share, 'fr-FR', 0)}`}
-                </span>
-              ))}
-            </div>
+            <p className="figure-hint">
+              Une famille d’actifs concentrant l’essentiel du portefeuille n’est ni bien ni mal en soi — c’est
+              une information, pas un conseil. L’application ne recommande aucune répartition.
+            </p>
+            <Legend items={slices.map((slice) => ({ label: slice.label, color: slice.color }))} />
           </Card>
         )}
 

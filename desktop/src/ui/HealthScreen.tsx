@@ -4,6 +4,7 @@ import { COMPARISON_LABELS, compareSpending, type ComparisonWindow } from '../co
 import { assessHealth, type HealthLevel } from '../core/engine/health';
 import { useStore } from '../state/store';
 import { Card, EmptyState } from './components';
+import { BarList, Donut, Legend, foldSlices, type Slice } from './charts';
 
 const LEVEL_COLOR: Record<HealthLevel, string> = {
   good: 'var(--positive)',
@@ -35,6 +36,26 @@ export function HealthScreen() {
 
   const health = useMemo(() => assessHealth(analysis), [analysis]);
   const comparison = useMemo(() => compareSpending(profile, period, window), [profile, period, window]);
+
+  // Les parts affichées sont plafonnées à six, le reste replié : au-delà, les tranches
+  // deviennent trop fines pour être lues et deux teintes finissent par se ressembler.
+  const slices = useMemo(
+    () =>
+      foldSlices(
+        comparison.categories
+          .filter((entry) => entry.current.isPositive)
+          .map(
+            (entry): Slice => ({
+              key: entry.category,
+              label: entry.label,
+              value: Number(entry.current.units.toFixed(2)),
+              color: entry.color,
+              formatted: entry.current.roundedToUnit.format(),
+            }),
+          ),
+      ),
+    [comparison],
+  );
 
   return (
     <>
@@ -132,30 +153,41 @@ export function HealthScreen() {
                 </span>
               </div>
 
-              {comparison.categories.slice(0, 12).map((entry) => (
-                <div className="row" key={entry.category}>
-                  <span className="dot" style={{ background: entry.color }} aria-hidden="true" />
-                  <div className="row-main">
-                    <div className="row-title">{entry.label}</div>
-                    <div className="row-subtitle">
-                      {entry.share !== null && `${Percent.format(entry.share, 'fr-FR', 0)} des dépenses · `}
-                      référence {entry.reference.roundedToUnit.format()}
+              <div className="donut-layout" style={{ marginBottom: 18 }}>
+                <Donut
+                  slices={slices}
+                  centerValue={comparison.currentTotal.roundedToUnit.formatCompact()}
+                  centerLabel="ce mois-ci"
+                />
+                <div>
+                  <BarList slices={slices} />
+                </div>
+              </div>
+
+              <Legend items={slices.map((slice) => ({ label: slice.label, color: slice.color }))} />
+
+              <div className="card-title" style={{ marginTop: 22 }}>
+                Écart avec la référence
+              </div>
+              {comparison.categories
+                .filter((entry) => !entry.delta.isZero)
+                .slice(0, 8)
+                .map((entry) => (
+                  <div className="row" key={entry.category}>
+                    <span className="dot" style={{ background: entry.color }} aria-hidden="true" />
+                    <div className="row-main">
+                      <div className="row-title">{entry.label}</div>
+                      <div className="row-subtitle">
+                        référence {entry.reference.roundedToUnit.format()} · ce mois-ci{' '}
+                        {entry.current.roundedToUnit.format()}
+                      </div>
+                    </div>
+                    <div className={`row-amount amount ${entry.delta.isPositive ? 'warning' : 'positive'}`}>
+                      {entry.delta.isPositive ? '+' : ''}
+                      {entry.delta.roundedToUnit.format()}
                     </div>
                   </div>
-                  <div className="row-amount amount">
-                    {entry.current.roundedToUnit.format()}
-                    {!entry.delta.isZero && (
-                      <div
-                        className={`tile-note ${entry.delta.isPositive ? 'warning' : 'positive'}`}
-                        style={{ fontWeight: 400 }}
-                      >
-                        {entry.delta.isPositive ? '+' : ''}
-                        {entry.delta.roundedToUnit.format()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))}
 
               <p className="rationale" style={{ marginTop: 12 }}>
                 Moyenne établie sur {comparison.monthsObserved} mois réellement saisi

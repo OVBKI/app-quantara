@@ -4,6 +4,8 @@ import { FIXED_CATEGORY_IDS, INCOME_CATEGORIES, INCOME_LABELS, categoryLabel, ty
 import { FREQUENCIES, FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from '../core/frequency';
 import type { IncomeSource, RecurringExpense } from '../core/model';
 import { useStore } from '../state/store';
+import { allocatedTo } from '../core/engine/allocation';
+import { BarList, Donut, Legend, type Slice } from './charts';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
@@ -28,6 +30,7 @@ export function BudgetScreen() {
       </header>
 
       <div className="stack">
+        <IncomeBreakdownCard />
         <IncomeRangeCard />
 
         <Card
@@ -224,6 +227,110 @@ export function BudgetScreen() {
 /** Montant prêt à être réédité : « 1200 » plutôt que « 1200,00 € ». */
 function editable(amount: Money | undefined): string {
   return amount ? String(amount.units) : '';
+}
+
+/**
+ * Où va le revenu.
+ *
+ * La question du cahier des charges — « revenus moins charges, que reste-t-il, et où
+ * cela part-il ? » — posée sous la seule forme qui y répond d'un regard : une
+ * composition. Les parts sont des montants réels, pas des pourcentages théoriques.
+ *
+ * Un anneau parce qu'il s'agit d'un tout qui se partage, et quatre à six parts au plus.
+ * Les barres à côté donnent le classement, que l'anneau ne sait pas donner.
+ */
+function IncomeBreakdownCard() {
+  const { analysis } = useStore();
+  const { summary, allocation } = analysis;
+
+  if (!summary.income.isPositive) return null;
+
+  const savings = allocatedTo(allocation, 'emergencyFund')
+    .plus(allocatedTo(allocation, 'goals'))
+    .plus(allocatedTo(allocation, 'safetyBuffer'));
+
+  const parts: Slice[] = [
+    {
+      key: 'fixed',
+      label: 'Charges fixes',
+      value: Number(summary.fixedExpenses.units.toFixed(2)),
+      color: 'var(--series-1)',
+      formatted: summary.fixedExpenses.roundedToUnit.format(),
+    },
+    {
+      key: 'variable',
+      label: 'Dépenses variables',
+      value: Number(summary.variableReserved.units.toFixed(2)),
+      color: 'var(--series-2)',
+      formatted: summary.variableReserved.roundedToUnit.format(),
+    },
+    {
+      key: 'debt',
+      label: 'Remboursements',
+      value: Number(summary.debtPayments.units.toFixed(2)),
+      color: 'var(--series-3)',
+      formatted: summary.debtPayments.roundedToUnit.format(),
+    },
+    {
+      key: 'savings',
+      label: 'Épargne',
+      value: Number(savings.units.toFixed(2)),
+      color: 'var(--series-4)',
+      formatted: savings.roundedToUnit.format(),
+    },
+    {
+      key: 'investment',
+      label: 'Investissement',
+      value: Number(allocatedTo(allocation, 'investment').units.toFixed(2)),
+      color: 'var(--series-5)',
+      formatted: allocatedTo(allocation, 'investment').roundedToUnit.format(),
+    },
+    {
+      key: 'free',
+      label: 'Libre',
+      value: Number(allocatedTo(allocation, 'freeMoney').units.toFixed(2)),
+      color: 'var(--series-6)',
+      formatted: allocatedTo(allocation, 'freeMoney').roundedToUnit.format(),
+    },
+  ].filter((part) => part.value > 0);
+
+  // Le centre affiche la somme des parts, jamais le revenu : quand le mois est
+  // déficitaire, les deux diffèrent, et annoncer le revenu au milieu d'un anneau qui
+  // représente autre chose serait une contradiction affichée.
+  const allocated = parts.reduce((sum, part) => sum + part.value, 0);
+  const overCommitted = allocated > Number(summary.income.units);
+
+  return (
+    <Card title="Où va votre revenu">
+      <div className="donut-layout">
+        <Donut
+          slices={parts}
+          centerValue={Money.of(allocated, analysis.summary.currency).roundedToUnit.formatCompact()}
+          centerLabel="engagés"
+        />
+        <div>
+          <BarList slices={parts} />
+        </div>
+      </div>
+      <p className="figure-hint">
+        Des montants, pas des pourcentages théoriques : ce sont vos charges réelles et la répartition que le
+        plan propose du reste. Modifiez une charge et l’anneau suit immédiatement.
+        {overCommitted && (
+          <>
+            {' '}
+            <strong className="critical">
+              Ces engagements dépassent votre revenu de{' '}
+              {Money.of(allocated, analysis.summary.currency)
+                .minus(summary.income)
+                .roundedToUnit.format()}
+            </strong>{' '}
+            : le mois se boucle sur l’épargne ou sur le découvert.
+          </>
+        )}
+      </p>
+      <Legend items={parts.map((part) => ({ label: part.label, color: part.color }))} />
+    </Card>
+  );
 }
 
 function IncomeForm({

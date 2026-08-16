@@ -10,39 +10,92 @@
 :root {
   color-scheme: dark light;
 
-  --bg: #0e1116;
-  --surface: #161b22;
-  --surface-raised: #1c232c;
-  --border: #262e39;
-  --text: #e8edf4;
-  --text-secondary: #9aa7b8;
-  --text-tertiary: #6b7889;
+  /*
+   * Palette de séries validée.
+   *
+   * Huit teintes, dans un ordre fixe : c'est l'ordre qui garantit la lisibilité pour une
+   * déficience de la vision des couleurs, pas le choix des teintes prises une à une.
+   * Vérifiée par calcul contre les deux surfaces de l'application — bande de clarté,
+   * plancher de saturation, séparation sous simulation protanope et tritanope, contraste.
+   * Ne pas y ajouter une neuvième couleur : au-delà, deux séries deviennent
+   * indiscernables. Une catégorie de trop se replie sur « Autre ».
+   */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
 
-  --accent: #4c9aff;
-  --accent-soft: rgba(76, 154, 255, 0.14);
-  --positive: #3fb950;
-  --warning: #d29922;
-  --critical: #f85149;
-  --savings: #a371f7;
-  --debt: #ff7b72;
+  /* Surfaces et encres. */
+  --bg: #0d1117;
+  --surface: #12161d;
+  --surface-raised: #171d26;
+  --border: #232a35;
+  --border-strong: #2f3846;
+  --text: #f0f3f8;
+  --text-secondary: #a3adbb;
+  --text-tertiary: #737e8c;
 
+  --accent: var(--series-1);
+  --accent-soft: rgba(57, 135, 229, 0.14);
+  --accent-strong: #5b9df0;
+
+  /* États. Réservés : jamais réutilisés comme couleur de série. */
+  --positive: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --savings: var(--series-7);
+  --debt: var(--series-8);
+
+  /* Chrome des graphiques : discret par construction. */
+  --grid: #212832;
+  --axis: #313a47;
+
+  --radius-large: 16px;
   --radius: 12px;
   --radius-small: 8px;
   --space: 16px;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-raised: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
 
   --font: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, 'Inter', sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f5f7fa;
+    /* Les mêmes huit teintes, redéclinées pour une surface claire — pas un simple
+       éclaircissement : chaque pas a été revalidé contre le fond blanc. */
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-8: #e34948;
+
+    --bg: #f6f7f9;
     --surface: #ffffff;
     --surface-raised: #ffffff;
-    --border: #dfe4ec;
-    --text: #10151c;
-    --text-secondary: #55606f;
-    --text-tertiary: #7b8697;
-    --accent-soft: rgba(76, 154, 255, 0.1);
+    --border: #e4e7ec;
+    --border-strong: #d3d8e0;
+    --text: #0f1115;
+    --text-secondary: #4e5866;
+    --text-tertiary: #7a8492;
+
+    --accent-soft: rgba(42, 120, 214, 0.1);
+    --accent-strong: #1f63b4;
+
+    --grid: #edeff3;
+    --axis: #d3d8e0;
+
+    --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.05);
+    --shadow-raised: 0 8px 28px -12px rgba(15, 17, 21, 0.18);
   }
 }
 
@@ -609,13 +662,26 @@ textarea:focus {
   .nav-item {
     flex-direction: column;
     gap: 3px;
-    padding: 7px 10px;
+    padding: 7px 12px;
     font-size: 11px;
-    min-width: 62px;
+    /* `flex: none` empêche les entrées de se comprimer jusqu'à ce que « Placements » et
+       « Ma situation » se touchent ; `width: auto` annule le `width: 100 %` de la barre
+       latérale, sans lequel une seule entrée occuperait toute la barre. Les entrées
+       gardent donc leur largeur naturelle, et c'est la barre qui défile. */
+    flex: none;
+    width: auto;
+    min-width: 64px;
     /* Cible tactile : en dessous, on vise à côté. */
-    min-height: 44px;
+    min-height: 46px;
     text-align: center;
     white-space: nowrap;
+  }
+
+  /* Le fond de la barre reste opaque pendant le défilement horizontal. */
+  .sidebar::after {
+    content: '';
+    flex: none;
+    width: 4px;
   }
 
   .main {
@@ -813,4 +879,231 @@ textarea:focus {
   font-size: 13px;
   margin: 0 0 14px;
   max-width: 74ch;
+}
+
+/* --- Graphiques --- */
+
+.figure + .figure {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.figure-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.figure-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+}
+
+.figure-hint {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin: 12px 0 0;
+  max-width: 74ch;
+  line-height: 1.5;
+}
+
+.donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+
+.donut-layout > :last-child {
+  flex: 1;
+  min-width: 210px;
+}
+
+/* Barres horizontales : la longueur porte la comparaison, la couleur ne fait
+   qu'accompagner un libellé toujours présent. */
+.bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.bar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.bar-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bar-share {
+  width: 42px;
+  text-align: right;
+  font-size: 12px;
+}
+
+.bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--grid);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  /* Extrémité arrondie côté données, franche sur la ligne de base. */
+  border-radius: 0 4px 4px 0;
+  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Colonnes appariées. Une seule échelle : deux axes verticaux inventeraient une
+   corrélation absente des données. */
+.columns {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.column-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+.column-pair {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  /* L'écart de 2 px en fond sépare les deux colonnes, sans contour. */
+  gap: 2px;
+  width: 100%;
+  justify-content: center;
+}
+
+.column {
+  width: 45%;
+  max-width: 22px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  transition: height 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.column-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 7px;
+  white-space: nowrap;
+}
+
+/* --- Finitions --- */
+
+.card {
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-large);
+  padding: 20px;
+}
+
+.hero {
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-raised);
+  padding: 28px;
+  /* Un dégradé très retenu : il donne du relief à la carte principale sans devenir
+     un aplat coloré qui écraserait les chiffres. */
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 58%),
+    linear-gradient(158deg, var(--surface-raised), var(--surface));
+}
+
+.hero-value {
+  font-size: 46px;
+  letter-spacing: -0.035em;
+  /* Chiffres proportionnels : un nombre isolé et grand se lit mieux ainsi. */
+  font-variant-numeric: proportional-nums;
+}
+
+.tile-value {
+  letter-spacing: -0.025em;
+}
+
+.button {
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.button-primary {
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.button-primary:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #ffffff;
+  filter: none;
+}
+
+.nav-item {
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.nav-item[aria-current='page'] {
+  font-weight: 600;
+}
+
+.row {
+  transition: background 140ms ease;
+}
+
+.progress {
+  background: var(--grid);
+}
+
+.card-title {
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+}
+
+/* Une pastille d'état ne porte jamais seule le sens : elle accompagne toujours un
+   libellé écrit en toutes lettres. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill,
+  .column,
+  .progress-fill,
+  .button,
+  .nav-item,
+  .row {
+    transition: none;
+  }
 }
