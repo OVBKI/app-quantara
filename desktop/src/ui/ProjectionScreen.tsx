@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Money, Percent } from '../core/money';
 import { categoryLabel } from '../core/categories';
-import { addMonths, formatYearMonth } from '../core/yearMonth';
+import { addMonths, daysInMonth, formatYearMonth } from '../core/yearMonth';
+import { availableBalance } from '../core/model';
+import { allocatedTo } from '../core/engine/allocation';
 import { RISK_DISCLAIMER, inRealTerms, scenarios } from '../core/engine/simulation';
 import { buildMonthlyReport } from '../core/engine/monthlyReport';
 import { useStore } from '../state/store';
-import { Card, Field, MoneyInput, parseAmount } from './components';
+import { Card, Field, MoneyInput, Tile, parseAmount } from './components';
 
 export function ProjectionScreen() {
   return (
@@ -19,10 +21,145 @@ export function ProjectionScreen() {
       </header>
 
       <div className="stack">
+        <ForecastCard />
         <SimulationCard />
         <MonthlyReportCard />
       </div>
     </>
+  );
+}
+
+/**
+ * Prévision du mois en cours.
+ *
+ * Une seule lecture, de haut en bas : ce qui entre, ce qui sort, ce qui est mis de côté,
+ * ce qui reste — et le solde que cela donne au dernier jour. Les montants viennent tous
+ * du même calcul que le reste de l'application, si bien que cet écran ne peut pas
+ * contredire l'accueil.
+ *
+ * La distinction qui compte : « prévu » n'est pas « constaté ». Les charges fixes sont
+ * connues, les dépenses variables sont estimées, et l'écran le dit ligne par ligne
+ * plutôt que de présenter le tout avec la même assurance.
+ */
+function ForecastCard() {
+  const { profile, analysis, period } = useStore();
+  const { summary, cashFlow, allocation } = analysis;
+
+  const plannedSavings = allocatedTo(allocation, 'emergencyFund')
+    .plus(allocatedTo(allocation, 'goals'))
+    .plus(allocatedTo(allocation, 'safetyBuffer'));
+  const plannedInvestment = allocatedTo(allocation, 'investment');
+  const free = allocatedTo(allocation, 'freeMoney');
+
+  interface ForecastLine {
+    readonly label: string;
+    readonly amount: Money;
+    readonly note: string;
+    readonly tone?: string;
+    readonly sign: '+' | '−';
+  }
+
+  const lines: ForecastLine[] = ([
+    {
+      label: 'Revenus prévus',
+      amount: summary.income,
+      sign: '+',
+      tone: 'positive',
+      note: summary.incomeDetail.hasVariableSource
+        ? `Hypothèse ${summary.incomeDetail.low.formatCompact()} – ${summary.incomeDetail.high.formatCompact()} selon le mois`
+        : 'Montant connu',
+    },
+    {
+      label: 'Charges fixes',
+      amount: summary.fixedExpenses,
+      sign: '−',
+      note: 'Connues : loyer, énergie, assurances, abonnements',
+    },
+    {
+      label: 'Dépenses variables',
+      amount: summary.variableReserved,
+      sign: '−',
+      note:
+        summary.variablePlanned.isPositive
+          ? `Vos enveloppes, dont ${summary.envelopes.totalSpent.roundedToUnit.format()} déjà dépensés`
+          : summary.variableProjectionMethod === 'runRate'
+            ? `Estimation d’après le rythme observé sur ${summary.daysElapsed} jours`
+            : summary.variableProjectionMethod === 'history'
+              ? 'Estimation d’après les mois précédents'
+              : 'Constaté',
+    },
+    {
+      label: 'Remboursements',
+      amount: summary.debtPayments,
+      sign: '−',
+      note: 'Mensualités de crédits en cours',
+    },
+    {
+      label: 'Épargne prévue',
+      amount: plannedSavings,
+      sign: '−',
+      note: 'Fonds d’urgence et objectifs, selon votre plan',
+    },
+    {
+      label: 'Investissement prévu',
+      amount: plannedInvestment,
+      sign: '−',
+      note: 'Une fois la sécurité assurée',
+    },
+  ] satisfies ForecastLine[]).filter((line) => line.amount.isPositive);
+
+  return (
+    <Card title={`Prévision — ${formatYearMonth(period)}`}>
+      <p className="section-note">
+        Ce que devrait donner le mois si rien d’inattendu ne survient. Les charges fixes sont connues ; les
+        dépenses variables sont une estimation, et c’est écrit en face de chaque ligne.
+      </p>
+
+      {lines.map((line) => (
+        <div className="row" key={line.label} style={{ alignItems: 'flex-start' }}>
+          <div className="row-main">
+            <div className="row-title">{line.label}</div>
+            <div className="row-subtitle">{line.note}</div>
+          </div>
+          <div className={`row-amount amount ${line.tone ?? ''}`}>
+            {line.sign} {line.amount.roundedToUnit.format()}
+          </div>
+        </div>
+      ))}
+
+      <div className="row" style={{ borderTop: '1px solid var(--border)', fontWeight: 600 }}>
+        <div className="row-main">Reste libre</div>
+        <div className={`row-amount amount ${free.isPositive ? 'positive' : ''}`}>
+          {free.roundedToUnit.format()}
+        </div>
+      </div>
+
+      <div className="grid grid-2" style={{ marginTop: 18 }}>
+        <Tile
+          label={`Solde estimé au ${daysInMonth(period)} ${formatYearMonth(period).split(' ')[0]}`}
+          value={cashFlow.endOfMonthBalance.roundedToUnit.format()}
+          tone={cashFlow.endOfMonthBalance.isNegative ? 'critical' : 'positive'}
+          note={`Depuis ${availableBalance(profile).roundedToUnit.format()} aujourd’hui`}
+        />
+        <Tile
+          label="Point bas du mois"
+          value={cashFlow.lowestBalance.roundedToUnit.format()}
+          tone={cashFlow.projectedOverdraft ? 'critical' : undefined}
+          note={
+            cashFlow.lowestBalanceDate
+              ? `Le ${cashFlow.lowestBalanceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`
+              : 'Aucune tension prévue'
+          }
+        />
+      </div>
+
+      {cashFlow.projectedOverdraft && (
+        <p className="rationale critical" style={{ marginTop: 12 }}>
+          Le solde passerait sous zéro avant la fin du mois. C’est le point bas qui provoque un découvert, pas
+          le solde final — lequel est ici {cashFlow.endOfMonthBalance.roundedToUnit.format()}.
+        </p>
+      )}
+    </Card>
   );
 }
 

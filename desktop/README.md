@@ -24,6 +24,12 @@ npm run tauri dev      # fenêtre native, rechargement à chaud
 npm run tauri build    # installateur dans src-tauri/target/release/bundle/nsis/
 ```
 
+Les écrans sont chargés à la demande : le démarrage ne télécharge que 275 ko, et la
+bibliothèque de graphiques n'arrive qu'au premier graphique affiché.
+
+Raccourcis : `1`–`6` pour les écrans principaux, `N` pour noter une dépense, `M`/`P` pour
+changer de mois, `Ctrl+Z` pour annuler, `?` pour la liste complète.
+
 L'interface seule tourne aussi dans un navigateur (`npm run dev`) : pratique pour
 travailler sur les écrans sans recompiler la partie Rust. Le profil est alors conservé
 dans le stockage local du navigateur plutôt que dans un fichier.

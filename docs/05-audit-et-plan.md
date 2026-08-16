@@ -2,7 +2,7 @@
 
 Audit de l'existant (`desktop/`), établi sur le commit `2db044c`.
 
-> **État — priorités 1 et 2 livrées.** Les constats ci-dessous décrivent l'application
+> **État — priorités 1, 2 et 3 livrées.** Les constats ci-dessous décrivent l'application
 > *avant* correction ; ils sont conservés tels quels pour garder trace de ce qui n'allait
 > pas. Ce qui a été fait, et ce qui ne l'a pas été, figure dans le bilan en fin de
 > document.
@@ -298,11 +298,23 @@ pas.
 - **Dupliquer et annuler** — duplication d'une transaction à la date du jour, annulation
   des vingt dernières modifications (`Ctrl+Z`).
 
+### Priorité 3
+
+- **Navigation par URL** — l'écran courant vit dans l'ancre (`#/budget`). Le bouton
+  « précédent » fonctionne, et rouvrir la fenêtre ramène là où on était.
+- **Prévision de fin de mois consolidée** — une lecture de haut en bas en tête des
+  projections : ce qui entre, ce qui sort, ce qui est mis de côté, ce qui reste, et le
+  solde au dernier jour. Chaque ligne dit si elle est connue ou estimée.
+- **Découpage du paquet** — le chargement initial passe de 771 ko à **275 ko** (85 ko
+  compressés). Les écrans sont chargés à la demande, et la bibliothèque de graphiques
+  (303 ko à elle seule) n'arrive qu'au premier graphique affiché : le solde et les tuiles
+  ne l'attendent plus.
+- **Raccourcis clavier** — `1`–`6` pour les écrans principaux, `N` pour noter une dépense,
+  `M`/`P` pour changer de mois, `Ctrl+Z` pour annuler, `?` pour la liste. Aucun ne se
+  déclenche pendant une saisie.
+
 ### Ce qui n'a pas été fait
 
-- **Priorité 3** dans son ensemble : navigation par URL et retour arrière, découpage du
-  bundle, prévision de fin de mois consolidée sur un écran dédié, raccourcis clavier
-  au-delà de `Ctrl+Z`.
 - **Usage réel sur téléphone** : écarté d'un commun accord. L'interface se comporte
   correctement dans une fenêtre étroite, mais l'application reste un exécutable Windows —
   elle ne s'installe pas sur un téléphone.

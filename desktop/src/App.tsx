@@ -1,22 +1,38 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { buildAlerts } from './core/engine/alerts';
 import { notify } from './notifications/notifier';
 import { addMonths, formatYearMonth } from './core/yearMonth';
 import { useStore } from './state/store';
 import { HomeScreen } from './ui/HomeScreen';
-import { BudgetScreen } from './ui/BudgetScreen';
-import { TransactionsScreen } from './ui/TransactionsScreen';
-import { GoalsScreen } from './ui/GoalsScreen';
-import { SettingsScreen } from './ui/SettingsScreen';
-import { AdvisorScreen } from './ui/AdvisorScreen';
-import { ProjectionScreen } from './ui/ProjectionScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
-import { PortfolioScreen } from './ui/PortfolioScreen';
-import { SubscriptionsScreen } from './ui/SubscriptionsScreen';
-import { CalendarScreen } from './ui/CalendarScreen';
-import { HealthScreen } from './ui/HealthScreen';
-import { CategoriesScreen } from './ui/CategoriesScreen';
 import { LockScreen } from './ui/LockScreen';
+import { ShortcutsHelp } from './ui/ShortcutsHelp';
+import { useHashRoute } from './ui/routing';
+
+/*
+ * Les écrans secondaires sont chargés à la demande.
+ *
+ * Recharts pèse à lui seul l'essentiel du paquet ; le confiner dans les écrans qui
+ * tracent réellement des courbes évite de le charger pour quelqu'un qui ouvre
+ * l'application et regarde son solde. Le découpage est fait par écran plutôt que par
+ * bibliothèque : c'est la frontière que l'utilisateur franchit, donc celle qui décide de
+ * ce dont il a besoin.
+ */
+const BudgetScreen = lazy(() => import('./ui/BudgetScreen').then((m) => ({ default: m.BudgetScreen })));
+const TransactionsScreen = lazy(() =>
+  import('./ui/TransactionsScreen').then((m) => ({ default: m.TransactionsScreen })),
+);
+const GoalsScreen = lazy(() => import('./ui/GoalsScreen').then((m) => ({ default: m.GoalsScreen })));
+const PortfolioScreen = lazy(() => import('./ui/PortfolioScreen').then((m) => ({ default: m.PortfolioScreen })));
+const HealthScreen = lazy(() => import('./ui/HealthScreen').then((m) => ({ default: m.HealthScreen })));
+const CalendarScreen = lazy(() => import('./ui/CalendarScreen').then((m) => ({ default: m.CalendarScreen })));
+const SubscriptionsScreen = lazy(() =>
+  import('./ui/SubscriptionsScreen').then((m) => ({ default: m.SubscriptionsScreen })),
+);
+const CategoriesScreen = lazy(() => import('./ui/CategoriesScreen').then((m) => ({ default: m.CategoriesScreen })));
+const AdvisorScreen = lazy(() => import('./ui/AdvisorScreen').then((m) => ({ default: m.AdvisorScreen })));
+const ProjectionScreen = lazy(() => import('./ui/ProjectionScreen').then((m) => ({ default: m.ProjectionScreen })));
+const SettingsScreen = lazy(() => import('./ui/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
 
 export type Screen =
   | 'home'
@@ -57,9 +73,12 @@ const SECONDARY: { id: Screen; label: string; icon: string }[] = [
   { id: 'settings', label: 'Réglages', icon: '⚙' },
 ];
 
+const SCREENS: Screen[] = [...PRIMARY, ...SECONDARY].map((entry) => entry.id);
+
 export function App() {
   const { profile, analysis, ready, error, locked, encrypted, lock, period, setPeriod, undo, canUndo } = useStore();
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useHashRoute<Screen>(SCREENS, 'home');
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Échelle du texte : appliquée à la racine, donc à toutes les unités relatives.
   useEffect(() => {
@@ -72,20 +91,52 @@ export function App() {
     void notify(buildAlerts(analysis, profile.preferences.alerts));
   }, [ready, locked, analysis, profile.preferences.alerts]);
 
-  // Ctrl+Z annule la dernière modification, comme partout ailleurs.
+  const noteExpense = useCallback(() => {
+    setScreen('home');
+    // Après le rendu de l'accueil : le champ n'existe pas encore au moment de la touche.
+    window.setTimeout(() => document.getElementById('quick-expense-amount')?.focus(), 60);
+  }, [setScreen]);
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
-      if (typing) return;
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      // Dans un champ, les touches écrivent ce qu'elles disent. Sans cette garde, saisir
+      // « 3 » dans un montant changerait d'écran.
+      const typing =
+        target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable === true;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !typing) {
         event.preventDefault();
         undo();
+        return;
+      }
+      if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+
+      const digit = Number(event.key);
+      if (Number.isInteger(digit) && digit >= 1 && digit <= PRIMARY.length) {
+        setScreen(PRIMARY[digit - 1]!.id);
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case 'n':
+          event.preventDefault();
+          noteExpense();
+          break;
+        case 'm':
+          setPeriod(addMonths(period, -1));
+          break;
+        case 'p':
+          setPeriod(addMonths(period, 1));
+          break;
+        case '?':
+          setShowShortcuts(true);
+          break;
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo]);
+  }, [undo, setScreen, setPeriod, period, noteExpense]);
 
   if (!ready) {
     return (
@@ -174,13 +225,20 @@ export function App() {
         )}
 
         {encrypted && (
-          <button type="button" className="nav-item" onClick={lock} style={{ marginBottom: 4 }}>
+          <button type="button" className="nav-item" onClick={lock}>
             <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
               ⌧
             </span>
             Verrouiller
           </button>
         )}
+
+        <button type="button" className="nav-item" onClick={() => setShowShortcuts(true)}>
+          <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
+            ⌨
+          </span>
+          Raccourcis
+        </button>
 
         <p className="nav-footnote">
           Données locales, sur cette machine. Les montants affichés proviennent tous d’un calcul explicite.
@@ -200,19 +258,24 @@ export function App() {
         </div>
 
         {error && <div className="error-banner">{error}</div>}
-        {screen === 'home' && <HomeScreen onNavigate={setScreen} />}
-        {screen === 'budget' && <BudgetScreen />}
-        {screen === 'transactions' && <TransactionsScreen />}
-        {screen === 'goals' && <GoalsScreen />}
-        {screen === 'portfolio' && <PortfolioScreen />}
-        {screen === 'health' && <HealthScreen />}
-        {screen === 'calendar' && <CalendarScreen />}
-        {screen === 'subscriptions' && <SubscriptionsScreen />}
-        {screen === 'categories' && <CategoriesScreen />}
-        {screen === 'advisor' && <AdvisorScreen />}
-        {screen === 'projections' && <ProjectionScreen />}
-        {screen === 'settings' && <SettingsScreen />}
+
+        <Suspense fallback={<div className="empty">Chargement de l’écran…</div>}>
+          {screen === 'home' && <HomeScreen onNavigate={setScreen} />}
+          {screen === 'budget' && <BudgetScreen />}
+          {screen === 'transactions' && <TransactionsScreen />}
+          {screen === 'goals' && <GoalsScreen />}
+          {screen === 'portfolio' && <PortfolioScreen />}
+          {screen === 'health' && <HealthScreen />}
+          {screen === 'calendar' && <CalendarScreen />}
+          {screen === 'subscriptions' && <SubscriptionsScreen />}
+          {screen === 'categories' && <CategoriesScreen />}
+          {screen === 'advisor' && <AdvisorScreen />}
+          {screen === 'projections' && <ProjectionScreen />}
+          {screen === 'settings' && <SettingsScreen />}
+        </Suspense>
       </main>
+
+      {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }
