@@ -1,0 +1,238 @@
+# Audit de l'application Windows, et plan d'amélioration
+
+Audit de l'existant (`desktop/`), à jour du commit `2db044c`. Aucune modification de code
+n'accompagne ce document : il sert à décider quoi faire, dans quel ordre.
+
+Méthode : lecture du code, pas des intentions. Chaque constat ci-dessous renvoie à un
+fichier et à une ligne, et a été vérifié dans la source.
+
+---
+
+## 1. Ce qui fonctionne déjà
+
+Le socle est solide, et il ne faut rien y casser.
+
+**Le moteur de calcul est isolé et testé.** `src/core/` ne dépend pas de React. 156 tests
+couvrent les montants, les conversions de périodicité, le budget, la trésorerie, les
+enveloppes, les objectifs, les dettes, la répartition et l'assistant. Aucun montant
+affiché n'est calculé dans un composant.
+
+**Les montants sont exacts.** `bigint` en micro-unités, arrondi bancaire, multiplication
+avant division. Un test vérifie que mille additions d'un centime font exactement 10 €.
+
+**Le recalcul est déjà automatique.** `analyse()` est un `useMemo` sur `(profile, period)`
+dans `store.tsx:126`. Toute modification du profil relance la chaîne complète — budget,
+trésorerie, objectifs, répartition, graphiques. Le point 23 de la demande est donc déjà
+satisfait par construction, et le restera.
+
+**L'édition existe sur presque toutes les entités** : revenus, charges, transactions,
+objectifs, dettes, comptes, enveloppes, règles de catégorisation. Suppression avec
+confirmation (`useConfirm`).
+
+**Fonctionnalités présentes et opérationnelles** : trésorerie jour par jour, enveloppes par
+catégorie, revenus irréguliers, fonds d'urgence 3/6/9 mois, objectifs avec faisabilité,
+dettes en avalanche, optimisation, simulations, rapport mensuel, import CSV, catégorisation
+locale apprenante, chiffrement du fichier, notifications, mise en route en 7 étapes.
+
+---
+
+## 2. Ce qui est incomplet
+
+| Sujet | État | Où |
+|---|---|---|
+| Filtres des transactions | Recherche texte + nature seulement. Ni période, ni catégorie, ni montant, ni compte | `TransactionsScreen.tsx:36` |
+| Revenus | Ni compte concerné, ni description, ni fréquence personnalisée | `model.ts:22` |
+| Charges récurrentes | `dayOfMonth` seul ; pas de « prochaine échéance » ni de compte | `model.ts:45` |
+| Abonnements | Un total dans le résumé, aucune vue dédiée | `budget.ts:233` |
+| Analyse des dépenses | Mois courant vs mois précédent seulement. Pas de moyenne 3 mois, 6 mois, année | `monthlyReport.ts` |
+| Investissement | Écran purement éducatif : aucun suivi de ce qui est réellement placé | `InvestmentScreen.tsx` |
+
+---
+
+## 3. Ce qui est mal conçu
+
+Ce sont les points à traiter en premier : ce ne sont pas des manques, ce sont des erreurs.
+
+### 3.1 Deux sources de vérité pour l'épargne — double comptage
+
+`totalSavingsBalance` (`model.ts:235`) additionne `profile.savingsBalance` **et** le solde
+des comptes de type `savings`. Quelqu'un qui saisit « 8 000 € d'épargne » dans les réglages
+*et* crée un livret à 8 000 € voit 16 000 €. Le fonds d'urgence, la répartition et les
+objectifs héritent tous de l'erreur.
+
+### 3.2 Épargner n'augmente pas l'épargne
+
+`contributeToGoal` (`store.tsx:230`) incrémente `goal.current` et écrit une transaction,
+mais laisse `profile.savingsBalance` inchangé. Verser 400 € sur un objectif ne fait donc
+pas bouger le fonds d'urgence ni le solde d'épargne — il faut aller le corriger à la main
+dans les réglages. C'est incohérent, et personne ne le fera.
+
+### 3.3 Les comptes ne servent presque à rien
+
+`Transaction.accountId` existe (`model.ts:73`) mais **aucun moteur ne le lit**. Les soldes
+des comptes sont des nombres saisis à la main qui ne bougent jamais. Le virement
+(`kind: 'transfer'`) n'a ni source ni destination : il est simplement exclu des totaux
+(`TransactionsScreen.tsx:202`). Le point 19 de la demande n'est donc pas tenu.
+
+### 3.4 Les couleurs de catégories ne sont pas stables
+
+Le camembert de l'accueil colore par **rang** (`HomeScreen.tsx:212`), pas par catégorie.
+« Courses » est bleue en mars si elle est première, violette en avril si elle passe
+deuxième. L'œil apprend une couleur ; ici il apprend faux.
+
+### 3.5 La répartition n'est pas réglable
+
+La cascade est bonne — sécuriser, éteindre les dettes chères, construire, investir — mais
+ses parts sont écrites en dur : 60 %, 50 %, 60 %, puis 20/35/50 % selon le profil
+(`allocation.ts:44` et suivantes). L'utilisateur ne peut rien ajuster. Le point 9 de la
+demande (répartition personnalisable, contrôle de la somme à 100 %) n'existe pas.
+
+### 3.6 Le sélecteur de mois ne s'applique pas partout
+
+La barre latérale change la période, mais l'écran Transactions liste **toutes** les
+transactions de tous les mois. Deux notions de « maintenant » coexistent sans le dire.
+
+---
+
+## 4. Ce qui manque
+
+- **Catégories personnalisées** : les catégories sont un type TypeScript figé
+  (`categories.ts`). On ne peut ni en créer, ni en renommer, ni en supprimer, ni choisir
+  une couleur ou une icône. C'est le manque le plus structurant de la liste.
+- **Suivi des investissements** : montant placé, valeur actuelle, évolution, type d'actif.
+- **Vue abonnements** : nom, montant, coût mensuel, coût annuel, total.
+- **Calendrier financier** : les événements datés existent déjà
+  (`analysis.cashFlow.events`), il manque seulement l'écran.
+- **Indicateur de santé financière** : le feu vert / orange / rouge du point 16.
+- **Dupliquer** une transaction ou une charge, et **annuler** une modification.
+- **Répartition cible par poste** : épargne souhaitée, investissement souhaité, argent
+  libre, avec verdict équilibré / déficitaire / excédentaire.
+
+---
+
+## 5. Problèmes d'ergonomie
+
+- **L'accueil ne répond pas à la première question.** Il affiche le reste à vivre par jour,
+  mais pas le **solde disponible** — « combien ai-je, là, sur mes comptes ». C'est la
+  question n° 1 de la demande, et elle n'est nulle part en évidence.
+- **Huit entrées de navigation** pour un usage personnel : Accueil, Budget, Transactions,
+  Objectifs, Investissement, Assistant, Projections, Réglages. Investissement et
+  Projections se recoupent, l'Assistant fait doublon avec les constats de l'accueil.
+- **Les réglages sont un fourre-tout** de 699 lignes : devise, préférences, comptes,
+  dettes, sécurité, import, export, remise à zéro.
+- **Aucune saisie au clavier complet** : pas de raccourci pour ajouter une dépense.
+- **Les messages d'erreur sont rares** : un bouton désactivé sans explication remplace
+  souvent une validation expliquée.
+
+---
+
+## 6. Problèmes de logique financière
+
+Outre 3.1, 3.2 et 3.3 :
+
+- **Le taux d'épargne ne compte que les transactions `savings`** (`budget.ts:249`). Un
+  virement mensuel automatique vers un livret, non saisi comme transaction, n'y figure pas.
+- **`investmentsBalance` est saisi mais mort** : aucun moteur ne le lit, aucun écran ne le
+  fait évoluer.
+- **Les dettes ne génèrent pas d'échéance dans le variable** : elles apparaissent en
+  trésorerie, ce qui est correct, mais l'utilisateur ne voit pas l'intérêt payé.
+
+---
+
+## 7. Navigation
+
+Pas de route dans l'URL, pas de retour arrière du navigateur, pas de lien profond. L'état
+`screen` est un `useState` dans `App.tsx:40`. Acceptable pour une fenêtre native, gênant
+dès qu'on veut revenir à l'écran précédent.
+
+---
+
+## 8. Responsive
+
+**Aucun point de rupture.** `styles.css` ne contient qu'une seule règle `@media`, et elle
+concerne le thème clair. La coque est une grille `232px 1fr` (`styles.css:82`) : sous
+environ 700 px de large, la barre latérale mange l'écran et le contenu devient illisible.
+Les grilles internes (`minmax(320px, 1fr)`) s'empilent correctement, elles.
+
+À noter, et c'est important pour arbitrer : **cette application est un exécutable Windows.
+Elle ne s'installe pas sur un téléphone.** Rendre l'interface responsive sert aux fenêtres
+étroites et aux petits écrans d'ordinateur portable. Un vrai usage mobile suppose soit
+l'application iOS de ce dépôt, soit un déploiement web de la même interface.
+
+---
+
+## 9. Performance
+
+- **771 ko de JavaScript en un seul fichier** (223 ko compressés), dont l'essentiel est
+  Recharts. Sur une application native déjà installée, l'impact est faible ; le
+  découpage reste souhaitable si l'interface est un jour servie sur le web.
+- `analyse()` recalcule tout à chaque modification. Sur un profil réaliste (quelques
+  centaines de transactions), c'est de l'ordre de la milliseconde. Aucun problème mesuré.
+- Détail : dans `OnboardingScreen`, le brouillon se recalcule à chaque frappe parce que
+  `parseAmount` renvoie un objet neuf. Sans conséquence, mais inutile.
+
+---
+
+## 10. Plan par priorité
+
+### Priorité 1 — Indispensable
+
+Ce qui rend l'application juste et complète. Sans cela, elle donne des chiffres faux ou
+laisse une question essentielle sans réponse.
+
+1. **Une seule source de vérité pour l'argent.** Les comptes deviennent la référence.
+   `savingsBalance` et `investmentsBalance` sont migrés en comptes lors de la lecture du
+   fichier, puis supprimés. Fin du double comptage.
+2. **Les mouvements font bouger les soldes.** Une transaction rattachée à un compte le
+   débite ou le crédite ; un virement débite un compte et en crédite un autre sans compter
+   comme dépense ; un versement sur objectif alimente réellement l'épargne.
+3. **Catégories personnalisées** : créer, renommer, supprimer (avec réaffectation des
+   transactions concernées), couleur et icône choisies, budget par catégorie. Les
+   catégories actuelles deviennent les valeurs par défaut d'un profil neuf.
+4. **Accueil refondu en trois niveaux** : solde disponible en premier, puis revenus /
+   dépenses / épargne / investi du mois avec leurs parts du revenu, puis les constats.
+5. **Responsive** : barre latérale repliable en barre inférieure sous 900 px, tableaux qui
+   défilent, cibles tactiles suffisantes.
+6. **Filtres complets sur les transactions** : période, catégorie, nature, montant, compte,
+   en plus de la recherche.
+7. **Validation expliquée** : montant négatif, pourcentages au-delà de 100 %, date
+   invalide, catégorie obligatoire — chaque refus dit pourquoi.
+
+### Priorité 2 — Important
+
+8. **Répartition du revenu réglable** : parts en pourcentage définies par l'utilisateur,
+   contrôle de la somme, message clair sur le reste non attribué. La cascade actuelle
+   devient le réglage par défaut, pas une contrainte.
+9. **Suivi des investissements** : lignes de portefeuille (type, montant placé, valeur
+   actuelle, évolution), part du revenu investie. L'écran éducatif existant recule au
+   second plan, sans disparaître.
+10. **Vue abonnements** : liste, coût mensuel, coût annuel, total, repérage des doublons.
+11. **Calendrier financier** : le mois en grille, avec salaires, prélèvements et échéances.
+    Les données existent déjà.
+12. **Comparaisons étendues** : mois précédent, moyenne 3 mois, moyenne 6 mois, année.
+13. **Dupliquer et annuler** : duplication d'une transaction ou d'une charge, annulation de
+    la dernière modification.
+
+### Priorité 3 — Avancé
+
+14. **Indicateur de santé financière** : trois états, critères affichés, présenté comme un
+    repère pédagogique et non comme un verdict.
+15. **Prévision de fin de mois consolidée** sur un seul écran.
+16. **Navigation par URL** et retour arrière.
+17. **Découpage du bundle** et chargement différé des graphiques.
+18. **Raccourcis clavier** pour les actions fréquentes.
+
+---
+
+## Deux arbitrages à trancher avant de commencer
+
+**Le mobile.** L'application est un exécutable Windows. « Responsive » a un sens (fenêtres
+étroites, petits portables) ; « utilisable sur téléphone » en a un autre, et suppose une
+version web ou l'application iOS. Les deux sont faisables, ce n'est pas la même quantité de
+travail.
+
+**L'investissement.** La demande dit désormais : suivre ce que je place, sans jouer au
+conseiller. L'écran actuel fait exactement l'inverse — il conseille les préalables et
+n'enregistre rien. Le remplacer entièrement ferait perdre les garde-fous réglementaires
+déjà écrits et testés. La proposition est d'ajouter le suivi comme contenu principal et de
+conserver la partie éducative en second, repliée.
