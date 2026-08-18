@@ -143,8 +143,11 @@ export function Donut({
   size?: number;
   thickness?: number;
 }) {
+  const [hovered, setHovered] = useState<string | null>(null);
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
   if (total <= 0) return null;
+
+  const active = slices.find((slice) => slice.key === hovered);
 
   const cx = size / 2;
   const cy = size / 2;
@@ -177,27 +180,61 @@ export function Donut({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Répartition">
-      {arcs.map(({ slice, path }) =>
-        path ? (
-          <path key={slice.key} d={path} fill={slice.color}>
-            <title>{`${slice.label} — ${slice.formatted}`}</title>
-          </path>
-        ) : null,
-      )}
-      {centerValue && (
+      {/* Les parts se posent l'une après l'autre, dans l'ordre où elles se lisent. Le
+          décalage est court : passé 300 ms de retard, la dernière part paraît oubliée. */}
+      <g onMouseLeave={() => setHovered(null)}>
+        {arcs.map(({ slice, path }, index) =>
+          path ? (
+            /*
+             * Deux éléments et non un : l'animation d'entrée porte sur le groupe, la
+             * transparence de survol sur le tracé. Empilées sur le même nœud, elles se
+             * disputeraient la propriété `opacity` — et une animation, même terminée,
+             * l'emporte sur un style en ligne. L'estompage ne se verrait jamais.
+             */
+            <g
+              key={slice.key}
+              className="arc-in"
+              style={{ transformOrigin: `${cx}px ${cy}px`, animationDelay: `${Math.min(index * 60, 300)}ms` }}
+            >
+              <path
+                d={path}
+                fill={slice.color}
+                className="arc"
+                // Les autres parts s'estompent, la survolée garde sa couleur : on ne
+                // recolore rien, on baisse seulement le volume autour.
+                style={{ opacity: hovered === null || hovered === slice.key ? 1 : 0.32 }}
+                onMouseEnter={() => setHovered(slice.key)}
+              >
+                <title>{`${slice.label} — ${slice.formatted}`}</title>
+              </path>
+            </g>
+          ) : null,
+        )}
+      </g>
+      {/* Le centre sert de bulle : au survol il affiche la part visée, et retrouve le
+          total dès qu'on s'éloigne. Pas de bulle flottante à positionner, pas de contenu
+          qui déborde de la carte. */}
+      {(centerValue || active) && (
         <>
+          {/* Le texte du centre ne capte pas la souris : posé au milieu de l'anneau, il
+              créerait une zone morte au beau milieu du graphique. */}
           <text
             x={cx}
             y={cy - 2}
             textAnchor="middle"
             className="amount"
-            style={{ fill: 'var(--text)', fontSize: 19, fontWeight: 640 }}
+            style={{ fill: 'var(--text)', fontSize: active ? 16 : 19, fontWeight: 640, pointerEvents: 'none' }}
           >
-            {centerValue}
+            {active ? active.formatted : centerValue}
           </text>
-          {centerLabel && (
-            <text x={cx} y={cy + 15} textAnchor="middle" style={{ fill: 'var(--text-tertiary)', fontSize: 11 }}>
-              {centerLabel}
+          {(active?.label ?? centerLabel) && (
+            <text
+              x={cx}
+              y={cy + 15}
+              textAnchor="middle"
+              style={{ fill: 'var(--text-tertiary)', fontSize: 11, pointerEvents: 'none' }}
+            >
+              {active ? active.label : centerLabel}
             </text>
           )}
         </>
@@ -227,7 +264,7 @@ export function BarList({
 
   return (
     <div className="bar-list">
-      {slices.map((slice) => {
+      {slices.map((slice, index) => {
         const width = Math.max((slice.value / ceiling) * 100, slice.value > 0 ? 1.5 : 0);
         const share = total > 0 ? slice.value / total : 0;
         return (
@@ -241,7 +278,10 @@ export function BarList({
               )}
             </div>
             <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${width}%`, background: slice.color }} />
+              <div
+                className="bar-fill grow-x"
+                style={{ width: `${width}%`, background: slice.color, animationDelay: `${Math.min(index * 45, 270)}ms` }}
+              />
             </div>
           </div>
         );
@@ -278,6 +318,7 @@ export function TrendChart({
   markerAt?: number;
 }) {
   const [ref, width] = useMeasuredWidth();
+  const [hovered, setHovered] = useState<number | null>(null);
   const padding = { top: 14, right: 10, bottom: 20, left: 10 };
 
   // Après les hooks : leur nombre doit rester constant d'un rendu à l'autre.
@@ -307,10 +348,18 @@ export function TrendChart({
   const area = `${line} L ${coordinates[coordinates.length - 1]![0]} ${baseline} L ${coordinates[0]![0]} ${baseline} Z`;
 
   const marker = markerAt !== undefined ? coordinates[markerAt] : undefined;
+  const active = hovered !== null ? coordinates[hovered] : undefined;
+  const activePoint = hovered !== null ? points[hovered] : undefined;
 
   return (
-    <div ref={ref} style={{ width: '100%' }}>
-      <svg width={width} height={height} role="img" aria-label="Évolution">
+    <div ref={ref} style={{ width: '100%', position: 'relative' }}>
+      <svg
+        width={width}
+        height={height}
+        role="img"
+        aria-label="Évolution"
+        onMouseLeave={() => setHovered(null)}
+      >
       <defs>
         <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity={0.16} />
@@ -336,13 +385,41 @@ export function TrendChart({
         </>
       )}
 
-      <path d={area} fill="url(#trendFill)" />
-      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill="url(#trendFill)" className="fade-in" />
+      {/* `pathLength={1}` normalise la longueur : le tiret et son décalage valent 1,
+          quel que soit le nombre de points — l'animation dure pareil partout. */}
+      <path
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        pathLength={1}
+        className="draw-line"
+      />
 
       {marker && (
         <>
           <circle cx={marker[0]} cy={marker[1]} r={6} fill={SURFACE} />
           <circle cx={marker[0]} cy={marker[1]} r={4} fill={color} />
+        </>
+      )}
+
+      {/* Repère de survol : un trait vertical et un point. Sans lui, il faut deviner à
+          quelle date correspond le creux qu'on est en train de regarder. */}
+      {active && (
+        <>
+          <line
+            x1={active[0]}
+            y1={padding.top}
+            x2={active[0]}
+            y2={padding.top + plotHeight}
+            stroke="var(--axis)"
+            strokeWidth={1}
+          />
+          <circle cx={active[0]} cy={active[1]} r={7} fill={SURFACE} />
+          <circle cx={active[0]} cy={active[1]} r={4.5} fill={color} />
         </>
       )}
 
@@ -354,11 +431,25 @@ export function TrendChart({
           width={plotWidth / points.length}
           height={height}
           fill="transparent"
-        >
-          <title>{`${point.label} — ${point.formatted}`}</title>
-        </rect>
+          onMouseEnter={() => setHovered(index)}
+        />
       ))}
       </svg>
+
+      {active && activePoint && (
+        <div
+          className="chart-tip"
+          style={{
+            // Bornée aux deux extrémités : au bord, une bulle centrée sur le point
+            // déborderait de la carte et se ferait couper.
+            left: Math.min(Math.max(active[0], 60), width - 60),
+            top: Math.max(active[1] - 14, 4),
+          }}
+        >
+          <span className="chart-tip-label">{activePoint.label}</span>
+          <span className="chart-tip-value amount">{activePoint.formatted}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -398,17 +489,27 @@ export function PairedColumns({
   return (
     <>
       <div className="columns" style={{ height }}>
-        {data.map((entry) => (
+        {data.map((entry, index) => (
           <div className="column-group" key={entry.label}>
             <div className="column-pair">
+              {/* Les colonnes poussent depuis la ligne de base, comme la valeur qu'elles
+                  représentent — jamais depuis le haut, ce qui donnerait une chute. */}
               <div
-                className="column"
-                style={{ height: `${(entry.left / ceiling) * 100}%`, background: leftColor }}
+                className="column grow-y"
+                style={{
+                  height: `${(entry.left / ceiling) * 100}%`,
+                  background: leftColor,
+                  animationDelay: `${Math.min(index * 40, 280)}ms`,
+                }}
                 title={`${leftLabel} ${entry.label} — ${entry.leftFormatted}`}
               />
               <div
-                className="column"
-                style={{ height: `${(entry.right / ceiling) * 100}%`, background: rightColor }}
+                className="column grow-y"
+                style={{
+                  height: `${(entry.right / ceiling) * 100}%`,
+                  background: rightColor,
+                  animationDelay: `${Math.min(index * 40 + 20, 300)}ms`,
+                }}
                 title={`${rightLabel} ${entry.label} — ${entry.rightFormatted}`}
               />
             </div>
@@ -585,6 +686,7 @@ export function MultiTrend({
                 strokeLinecap="round"
                 strokeDasharray={entry.reference ? '5 5' : undefined}
                 opacity={entry.reference ? 0.75 : 1}
+                {...(entry.reference ? {} : { pathLength: 1, className: 'draw-line' })}
               />
               {!entry.reference && entry.values[last] !== undefined && (
                 <>
@@ -681,6 +783,8 @@ export function SegmentedRing({
             stroke={on ? `url(#${id})` : 'var(--grid)'}
             strokeWidth={3}
             strokeLinecap="round"
+            className={on ? 'tick-in' : undefined}
+            style={on ? { animationDelay: `${index * 14}ms` } : undefined}
           />
         );
       })}

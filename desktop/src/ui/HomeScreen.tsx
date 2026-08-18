@@ -9,15 +9,17 @@ import {
   type FinancialProfile,
 } from '../core/model';
 import { containsDate, daysInMonth, formatDate, formatYearMonth, parseDate, type YearMonth } from '../core/yearMonth';
+import { compareMonths, monthlyHistory } from '../core/engine/budget';
 import { assessHealth, type HealthLevel } from '../core/engine/health';
 import { allocatedTo } from '../core/engine/allocation';
 import { categorize } from '../core/engine/categorizer';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
-import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
+import { AnimatedAmount, Card, ChartSkeleton, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
 import { SegmentedRing } from './charts';
 import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS } from './allocationVisual';
 import { ApplyAllocationButton } from './ApplyAllocation';
+import { useToast } from './Toast';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 // Les graphiques arrivent après le reste : le solde et les tuiles n'ont pas à attendre
@@ -99,6 +101,39 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
   const awaitingIncome = summary.incomeDetail.sources.some((entry) => entry.unknown);
 
   /*
+   * Six mois de synthèses, pour deux choses que les tuiles ne savaient pas dire :
+   * la variation par rapport au mois précédent, et la forme des derniers mois.
+   *
+   * Un montant seul ne dit pas s'il est habituel. « 2 668 € dépensés » ne veut rien dire
+   * tant qu'on ignore si le mois d'avant en faisait 1 900 ou 3 400.
+   */
+  const history = useMemo(
+    () => monthlyHistory(profile, period, 6, analysis.reference),
+    [profile, period, analysis.reference],
+  );
+  const previous = history.length > 1 ? history[history.length - 2] : undefined;
+  const change = previous ? compareMonths(previous, summary) : null;
+
+  const spentOf = (entry: (typeof history)[number]): number =>
+    entry.fixedExpenses.plus(entry.variableSpentToDate).plus(entry.debtPayments).units;
+  const trends = useMemo(
+    () => ({
+      income: history.map((entry) => entry.income.units),
+      spent: history.map(spentOf),
+      savings: history.map((entry) => entry.savingsContributions.units),
+      disposable: history.map((entry) => entry.disposable.units),
+    }),
+    [history],
+  );
+
+  // Le reste à répartir n'a pas de variation dans `compareMonths` : elle se calcule ici,
+  // sur les deux dernières synthèses, et vaut `null` si le mois précédent était à zéro.
+  const disposableChange =
+    previous && !previous.disposable.isZero
+      ? (summary.disposable.units - previous.disposable.units) / Math.abs(previous.disposable.units)
+      : null;
+
+  /*
    * Trois anneaux, trois questions : où est passé le revenu, ce qui a été mis de côté,
    * ce qui a été placé. Le dégradé qui les parcourt est décoratif — chaque anneau porte
    * une seule série, il n'y a donc aucune identité à confondre.
@@ -149,9 +184,10 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
       <div className="stack">
         <section className="hero">
           <div className="hero-label">Disponible sur vos comptes</div>
-          <div className={`hero-value amount ${available.isNegative ? 'critical' : ''}`}>
-            {available.roundedToUnit.format()}
-          </div>
+          <AnimatedAmount
+            money={available.roundedToUnit}
+            className={`hero-value amount ${available.isNegative ? 'critical' : ''}`}
+          />
           {awaitingIncome && (
             <p className="hero-note warning" style={{ marginTop: 12 }}>
               Revenu du mois pas encore déclaré. Les chiffres ci-dessous ne comptent que vos charges.
@@ -205,6 +241,9 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             // croire à un mois sans rentrée d'argent, ce qui est une information fausse.
             value={awaitingIncome ? '—' : summary.income.roundedToUnit.format()}
             tone={awaitingIncome ? undefined : 'positive'}
+            change={awaitingIncome ? null : (change?.incomeChange ?? null)}
+            trend={awaitingIncome ? undefined : trends.income}
+            trendColor="var(--positive)"
             note={
               awaitingIncome
                 ? 'Montant à déclarer'
@@ -218,18 +257,29 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
           <Tile
             label="Dépenses du mois"
             value={spent.roundedToUnit.format()}
+            // Une dépense en hausse n'est pas une bonne nouvelle : la pastille s'inverse.
+            change={change?.expenseChange ?? null}
+            invertChange
+            trend={trends.spent}
+            trendColor="var(--series-2)"
             note={spentShare !== null ? `${Percent.format(spentShare, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
             label="Épargne du mois"
             value={summary.savingsContributions.roundedToUnit.format()}
             tone={summary.savingsContributions.isPositive ? 'positive' : undefined}
+            change={change?.savingsChange ?? null}
+            trend={trends.savings}
+            trendColor="var(--savings)"
             note={summary.savingsRate !== null ? `${Percent.format(summary.savingsRate, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
             label="Reste à répartir"
             value={summary.disposable.roundedToUnit.format()}
             tone={summary.disposable.isNegative ? 'critical' : 'positive'}
+            change={disposableChange}
+            trend={trends.disposable}
+            trendColor="var(--accent)"
             note={summary.disposable.isNegative ? 'Le mois est déficitaire' : 'Après toutes les charges'}
           />
         </div>
@@ -253,7 +303,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
 
         <AutoSplitSummary onNavigate={onNavigate} />
 
-        <Suspense fallback={<div className="card empty">Chargement des graphiques…</div>}>
+        <Suspense fallback={<ChartSkeleton />}>
           <HomeCharts
             cashFlowData={cashFlowData}
             categoryData={categoryData}
@@ -376,7 +426,8 @@ function AutoSplitSummary({ onNavigate }: { readonly onNavigate?: (screen: HomeT
 }
 
 function QuickExpense() {
-  const { profile, addTransaction } = useStore();
+  const { profile, addTransaction, removeTransaction } = useStore();
+  const toast = useToast();
   const currency = profile.currency;
 
   const [amount, setAmount] = useState('');
@@ -399,7 +450,7 @@ function QuickExpense() {
 
   function submit(): void {
     if (!parsed || !parsed.isPositive) return;
-    addTransaction({
+    const created = addTransaction({
       amount: parsed,
       date: formatDate(new Date()),
       kind: 'expense',
@@ -407,6 +458,10 @@ function QuickExpense() {
       category,
     });
     setSaved(`${parsed.roundedTo(2).format()} · ${categoryLabel(category)}`);
+    toast({
+      message: `${parsed.roundedTo(2).format()} noté en ${categoryLabel(category).toLowerCase()}.`,
+      action: { label: 'Annuler', run: () => removeTransaction(created) },
+    });
     setAmount('');
     setLabel('');
     setGuessed(false);

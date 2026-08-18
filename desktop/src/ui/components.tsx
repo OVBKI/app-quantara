@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEventHandler, type ReactNode } from 'react';
 import { Money, type Currency } from '../core/money';
+import { useCountUp } from './motion';
+import { Sparkline } from './charts';
 
 export function Card({ title, action, children }: { title?: string; action?: ReactNode; children: ReactNode }) {
   return (
@@ -15,12 +17,98 @@ export function Card({ title, action, children }: { title?: string; action?: Rea
   );
 }
 
-export function Tile({ label, value, note, tone }: { label: string; value: string; note?: string; tone?: string }) {
+/**
+ * Montant qui monte jusqu'à sa valeur.
+ *
+ * Le seul mouvement de l'application qui porte une information : on voit dans quel sens
+ * le chiffre a bougé depuis le mois précédent, ou depuis l'action qu'on vient de faire.
+ *
+ * Pendant la montée, une approximation ; à l'arrivée, le montant exact tel que le moteur
+ * l'a formaté. Laisser l'approximation à l'écran figerait un centime faux — ce serait
+ * payer une animation d'une erreur, ce qu'aucune animation ne vaut.
+ */
+export function AnimatedAmount({ money, className }: { money: Money; className?: string }) {
+  const { value, done } = useCountUp(money.units);
+  const text = done ? money.format() : Money.of(value, money.currency).roundedToUnit.format();
   return (
-    <div className="card">
-      <div className="tile-label">{label}</div>
+    <span className={className}>{text}</span>
+  );
+}
+
+/** Variation par rapport au mois précédent, en pastille. */
+export function DeltaChip({ change, invert = false }: { change: number | null; invert?: boolean }) {
+  if (change === null || !Number.isFinite(change) || Math.abs(change) < 0.005) return null;
+  const up = change > 0;
+  // Pour une dépense, une hausse n'est pas une bonne nouvelle : le sens se renverse.
+  const good = invert ? !up : up;
+  return (
+    <span className={`delta ${good ? 'positive' : 'critical'}`}>
+      {up ? '▲' : '▼'} {Math.abs(Math.round(change * 100))}&#8239;%
+    </span>
+  );
+}
+
+export function Tile({
+  label,
+  value,
+  note,
+  tone,
+  change,
+  invertChange,
+  trend,
+  trendColor,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  tone?: string;
+  /** Variation par rapport au mois précédent, en proportion (0,12 = +12 %). */
+  change?: number | null;
+  invertChange?: boolean;
+  /** Six derniers mois, pour la courbe miniature. */
+  trend?: readonly number[];
+  trendColor?: string;
+}) {
+  return (
+    <div className="card tile">
+      <div className="tile-head">
+        <div className="tile-label">{label}</div>
+        {change !== undefined && <DeltaChip change={change ?? null} invert={invertChange} />}
+      </div>
       <div className={`tile-value amount ${tone ?? ''}`}>{value}</div>
       {note && <div className="tile-note">{note}</div>}
+      {trend && trend.length > 1 && (
+        <div className="tile-trend">
+          <Sparkline values={trend} color={trendColor} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Attente.
+ *
+ * Un rectangle qui a la forme de ce qui arrive, plutôt qu'un mot. Le regard se place au
+ * bon endroit avant même que le contenu soit là, et la page ne saute pas quand il
+ * arrive — ce qui est la vraie nuisance d'un « Chargement… » sur une ligne.
+ */
+export function Skeleton({ height = 16, width = '100%', radius }: { height?: number | string; width?: number | string; radius?: number }) {
+  return <div className="skeleton" style={{ height, width, borderRadius: radius }} aria-hidden="true" />;
+}
+
+export function ChartSkeleton() {
+  return (
+    <div className="card" aria-busy="true" aria-label="Chargement des graphiques">
+      <Skeleton height={13} width={140} />
+      <div style={{ height: 14 }} />
+      <Skeleton height={180} radius={12} />
+      <div style={{ height: 12 }} />
+      <div className="inline" style={{ gap: 10 }}>
+        <Skeleton height={11} width={90} />
+        <Skeleton height={11} width={70} />
+        <Skeleton height={11} width={110} />
+      </div>
     </div>
   );
 }

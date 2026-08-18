@@ -11,6 +11,7 @@ import {
 } from '../core/engine/applyAllocation';
 import { useStore } from '../state/store';
 import { Field, Modal } from './components';
+import { useToast } from './Toast';
 import { ALLOCATION_PART_COLORS } from './allocationVisual';
 
 /**
@@ -30,6 +31,7 @@ import { ALLOCATION_PART_COLORS } from './allocationVisual';
  */
 export function ApplyAllocationButton({ compact = false }: { readonly compact?: boolean }) {
   const { profile, analysis, period, addTransactions, removeTransactions, updatePreferences } = useStore();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const accounts = profile.preferences.allocationAccounts;
 
@@ -64,7 +66,11 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
         <button
           type="button"
           className="button button-small"
-          onClick={() => removeTransactions(applied.map((transaction) => transaction.id))}
+          onClick={() => {
+            const total = appliedTotal(profile, period).roundedToUnit.format();
+            removeTransactions(applied.map((transaction) => transaction.id));
+            toast({ message: `Partage annulé. ${total} sont revenus sur votre solde disponible.` });
+          }}
         >
           Annuler le partage
         </button>
@@ -182,8 +188,17 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
               type="button"
               className="button button-primary"
               onClick={() => {
-                addTransactions(applicationTransactions(application));
+                const created = addTransactions(applicationTransactions(application));
                 setOpen(false);
+                toast({
+                  message: `${application.total.roundedToUnit.format()} mis de côté. Votre solde disponible a baissé d'autant.`,
+                  tone: 'positive',
+                  // L'annulation est proposée là où le regard vient de se poser : cherchée
+                  // ailleurs, elle n'est jamais utilisée. Elle retire ces écritures-là,
+                  // pas « la dernière action » — entre-temps, l'utilisateur a pu en faire
+                  // une autre, qu'il serait fâcheux de défaire à sa place.
+                  action: { label: 'Annuler', run: () => removeTransactions(created) },
+                });
               }}
             >
               Oui, mettre de côté

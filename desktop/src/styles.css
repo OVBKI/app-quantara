@@ -970,14 +970,341 @@ textarea:focus {
   background: transparent;
 }
 
+/* ---------------------------------------------------------------------------
+ * Mouvement.
+ *
+ * Chaque animation répond à une question : d'où vient ce chiffre, dans quel ordre lire
+ * ces parts, mon action a-t-elle été prise en compte. Rien ne bouge pour faire joli.
+ *
+ * Trois durées seulement, pour que l'ensemble ait un rythme et non des rythmes.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --motion-fast: 160ms;
+  --motion: 320ms;
+  --motion-slow: 620ms;
+  /* Décélération : franc au départ, posé à l'arrivée. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes arc-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tick-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -140% 0;
+  }
+  to {
+    background-position: 240% 0;
+  }
+}
+
+/* Les cartes d'un écran arrivent de bas en haut, décalées. Le décalage s'arrête à la
+   sixième : au-delà, on attendrait que l'écran finisse de se composer. */
+.stack > *,
+.grid > * {
+  animation: rise-in var(--motion) var(--ease-out) both;
+}
+
+.stack > *:nth-child(1),
+.grid > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stack > *:nth-child(2),
+.grid > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+.stack > *:nth-child(3),
+.grid > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+.stack > *:nth-child(4),
+.grid > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+.stack > *:nth-child(5),
+.grid > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+.stack > *:nth-child(n + 6),
+.grid > *:nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+
+.arc {
+  transition: opacity var(--motion-fast) ease;
+  cursor: default;
+}
+
+.arc-in {
+  animation: arc-in var(--motion) var(--ease-out) both;
+  transform-origin: center;
+}
+
+.fade-in {
+  animation: fade-in var(--motion-slow) var(--ease-out) both;
+  animation-delay: 220ms;
+}
+
+.grow-x {
+  animation: grow-x var(--motion) var(--ease-out) both;
+  transform-origin: left center;
+}
+
+.grow-y {
+  animation: grow-y var(--motion) var(--ease-out) both;
+  transform-origin: bottom center;
+}
+
+.draw-line {
+  stroke-dasharray: 1;
+  animation: draw-line var(--motion-slow) var(--ease-out) both;
+}
+
+.tick-in {
+  animation: tick-in var(--motion-fast) linear both;
+}
+
+/* La carte réagit au survol par son filet, jamais par un déplacement : une grille dont
+   les blocs bougent au passage de la souris devient difficile à viser. */
+.card {
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+.tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tile-trend {
+  margin-top: 10px;
+  opacity: 0.9;
+}
+
+.delta {
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  white-space: nowrap;
+}
+
+/* Bulle de survol des courbes. Suit le point, jamais le curseur : le chiffre reste
+   attaché à la donnée qu'il commente. */
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  border-radius: var(--radius-small);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-raised);
+  white-space: nowrap;
+  animation: fade-in var(--motion-fast) ease both;
+  animation-delay: 0ms;
+}
+
+.chart-tip-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.chart-tip-value {
+  font-weight: 650;
+}
+
+/* --- Confirmations éphémères --- */
+
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 40px));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-raised);
+  animation: toast-in var(--motion) var(--ease-out) both;
+}
+
+.toast-positive {
+  border-left: 3px solid var(--positive);
+}
+
+.toast-critical {
+  border-left: 3px solid var(--critical);
+}
+
+.toast-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-action {
+  flex: none;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  border-color: var(--accent);
+}
+
+.toast-close {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.toast-close:hover {
+  color: var(--text);
+}
+
+/* --- Attente --- */
+
+.skeleton {
+  border-radius: var(--radius-small);
+  background: linear-gradient(
+    100deg,
+    var(--grid) 20%,
+    color-mix(in srgb, var(--text) 8%, var(--grid)) 40%,
+    var(--grid) 60%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/*
+ * Mouvement réduit : tout s'arrête, rien ne disparaît.
+ *
+ * Les animations d'apparition portent `both` — sans ce bloc, couper l'animation
+ * laisserait les cartes bloquées sur leur état de départ, c'est-à-dire invisibles. On
+ * neutralise donc en forçant l'état final, jamais en supprimant la règle.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .bar-fill,
-  .column,
-  .progress-fill,
-  .button,
-  .nav-item,
-  .row {
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+
+  .skeleton {
+    animation: none;
   }
 }
 

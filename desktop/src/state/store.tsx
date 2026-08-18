@@ -62,9 +62,11 @@ interface StoreValue {
   updateExpense(expense: RecurringExpense): void;
   removeExpense(id: string): void;
 
-  addTransaction(transaction: Omit<Transaction, 'id'>): void;
+  /** Rend l'identifiant créé : de quoi défaire exactement cet ajout, plus tard, sans
+   *  dépendre de l'ordre des actions comme le ferait `undo`. */
+  addTransaction(transaction: Omit<Transaction, 'id'>): string;
   updateTransaction(transaction: Transaction): void;
-  addTransactions(transactions: readonly Omit<Transaction, 'id'>[]): void;
+  addTransactions(transactions: readonly Omit<Transaction, 'id'>[]): readonly string[];
   removeTransaction(id: string): void;
   /** Retire plusieurs écritures d'un coup : défaire un partage doit être une seule
    *  action, annulable d'un seul `undo`. */
@@ -235,8 +237,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeExpense: (target) =>
         update((p) => ({ ...p, recurringExpenses: p.recurringExpenses.filter((entry) => entry.id !== target) })),
 
-      addTransaction: (transaction) =>
-        update((p) => ({ ...p, transactions: [...p.transactions, { ...transaction, id: id() }] })),
+      addTransaction: (transaction) => {
+        // L'identifiant est tiré avant la mise à jour, et non dedans : l'appelant doit
+        // pouvoir le rendre à l'utilisateur (« Annuler ») sans attendre le rendu suivant.
+        const entryId = id();
+        update((p) => ({ ...p, transactions: [...p.transactions, { ...transaction, id: entryId }] }));
+        return entryId;
+      },
       updateTransaction: (transaction) =>
         update((p) => ({
           ...p,
@@ -245,11 +252,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       // Un import ajoute des centaines de lignes : les insérer une par une déclencherait
       // autant de recalculs complets de l'analyse.
-      addTransactions: (entries) =>
-        update((p) => ({
-          ...p,
-          transactions: [...p.transactions, ...entries.map((entry) => ({ ...entry, id: id() }))],
-        })),
+      addTransactions: (entries) => {
+        const created = entries.map((entry) => ({ ...entry, id: id() }));
+        update((p) => ({ ...p, transactions: [...p.transactions, ...created] }));
+        return created.map((entry) => entry.id);
+      },
 
       learnCategorization: (rule) =>
         update((p) => ({

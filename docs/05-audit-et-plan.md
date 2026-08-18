@@ -433,3 +433,72 @@ Chaque part porte désormais son compte d'arrivée, choisi librement :
   est pas.
 - **Un compte supprimé ne casse rien.** L'identifiant devenu caduc retombe sur la
   proposition par défaut, jamais sur « le premier de la liste ».
+
+## Mouvement et éléments vivants
+
+Demande : *« mets des animations, fais vivre l'application, compare avec des dashboards
+premium et rajoute des éléments. »*
+
+### Le principe retenu
+
+Une animation qui n'explique rien est du bruit, et sur un écran de finances le bruit
+finit par cacher les montants. Chacune de celles ajoutées répond donc à une question :
+d'où vient ce chiffre, dans quel ordre lire ces parts, mon action a-t-elle été prise en
+compte.
+
+Trois durées seulement — 160 / 320 / 620 ms — pour que l'ensemble ait un rythme et non
+des rythmes. Rien ne se rejoue à chaque rendu, seulement à l'apparition ou au changement.
+
+### Ce qui bouge
+
+- **Le solde se construit** depuis zéro à l'ouverture, et repart de la valeur précédente
+  quand il change : on voit dans quel sens il a bougé. À l'arrivée, c'est le montant
+  exact formaté par le moteur qui s'affiche, jamais l'approximation du dernier pas.
+- **Les cartes montent** de dix pixels en cascade, cinq paliers de 40 ms puis plus rien :
+  au-delà, on attendrait que l'écran finisse de se composer.
+- **Les courbes se dessinent** de gauche à droite (`pathLength` normalisé : même durée
+  quel que soit le nombre de points), les parts du camembert se posent l'une après
+  l'autre, les barres poussent depuis la gauche, les colonnes depuis la ligne de base —
+  jamais depuis le haut, ce qui donnerait une chute.
+- **Les segments des anneaux** s'allument dans le sens des aiguilles.
+
+### Ce qui a été ajouté
+
+- **Variation et courbe sur les tuiles.** Chaque tuile du tableau de bord porte
+  désormais sa variation par rapport au mois précédent et la forme des six derniers mois.
+  Un montant seul ne dit pas s'il est habituel : « 2 668 € dépensés » ne veut rien dire
+  tant qu'on ignore si le mois d'avant en faisait 1 900 ou 3 400. Pour une dépense, la
+  pastille s'inverse — une hausse n'y est pas une bonne nouvelle.
+- **Repère de survol sur les courbes** : trait vertical, point marqué, bulle attachée à
+  la donnée. Sans lui, il fallait deviner à quelle date correspondait le creux qu'on
+  regardait.
+- **Survol du camembert** : les autres parts s'estompent, et le centre de l'anneau
+  affiche la part visée puis retrouve le total. Pas de bulle flottante à positionner,
+  rien qui déborde de la carte.
+- **Confirmations éphémères.** Une action qui ne dit rien laisse un doute. Le message
+  annonce **ce qui a changé, chiffré** — « 72,00 € mis de côté. Votre solde disponible a
+  baissé d'autant. » — et porte son bouton d'annulation, là où le regard est déjà.
+- **Squelettes scintillants** pendant le chargement des graphiques, à la forme de ce qui
+  arrive : le regard se place au bon endroit et la page ne saute pas.
+
+### Deux pièges rencontrés
+
+- **Une animation terminée l'emporte sur un style en ligne.** L'estompage des parts du
+  camembert ne se voyait pas : l'animation d'entrée, en `fill-mode: both`, gardait la
+  main sur `opacity`. Corrigé en séparant les deux nœuds — le groupe anime, le tracé
+  s'estompe.
+- **Le texte au centre de l'anneau captait la souris** et créait une zone morte au milieu
+  du graphique. Il est désormais transparent aux événements.
+
+### Mouvement réduit
+
+`prefers-reduced-motion` coupe tout, sans exception : durées ramenées à 1 ms, décomptes
+désactivés, scintillement arrêté. La neutralisation force l'**état final** plutôt que de
+supprimer les règles — les animations d'entrée portent `both`, et les supprimer laisserait
+les cartes bloquées sur leur état de départ, c'est-à-dire invisibles. Vérifié dans un
+navigateur configuré ainsi : le solde s'affiche exact dès 120 ms.
+
+### Ce que ce n'est pas
+
+Aucune animation ne retarde une information. Aucune ne se déclenche sur un défilement.
+Rien ne clignote, rien ne rebondit, rien ne dure plus de 700 ms.

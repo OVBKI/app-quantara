@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider } from './state/store';
+import { ToastProvider } from './ui/Toast';
 import { App } from './App';
 import './styles.css';
 
@@ -10,7 +11,9 @@ if (!container) throw new Error('Élément racine introuvable');
 createRoot(container).render(
   <StrictMode>
     <StoreProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </StoreProvider>
   </StrictMode>,
 );

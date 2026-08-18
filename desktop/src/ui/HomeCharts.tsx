@@ -1,4 +1,4 @@
-import type { Currency } from '../core/money';
+import { Money, type Currency } from '../core/money';
 import type { CashFlowForecast } from '../core/engine/cashflow';
 import { Card } from './components';
 import { BarList, Donut, Figure, Legend, TrendChart, foldSlices, type Slice, type TrendPoint } from './charts';
@@ -41,7 +41,9 @@ export default function HomeCharts({
     x: point.day,
     y: point.solde,
     label: `Jour ${point.day}`,
-    formatted: `${point.solde.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${currency}`,
+    // Formaté par `Money`, comme partout ailleurs : un « 147 EUR » à côté d'un
+    // « 147,00 € » sur la même page donne l'impression de deux applications.
+    formatted: Money.of(point.solde, currency).roundedToUnit.format(),
   }));
 
   const lowestIndex = cashFlow.lowestBalanceDate ? cashFlow.lowestBalanceDate.getDate() - 1 : undefined;
