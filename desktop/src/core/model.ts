@@ -315,6 +315,27 @@ export interface BudgetPreferences {
   readonly onboardingCompleted: boolean;
   /** Répartition cible du revenu, si l'utilisateur en a défini une. */
   readonly allocationTargets: AllocationTargets;
+  /** Comptes retenus pour exécuter le partage. */
+  readonly allocationAccounts: AllocationAccounts;
+}
+
+/**
+ * Où atterrit chaque part.
+ *
+ * Aucune contrainte de nature : l'épargne peut aller sur une assurance-vie, la part
+ * d'investissement sur un livret le temps de constituer une somme, la sécurité sur un
+ * second compte courant. Quantara propose un compte plausible ; c'est l'utilisateur qui
+ * tranche, et son choix est retenu pour les mois suivants.
+ *
+ * Les identifiants peuvent devenir caducs — un compte se supprime. La résolution retombe
+ * alors sur la proposition par défaut plutôt que d'échouer.
+ */
+export interface AllocationAccounts {
+  /** Compte d'où part l'argent. Absent : le compte courant le mieux garni. */
+  readonly source?: string;
+  readonly security?: string;
+  readonly savings?: string;
+  readonly investment?: string;
 }
 
 export const DEFAULT_PREFERENCES: BudgetPreferences = {
@@ -327,6 +348,7 @@ export const DEFAULT_PREFERENCES: BudgetPreferences = {
   textScale: 1,
   onboardingCompleted: false,
   allocationTargets: DEFAULT_ALLOCATION_TARGETS,
+  allocationAccounts: {},
 };
 
 export interface FinancialProfile {

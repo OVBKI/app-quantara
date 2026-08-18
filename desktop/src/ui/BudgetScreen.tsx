@@ -18,6 +18,12 @@ import type { YearMonth } from '../core/yearMonth';
 import { BarList, Donut, Legend, type Slice } from './charts';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS, ALLOCATION_PART_HINTS } from './allocationVisual';
+import {
+  destinationAccounts,
+  planApplication,
+  spendingAccounts,
+  suggestedDestination,
+} from '../core/engine/applyAllocation';
 import { ApplyAllocationButton } from './ApplyAllocation';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
@@ -257,9 +263,20 @@ export function BudgetScreen() {
  * dans un autre mode sans que rien ne l'annonce.
  */
 function AutoSplitCard() {
-  const { profile, analysis, updatePreferences } = useStore();
+  const { profile, analysis, period, updatePreferences } = useStore();
   const { allocation } = analysis;
   const targets = profile.preferences.allocationTargets;
+  const accounts = profile.preferences.allocationAccounts;
+
+  // Le même calcul que celui de la fenêtre de confirmation : les comptes affichés ici
+  // sont exactement ceux qui serviront, jamais une deuxième interprétation du réglage.
+  const application = planApplication(profile, allocation, period);
+  const destinationOf = (part: AllocationPart): string | undefined =>
+    application.moves.find((move) => move.part === part)?.toAccountId ??
+    accounts[part as 'security' | 'savings' | 'investment'] ??
+    suggestedDestination(profile, part, application.fromAccountId)?.id;
+  const accountName = (id: string | null | undefined): string =>
+    profile.accounts.find((account) => account.id === id)?.name ?? 'votre compte courant';
 
   // Le montant réellement partagé, pris du moteur : les pourcentages affichés et les
   // euros affichés viennent ainsi du même calcul et ne peuvent pas diverger.
@@ -342,11 +359,54 @@ function AutoSplitCard() {
                       })
                     }
                   />
-                  <p className="rationale">{ALLOCATION_PART_HINTS[part]}</p>
+                  <div className="split-row-foot">
+                    <p className="rationale">{ALLOCATION_PART_HINTS[part]}</p>
+                    {part === 'free' ? (
+                      <span className="tertiary">reste sur {accountName(application.fromAccountId)}</span>
+                    ) : (
+                      <label className="split-target">
+                        <span className="tertiary">vers</span>
+                        <select
+                          value={destinationOf(part) ?? ''}
+                          aria-label={`Compte pour ${ALLOCATION_PART_LABELS[part]}`}
+                          onChange={(event) =>
+                            updatePreferences({
+                              allocationAccounts: { ...accounts, [part]: event.target.value },
+                            })
+                          }
+                        >
+                          {destinationAccounts(profile, part, application.fromAccountId).map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
+
+          {spendingAccounts(profile).length > 1 && (
+            <label className="split-target" style={{ marginTop: 16 }}>
+              <span className="tertiary">L’argent part de</span>
+              <select
+                value={application.fromAccountId ?? ''}
+                aria-label="Compte d’où part l’argent"
+                onChange={(event) =>
+                  updatePreferences({ allocationAccounts: { ...accounts, source: event.target.value } })
+                }
+              >
+                {spendingAccounts(profile).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           {allocation.skippedSteps.map((step) => (
             <p className="rationale" key={step} style={{ marginTop: 12 }}>

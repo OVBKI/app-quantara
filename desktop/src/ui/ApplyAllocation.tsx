@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ALLOCATION_PART_LABELS, type AllocationPart } from '../core/model';
+import { ALLOCATION_PART_LABELS } from '../core/model';
 import { formatYearMonth, parseDate } from '../core/yearMonth';
 import {
   applicationTransactions,
@@ -29,14 +29,17 @@ import { ALLOCATION_PART_COLORS } from './allocationVisual';
  * L'application ne parle à aucune banque, et ne commande aucun virement réel.
  */
 export function ApplyAllocationButton({ compact = false }: { readonly compact?: boolean }) {
-  const { profile, analysis, period, addTransactions, removeTransactions } = useStore();
+  const { profile, analysis, period, addTransactions, removeTransactions, updatePreferences } = useStore();
   const [open, setOpen] = useState(false);
-  const [overrides, setOverrides] = useState<Partial<Record<AllocationPart | 'source', string>>>({});
+  const accounts = profile.preferences.allocationAccounts;
 
   const applied = useMemo(() => appliedAllocation(profile, period), [profile, period]);
+  // Les comptes choisis sont enregistrés au moment du choix, pas à la confirmation :
+  // désigner un compte est un réglage, pas un mouvement d'argent, et il vaut pour les
+  // mois suivants.
   const application = useMemo(
-    () => planApplication(profile, analysis.allocation, period, overrides),
-    [profile, analysis, period, overrides],
+    () => planApplication(profile, analysis.allocation, period),
+    [profile, analysis, period],
   );
 
   const accountName = (id: string | null | undefined): string =>
@@ -94,18 +97,21 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
 
           <div className="apply-list">
             {application.moves.map((move) => {
-              const candidates = destinationAccounts(profile, move.part);
+              const candidates = destinationAccounts(profile, move.part, application.fromAccountId);
               return (
                 <div className="apply-move" key={move.part}>
                   <span className="dot" style={{ background: ALLOCATION_PART_COLORS[move.part] }} aria-hidden="true" />
                   <div className="apply-move-main">
                     <div className="row-title">{move.label}</div>
-                    {candidates.length > 1 ? (
+                    <label className="split-target">
+                      <span className="tertiary">vers</span>
                       <select
                         value={move.toAccountId}
                         aria-label={`Compte destinataire pour ${move.label}`}
                         onChange={(event) =>
-                          setOverrides((current) => ({ ...current, [move.part]: event.target.value }))
+                          updatePreferences({
+                            allocationAccounts: { ...accounts, [move.part]: event.target.value },
+                          })
                         }
                       >
                         {candidates.map((account) => (
@@ -114,9 +120,7 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
                           </option>
                         ))}
                       </select>
-                    ) : (
-                      <div className="row-subtitle">vers {accountName(move.toAccountId)}</div>
-                    )}
+                    </label>
                   </div>
                   <div className="row-amount amount">{move.amount.roundedToUnit.format()}</div>
                 </div>
@@ -137,9 +141,9 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
 
           {application.missingAccounts.length > 0 && (
             <p className="rationale warning">
-              Aucun compte pour :{' '}
+              Aucun autre compte où placer :{' '}
               {application.missingAccounts.map((part) => ALLOCATION_PART_LABELS[part].toLowerCase()).join(', ')}. Cette
-              part reste sur votre compte courant tant que vous n’avez pas créé le compte dans les Réglages.
+              part reste sur votre compte courant tant que vous n’avez pas ajouté un compte dans les Réglages.
             </p>
           )}
 
@@ -149,7 +153,9 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
                 <select
                   id={id}
                   value={application.fromAccountId ?? ''}
-                  onChange={(event) => setOverrides((current) => ({ ...current, source: event.target.value }))}
+                  onChange={(event) =>
+                    updatePreferences({ allocationAccounts: { ...accounts, source: event.target.value } })
+                  }
                 >
                   {spendingAccounts(profile).map((account) => (
                     <option key={account.id} value={account.id}>

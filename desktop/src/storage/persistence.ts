@@ -161,6 +161,10 @@ function normalise(input: Partial<FinancialProfile>): FinancialProfile {
       ...(raw.preferences ?? {}),
       alerts: { ...DEFAULT_PREFERENCES.alerts, ...(raw.preferences?.alerts ?? {}) },
       allocationTargets: migrateAllocationTargets(raw.preferences?.allocationTargets),
+      allocationAccounts: {
+        ...DEFAULT_PREFERENCES.allocationAccounts,
+        ...(raw.preferences?.allocationAccounts ?? {}),
+      },
       // Le drapeau est postérieur aux premiers fichiers : un profil qui porte déjà des
       // données a forcément été mis en route, et ne doit pas y être renvoyé.
       onboardingCompleted:

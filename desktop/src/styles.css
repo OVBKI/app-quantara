@@ -1440,6 +1440,38 @@ body {
   margin: 0;
 }
 
+.split-row-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Le choix du compte, posé au bout de la ligne qu'il concerne : la part, son montant, et
+ * l'endroit où il ira se lisent d'un seul regard. */
+.split-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  flex: none;
+}
+
+/* « vers », « L'argent part de » : ces mots n'ont pas de sens coupés en deux. */
+.split-target > span {
+  white-space: nowrap;
+}
+
+.split-target select {
+  padding: 5px 9px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+  max-width: 190px;
+}
+
 .split-actions {
   display: flex;
   align-items: center;

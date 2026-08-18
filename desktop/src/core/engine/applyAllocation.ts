@@ -45,14 +45,29 @@ const PART_BUCKET: Record<AllocationPart, AllocationBucket> = {
   free: 'freeMoney',
 };
 
-/** Où va chaque part, et sous quelle forme. L'argent libre ne bouge pas : il est là
- *  précisément pour rester à portée. */
-const PART_TARGET: Record<AllocationPart, { kind: Account['kind'] | null; transaction: 'savings' | 'transfer' }> = {
-  security: { kind: 'savings', transaction: 'savings' },
-  savings: { kind: 'savings', transaction: 'savings' },
-  investment: { kind: 'investment', transaction: 'transfer' },
-  free: { kind: null, transaction: 'transfer' },
+/**
+ * Nature du compte **proposé** pour chaque part — une proposition, pas une règle.
+ *
+ * L'argent libre ne bouge pas : il reste là où le revenu arrive, ce qui est précisément
+ * sa raison d'être.
+ */
+const SUGGESTED_KIND: Record<AllocationPart, Account['kind'] | null> = {
+  security: 'savings',
+  savings: 'savings',
+  investment: 'investment',
+  free: null,
 };
+
+/**
+ * Nature de l'écriture, déduite du compte d'arrivée et non de la part.
+ *
+ * Si l'épargne part vers une assurance-vie et l'investissement vers un livret, c'est le
+ * compte qui dit ce qui s'est passé. Étiqueter « épargne » un versement dont l'utilisateur
+ * a choisi une autre destination fausserait le taux d'épargne affiché ailleurs.
+ */
+function transactionKindFor(account: Account | undefined): 'savings' | 'transfer' {
+  return account?.kind === 'savings' ? 'savings' : 'transfer';
+}
 
 export interface AllocationMove {
   readonly part: AllocationPart;
@@ -82,10 +97,31 @@ export function spendingAccounts(profile: FinancialProfile): readonly Account[] 
   return profile.accounts.filter((account) => !account.archived && (account.kind === 'checking' || account.kind === 'cash'));
 }
 
-export function destinationAccounts(profile: FinancialProfile, part: AllocationPart): readonly Account[] {
-  const target = PART_TARGET[part].kind;
-  if (target === null) return [];
-  return profile.accounts.filter((account) => !account.archived && account.kind === target);
+/**
+ * Comptes proposés à l'arrivée : tous, sauf celui d'où part l'argent.
+ *
+ * Aucun filtrage par nature. Restreindre l'épargne aux seuls livrets reviendrait à
+ * décider à la place de quelqu'un qui connaît ses comptes mieux que nous — et le compte
+ * source est écarté pour la seule raison qui vaille : un virement vers soi-même ne
+ * déplace rien.
+ */
+export function destinationAccounts(
+  profile: FinancialProfile,
+  _part: AllocationPart,
+  sourceId?: string | null,
+): readonly Account[] {
+  return profile.accounts.filter((account) => !account.archived && account.id !== sourceId);
+}
+
+/** Compte proposé par défaut pour une part : le premier de la nature attendue. */
+export function suggestedDestination(
+  profile: FinancialProfile,
+  part: AllocationPart,
+  sourceId?: string | null,
+): Account | null {
+  const kind = SUGGESTED_KIND[part];
+  if (kind === null) return null;
+  return destinationAccounts(profile, part, sourceId).find((account) => account.kind === kind) ?? null;
 }
 
 /**
@@ -123,8 +159,12 @@ export function planApplication(
   reference = new Date(),
 ): AllocationApplication {
   const currency = profile.currency;
-  const source = overrides.source
-    ? (profile.accounts.find((account) => account.id === overrides.source) ?? defaultSourceAccount(profile, reference))
+  // Les choix enregistrés servent de base ; ceux passés en argument (la fenêtre ouverte)
+  // les recouvrent le temps de la confirmation.
+  const chosenAccounts = { ...profile.preferences.allocationAccounts, ...overrides };
+  const source = chosenAccounts.source
+    ? (profile.accounts.find((account) => account.id === chosenAccounts.source) ??
+      defaultSourceAccount(profile, reference))
     : defaultSourceAccount(profile, reference);
 
   const moves: AllocationMove[] = [];
@@ -133,9 +173,11 @@ export function planApplication(
   for (const part of ['security', 'savings', 'investment'] as const) {
     const amount = amountFor(plan, part);
     if (!amount.isPositive) continue;
-    const chosen = overrides[part];
-    const candidates = destinationAccounts(profile, part);
-    const account = candidates.find((entry) => entry.id === chosen) ?? candidates[0];
+    const candidates = destinationAccounts(profile, part, source?.id);
+    // Le choix explicite l'emporte ; un identifiant devenu caduc retombe sur la
+    // proposition, jamais sur « le premier de la liste » qui pourrait être n'importe quoi.
+    const account =
+      candidates.find((entry) => entry.id === chosenAccounts[part]) ?? suggestedDestination(profile, part, source?.id);
     if (!account) {
       missing.push(part);
       continue;
@@ -145,7 +187,7 @@ export function planApplication(
       label: ALLOCATION_PART_LABELS[part],
       amount,
       toAccountId: account.id,
-      kind: PART_TARGET[part].transaction,
+      kind: transactionKindFor(account),
     });
   }
 
@@ -159,7 +201,7 @@ export function planApplication(
   } else if (moves.length === 0) {
     blocked =
       missing.length > 0
-        ? 'Aucun compte de destination. Ajoutez un livret ou un compte de placement dans les Réglages.'
+        ? 'Aucun autre compte où déplacer l’argent. Ajoutez-en un dans les Réglages — livret, placement, ou même un second compte courant.'
         : 'Tout reste sur votre compte courant : aucune écriture n’est nécessaire.';
   }
 

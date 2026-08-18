@@ -408,3 +408,28 @@ donc le plan en écritures réelles, et le solde disponible baisse d'autant.
 
 Vérifié par onze tests dédiés, dont celui qui compte le plus : le solde disponible baisse
 exactement du montant déplacé, et retrouve sa valeur d'origine quand on annule.
+
+### Le choix du compte appartient à l'utilisateur
+
+Demande : *« on doit avoir la possibilité de choisir quel compte va servir pour épargner…
+laisse le choix à l'utilisateur de trier dans n'importe quel compte qu'il choisit. »*
+
+Chaque part porte désormais son compte d'arrivée, choisi librement :
+
+- **Aucun filtrage par nature.** N'importe quel compte enregistré peut recevoir n'importe
+  quelle part — l'épargne sur une assurance-vie, la part d'investissement sur un livret
+  le temps de constituer une somme, la sécurité sur un second compte courant. Le seul
+  compte écarté est celui d'où part l'argent : un virement vers soi-même ne déplace rien.
+- **Une proposition, pas une contrainte.** Quantara préselectionne un compte plausible
+  (livret pour la sécurité et l'épargne, compte de placement pour l'investissement) ;
+  l'utilisateur en change d'un menu déroulant, sur l'écran Budget ou dans la fenêtre de
+  confirmation.
+- **Le choix est retenu.** Il vit dans les préférences (`allocationAccounts`) et vaut pour
+  les mois suivants : désigner un compte est un réglage, pas un mouvement d'argent. Le
+  compte de départ se choisit de la même façon.
+- **La nature de l'écriture suit le compte d'arrivée, pas la part.** Une part « épargne »
+  dirigée vers un compte de placement est enregistrée comme un virement, pas comme un
+  versement d'épargne — sinon le taux d'épargne affiché ailleurs compterait ce qui n'y
+  est pas.
+- **Un compte supprimé ne casse rien.** L'identifiant devenu caduc retombe sur la
+  proposition par défaut, jamais sur « le premier de la liste ».

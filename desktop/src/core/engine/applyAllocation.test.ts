@@ -3,7 +3,13 @@ import { Money } from '../money';
 import { availableBalance, totalSavingsBalance, type Transaction } from '../model';
 import { MARCH_2026, account, referenceDate, savingsAccount, standardProfile } from '../testing/fixtures';
 import { analyse } from './analysis';
-import { applicationTransactions, appliedAllocation, appliedTotal, planApplication } from './applyAllocation';
+import {
+  applicationTransactions,
+  appliedAllocation,
+  appliedTotal,
+  destinationAccounts,
+  planApplication,
+} from './applyAllocation';
 
 const REFERENCE = referenceDate(28);
 
@@ -88,13 +94,91 @@ describe('Passage à l’acte du partage', () => {
     expect(applicationTransactions(application, REFERENCE)).toHaveLength(0);
   });
 
-  it('signale une part sans compte de destination plutôt que de la déplacer au hasard', () => {
-    const profile = standardProfile({ accounts: [account('Compte courant', 3000), savingsAccount(5000)] });
+  it('propose un compte de la nature attendue, sans l’imposer', () => {
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000), savingsAccount(5000), account('PEA', 0, 'investment')],
+    });
     const analysis = analyse(profile, MARCH_2026, REFERENCE);
     const application = planApplication(profile, analysis.allocation, MARCH_2026, {}, REFERENCE);
 
-    expect(application.missingAccounts).toEqual(['investment']);
-    expect(application.moves.some((move) => move.part === 'investment')).toBe(false);
+    const livret = profile.accounts.find((entry) => entry.kind === 'savings')!;
+    const pea = profile.accounts.find((entry) => entry.kind === 'investment')!;
+    expect(application.moves.find((move) => move.part === 'security')?.toAccountId).toBe(livret.id);
+    expect(application.moves.find((move) => move.part === 'investment')?.toAccountId).toBe(pea.id);
+  });
+
+  it('accepte n’importe quel compte comme destination', () => {
+    // « Investir » dirigé vers un livret : c'est le choix de l'utilisateur, pas une
+    // erreur à corriger. L'application enregistre ce qu'il a décidé.
+    const profile = profileWithAccounts();
+    const livret = profile.accounts.find((entry) => entry.kind === 'savings')!;
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(
+      profile,
+      analysis.allocation,
+      MARCH_2026,
+      { investment: livret.id },
+      REFERENCE,
+    );
+
+    expect(application.moves.find((move) => move.part === 'investment')?.toAccountId).toBe(livret.id);
+  });
+
+  it('qualifie l’écriture d’après le compte d’arrivée, pas d’après la part', () => {
+    // L'épargne dirigée vers un compte de placement n'est pas un versement d'épargne :
+    // le taux d'épargne affiché ailleurs compterait alors ce qui n'y est pas.
+    const profile = profileWithAccounts();
+    const pea = profile.accounts.find((entry) => entry.kind === 'investment')!;
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(profile, analysis.allocation, MARCH_2026, { savings: pea.id }, REFERENCE);
+
+    expect(application.moves.find((move) => move.part === 'savings')?.kind).toBe('transfer');
+  });
+
+  it('retient les comptes enregistrés dans les préférences', () => {
+    const base = profileWithAccounts();
+    const pea = base.accounts.find((entry) => entry.kind === 'investment')!;
+    const profile = {
+      ...base,
+      preferences: { ...base.preferences, allocationAccounts: { security: pea.id } },
+    };
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(profile, analysis.allocation, MARCH_2026, {}, REFERENCE);
+
+    expect(application.moves.find((move) => move.part === 'security')?.toAccountId).toBe(pea.id);
+  });
+
+  it('retombe sur la proposition quand le compte enregistré n’existe plus', () => {
+    const base = profileWithAccounts();
+    const profile = {
+      ...base,
+      preferences: { ...base.preferences, allocationAccounts: { security: 'compte-supprimé' } },
+    };
+    const livret = profile.accounts.find((entry) => entry.kind === 'savings')!;
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(profile, analysis.allocation, MARCH_2026, {}, REFERENCE);
+
+    expect(application.moves.find((move) => move.part === 'security')?.toAccountId).toBe(livret.id);
+  });
+
+  it('n’offre jamais le compte source comme destination', () => {
+    const profile = profileWithAccounts();
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(profile, analysis.allocation, MARCH_2026, {}, REFERENCE);
+
+    expect(destinationAccounts(profile, 'savings', application.fromAccountId).some((entry) => entry.id === application.fromAccountId)).toBe(false);
+    expect(application.moves.every((move) => move.toAccountId !== application.fromAccountId)).toBe(true);
+  });
+
+  it('signale une part sans destination possible plutôt que de la déplacer au hasard', () => {
+    // Un seul compte : il n'existe nulle part où mettre l'argent de côté.
+    const profile = standardProfile({ accounts: [account('Compte courant', 3000)] });
+    const analysis = analyse(profile, MARCH_2026, REFERENCE);
+    const application = planApplication(profile, analysis.allocation, MARCH_2026, {}, REFERENCE);
+
+    expect(application.missingAccounts).toEqual(['security', 'savings', 'investment']);
+    expect(application.moves).toHaveLength(0);
+    expect(application.blocked).toContain('Aucun autre compte');
   });
 
   it('choisit le compte courant le mieux garni', () => {
