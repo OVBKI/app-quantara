@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
 import { FIXED_CATEGORY_IDS, INCOME_CATEGORIES, INCOME_LABELS, categoryLabel, type ExpenseCategoryId, type IncomeCategory } from '../core/categories';
 import { FREQUENCIES, FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from '../core/frequency';
 import type { IncomeSource, RecurringExpense } from '../core/model';
 import { useStore } from '../state/store';
 import { allocatedTo } from '../core/engine/allocation';
+import { declarationHistory, pendingDeclarations } from '../core/engine/declarations';
+import type { YearMonth } from '../core/yearMonth';
 import { BarList, Donut, Legend, type Slice } from './charts';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 import { EnvelopesCard } from './EnvelopesCard';
@@ -31,6 +33,7 @@ export function BudgetScreen() {
 
       <div className="stack">
         <IncomeBreakdownCard />
+        <DeclaredIncomeCard />
         <IncomeRangeCard />
 
         <Card
@@ -61,11 +64,15 @@ export function BudgetScreen() {
                       {income.amount.format()} · {FREQUENCY_LABELS[income.frequency].toLowerCase()} ·{' '}
                       {INCOME_LABELS[income.category]}
                       {income.dayOfMonth ? ` · le ${income.dayOfMonth}` : ''}
-                      {income.variable && (
+                      {income.declaredMonthly ? (
+                        <span className="badge" style={{ marginLeft: 8 }}>
+                          déclaré au mois
+                        </span>
+                      ) : income.variable ? (
                         <span className="badge" style={{ marginLeft: 8 }}>
                           irrégulier
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   <div className="row-amount amount">
@@ -333,6 +340,147 @@ function IncomeBreakdownCard() {
   );
 }
 
+/**
+ * Les mois déclarés, et ceux qui manquent.
+ *
+ * Le rappel automatique fait le gros du travail ; cette carte existe pour le reste :
+ * corriger un montant saisi trop vite, rattraper un mois passé, ou simplement vérifier
+ * ce que l'application a retenu. Rien n'est enfermé dans une fenêtre modale.
+ */
+function DeclaredIncomeCard() {
+  const { profile, declareIncome } = useStore();
+  const [editing, setEditing] = useState<{ sourceId: string; period: YearMonth; label: string } | null>(null);
+
+  const sources = profile.incomes.filter((source) => source.declaredMonthly && source.active);
+  const pending = useMemo(() => pendingDeclarations(profile), [profile]);
+
+  if (sources.length === 0) return null;
+
+  return (
+    <Card title="Revenus déclarés au mois">
+      <p className="section-note">
+        Pour ces revenus, aucune moyenne n’est supposée : seul compte le montant que vous saisissez.
+      </p>
+
+      {sources.map((source) => {
+        const history = declarationHistory(profile, source);
+        const missing = pending.filter((entry) => entry.source.id === source.id);
+
+        return (
+          <div key={source.id} style={{ marginBottom: 18 }}>
+            <div className="inline" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+              <strong>{source.name}</strong>
+              {missing.length > 0 && (
+                <span className="badge" style={{ color: 'var(--warning)', background: 'transparent', border: '1px solid var(--warning)' }}>
+                  {missing.length} mois à déclarer
+                </span>
+              )}
+            </div>
+
+            {missing.map((entry) => (
+              <div className="row" key={`${entry.source.id}-${entry.label}`}>
+                <div className="row-main">
+                  <div className="row-title" style={{ textTransform: 'capitalize' }}>
+                    {entry.label}
+                  </div>
+                  <div className="row-subtitle warning">Pas encore déclaré</div>
+                </div>
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => setEditing({ sourceId: source.id, period: entry.period, label: entry.label })}
+                >
+                  Saisir
+                </button>
+              </div>
+            ))}
+
+            {history.length === 0 && missing.length === 0 && (
+              <p className="muted">Aucun mois déclaré pour l’instant.</p>
+            )}
+
+            {history.map((entry) => (
+              <div className="row" key={`${source.id}-${entry.label}`}>
+                <div className="row-main">
+                  <div className="row-title" style={{ textTransform: 'capitalize' }}>
+                    {entry.label}
+                  </div>
+                  <div className="row-subtitle">Montant déclaré</div>
+                </div>
+                <div className="row-amount amount positive">{entry.amount.roundedToUnit.format()}</div>
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => setEditing({ sourceId: source.id, period: entry.period, label: entry.label })}
+                >
+                  Corriger
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      {editing && (
+        <DeclarationForm
+          label={editing.label}
+          currency={profile.currency}
+          initial={
+            declarationHistory(profile, profile.incomes.find((entry) => entry.id === editing.sourceId)!).find(
+              (entry) => entry.label === editing.label,
+            )?.amount ?? null
+          }
+          onClose={() => setEditing(null)}
+          onSubmit={(amount) => declareIncome(editing.sourceId, editing.period, amount)}
+        />
+      )}
+    </Card>
+  );
+}
+
+function DeclarationForm({
+  label,
+  currency,
+  initial,
+  onClose,
+  onSubmit,
+}: {
+  label: string;
+  currency: Money['currency'];
+  initial: Money | null;
+  onClose: () => void;
+  onSubmit: (amount: Money) => void;
+}) {
+  const [amount, setAmount] = useState(initial ? String(initial.units) : '');
+  const parsed = parseAmount(amount, currency);
+
+  return (
+    <Modal title={`Revenu de ${label}`} onClose={onClose}>
+      <Field label="Montant net reçu" hint="Le montant exact, tel qu’il est arrivé sur le compte.">
+        {(id) => <MoneyInput id={id} value={amount} currency={currency} onChange={setAmount} autoFocus />}
+      </Field>
+
+      <div className="modal-actions">
+        <button type="button" className="button" onClick={onClose}>
+          Annuler
+        </button>
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={parsed === null}
+          onClick={() => {
+            if (!parsed) return;
+            onSubmit(parsed);
+            onClose();
+          }}
+        >
+          Enregistrer
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function IncomeForm({
   initial,
   onClose,
@@ -348,7 +496,12 @@ function IncomeForm({
   const [amount, setAmount] = useState(editable(initial?.amount));
   const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? 'monthly');
   const [category, setCategory] = useState<IncomeCategory>(initial?.category ?? 'salary');
-  const [variable, setVariable] = useState(initial?.variable ?? false);
+  // Trois natures, et non deux cases à cocher : « fixe », « fourchette » et « déclaré
+  // chaque mois » s'excluent, et un jeu de cases laisserait des combinaisons absurdes.
+  const [nature, setNature] = useState<'fixed' | 'range' | 'declared'>(
+    initial?.declaredMonthly ? 'declared' : initial?.variable ? 'range' : 'fixed',
+  );
+  const variable = nature !== 'fixed';
   const [minAmount, setMinAmount] = useState(editable(initial?.minAmount));
   const [maxAmount, setMaxAmount] = useState(editable(initial?.maxAmount));
   const [dayOfMonth, setDayOfMonth] = useState(String(initial?.dayOfMonth ?? 28));
@@ -404,17 +557,31 @@ function IncomeForm({
           )}
         </Field>
       </div>
-      <label className="inline" style={{ marginBottom: 8 }}>
-        <input
-          type="checkbox"
-          checked={variable}
-          onChange={(event) => setVariable(event.target.checked)}
-          style={{ width: 16 }}
-        />
-        <span>Revenu irrégulier (freelance, primes, heures supplémentaires)</span>
-      </label>
+      <Field label="Nature de ce revenu">
+        {(id) => (
+          <select
+            id={id}
+            value={nature}
+            onChange={(event) => setNature(event.target.value as 'fixed' | 'range' | 'declared')}
+          >
+            <option value="fixed">Fixe — le même montant chaque mois</option>
+            <option value="range">Irrégulier — je connais l’amplitude</option>
+            <option value="declared">Trop irrégulier — je saisis le montant exact chaque mois</option>
+          </select>
+        )}
+      </Field>
 
-      {variable ? (
+      {nature === 'declared' && (
+        <p className="field-hint" style={{ marginBottom: 14 }}>
+          Aucune fourchette ne sera inventée. Le dernier jour de chaque mois, l’application vous demandera
+          combien vous avez touché exactement — et si vous ratez ce jour-là, elle vous le redemandera à
+          l’ouverture suivante. Tant qu’un mois n’est pas déclaré, son revenu est traité comme{' '}
+          <strong>inconnu</strong> plutôt que comme une moyenne déguisée en certitude. Le montant ci-dessus ne
+          sert alors qu’à situer un mois ordinaire.
+        </p>
+      )}
+
+      {nature === 'range' ? (
         <>
           <p className="field-hint" style={{ marginBottom: 12 }}>
             Le montant ci-dessus est votre mois <strong>typique</strong>. Indiquez l’amplitude : le plan se calera
@@ -457,8 +624,9 @@ function IncomeForm({
               frequency,
               category,
               variable,
-              minAmount: variable && parsedMin ? parsedMin : undefined,
-              maxAmount: variable && parsedMax ? parsedMax : undefined,
+              declaredMonthly: nature === 'declared',
+              minAmount: nature === 'range' && parsedMin ? parsedMin : undefined,
+              maxAmount: nature === 'range' && parsedMax ? parsedMax : undefined,
               dayOfMonth: Math.min(Math.max(Number(dayOfMonth) || 28, 1), 31),
               active: initial?.active ?? true,
             });

@@ -7,6 +7,7 @@ import { HomeScreen } from './ui/HomeScreen';
 import { OnboardingScreen } from './ui/OnboardingScreen';
 import { LockScreen } from './ui/LockScreen';
 import { ShortcutsHelp } from './ui/ShortcutsHelp';
+import { IncomeDeclarationPrompt, useIncomeDeclarations } from './ui/IncomeDeclarationPrompt';
 import { useHashRoute } from './ui/routing';
 
 /*
@@ -80,6 +81,20 @@ export function App() {
   const [screen, setScreen] = useHashRoute<Screen>(SCREENS, 'home');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
+
+  // Revenus irréguliers : les mois qui attendent leur montant exact.
+  const { pending, shouldPrompt } = useIncomeDeclarations();
+  const [askDeclaration, setAskDeclaration] = useState(false);
+  const [promptHandled, setPromptHandled] = useState(false);
+
+  // La question s'ouvre d'elle-même, une fois par ouverture : la reposer après chaque
+  // navigation harcèlerait plutôt que de rappeler.
+  useEffect(() => {
+    if (shouldPrompt && !promptHandled) {
+      setAskDeclaration(true);
+      setPromptHandled(true);
+    }
+  }, [shouldPrompt, promptHandled]);
 
   // Échelle du texte : appliquée à la racine, donc à toutes les unités relatives.
   useEffect(() => {
@@ -243,6 +258,15 @@ export function App() {
           </button>
         )}
 
+        {pending.length > 0 && (
+          <button type="button" className="nav-item" onClick={() => setAskDeclaration(true)}>
+            <span aria-hidden="true" style={{ width: 16, textAlign: 'center', color: 'var(--warning)' }}>
+              ●
+            </span>
+            Déclarer mon revenu
+          </button>
+        )}
+
         <button type="button" className="nav-item" onClick={() => setShowShortcuts(true)}>
           <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
             ⌘
@@ -285,6 +309,9 @@ export function App() {
         </Suspense>
       </main>
 
+      {askDeclaration && pending.length > 0 && (
+        <IncomeDeclarationPrompt pending={pending} onClose={() => setAskDeclaration(false)} />
+      )}
       {showShortcuts && <ShortcutsHelp onClose={() => setShowShortcuts(false)} />}
     </div>
   );

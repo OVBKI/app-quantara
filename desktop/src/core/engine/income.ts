@@ -30,6 +30,17 @@ export interface IncomeSourceEstimate {
   /** Nombre de mois d'historique ayant servi à l'estimation. */
   readonly historyMonths: number;
   readonly variable: boolean;
+  /** La source attend une saisie mensuelle exacte. */
+  readonly declaredMonthly: boolean;
+  /**
+   * Le montant du mois n'est pas connu et ne peut pas être estimé honnêtement.
+   *
+   * Vrai pour une source déclarée mensuellement dont ni le mois courant ni assez de mois
+   * passés ne sont renseignés. Le plan doit alors le dire, pas combler le vide.
+   */
+  readonly unknown: boolean;
+  /** Estimation tirée des mois déjà déclarés, en attendant la saisie du mois. */
+  readonly provisional: boolean;
 }
 
 export interface IncomeBreakdown {
@@ -44,10 +55,16 @@ export interface IncomeBreakdown {
   readonly hasVariableSource: boolean;
   /** Écart entre le mois fort et le mois faible, rapporté au typique. `null` si pas de revenu. */
   readonly volatility: number | null;
+  /** Au moins une source attend une déclaration pour ce mois. */
+  readonly awaitingDeclaration: boolean;
 }
 
 const HISTORY_MONTHS = 6;
 const MINIMUM_MONTHS_FOR_HISTORY = 3;
+
+/** En deçà, la médiane des mois passés ne dit rien : deux points ne font pas une
+ *  tendance, et présenter leur moyenne comme une prévision serait mentir. */
+const MINIMUM_MONTHS_FOR_PROVISIONAL = 2;
 
 /** Fourchette par défaut d'un revenu irrégulier non documenté : ±20 % autour du typique. */
 const DEFAULT_SPREAD = 0.2;
@@ -96,10 +113,74 @@ export function estimateSource(
       actual,
       historyMonths: 0,
       variable: false,
+      declaredMonthly: false,
+      unknown: false,
+      provisional: false,
     };
   }
 
   const history = historyFor(profile, period, source.id);
+
+  /*
+   * Revenu déclaré chaque mois.
+   *
+   * Aucune fourchette n'est inventée : soit le mois est saisi et le montant est certain,
+   * soit il ne l'est pas et l'application le dit. Entre les deux, dès deux mois déjà
+   * déclarés, une estimation provisoire est proposée — annoncée comme telle, jamais
+   * confondue avec un montant reçu.
+   */
+  if (source.declaredMonthly) {
+    if (actual) {
+      return {
+        source,
+        low: actual,
+        typical: actual,
+        high: actual,
+        actual,
+        historyMonths: history.length,
+        variable: true,
+        declaredMonthly: true,
+        unknown: false,
+        provisional: false,
+      };
+    }
+
+    if (history.length >= MINIMUM_MONTHS_FOR_PROVISIONAL) {
+      const median = Statistics.median(history, currency);
+      return {
+        source,
+        // Avec deux mois seulement, les percentiles n'ont pas de sens : on prend les
+        // bornes observées telles quelles.
+        low: history.length >= MINIMUM_MONTHS_FOR_HISTORY
+          ? Statistics.percentile(history, 0.2, currency)
+          : Statistics.percentile(history, 0, currency),
+        typical: median,
+        high: history.length >= MINIMUM_MONTHS_FOR_HISTORY
+          ? Statistics.percentile(history, 0.8, currency)
+          : Statistics.percentile(history, 1, currency),
+        actual: null,
+        historyMonths: history.length,
+        variable: true,
+        declaredMonthly: true,
+        unknown: false,
+        provisional: true,
+      };
+    }
+
+    const nothing = Money.zero(currency);
+    return {
+      source,
+      low: nothing,
+      typical: nothing,
+      high: nothing,
+      actual: null,
+      historyMonths: history.length,
+      variable: true,
+      declaredMonthly: true,
+      unknown: true,
+      provisional: false,
+    };
+  }
 
   if (history.length >= MINIMUM_MONTHS_FOR_HISTORY) {
     return {
@@ -112,6 +193,9 @@ export function estimateSource(
       actual,
       historyMonths: history.length,
       variable: true,
+      declaredMonthly: false,
+      unknown: false,
+      provisional: false,
     };
   }
 
@@ -123,6 +207,9 @@ export function estimateSource(
     actual,
     historyMonths: history.length,
     variable: true,
+    declaredMonthly: false,
+    unknown: false,
+    provisional: false,
   };
 }
 
@@ -179,6 +266,7 @@ export function incomeBreakdown(
     received,
     hasVariableSource: sources.some((entry) => entry.variable),
     volatility,
+    awaitingDeclaration: sources.some((entry) => entry.declaredMonthly && entry.actual === null),
   };
 }
 

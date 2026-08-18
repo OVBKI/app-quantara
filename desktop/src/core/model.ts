@@ -40,6 +40,15 @@ export interface IncomeSource {
   /** Un revenu variable (indépendant, primes, heures supplémentaires) n'est pas projeté
    *  comme un salaire fixe : il porte une fourchette et se planifie sur son bas. */
   readonly variable: boolean;
+  /**
+   * Le montant est saisi chaque mois, exactement.
+   *
+   * Pour un revenu trop irrégulier pour qu'une fourchette veuille dire quoi que ce soit.
+   * L'application ne suppose alors rien : elle demande, en fin de mois, ce qui a été
+   * réellement touché. Tant que le mois n'est pas déclaré, le revenu est traité comme
+   * **inconnu** — pas comme une moyenne déguisée en certitude.
+   */
+  readonly declaredMonthly?: boolean;
   /** Mois faible. Facultatif : à défaut, le typique moins 20 %. */
   readonly minAmount?: Money;
   /** Mois fort. Facultatif : à défaut, le typique plus 20 %. */

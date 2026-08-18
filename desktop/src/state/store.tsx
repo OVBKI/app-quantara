@@ -27,7 +27,15 @@ import type { ExpenseCategoryId } from '../core/categories';
 import { applyCategories } from '../core/categories';
 import { analyse, type FinancialAnalysis } from '../core/engine/analysis';
 import type { CategorizationRule } from '../core/engine/categorizer';
-import { yearMonthOf, type YearMonth } from '../core/yearMonth';
+import {
+  containsDate,
+  dateOf,
+  daysInMonth,
+  formatDate,
+  parseDate,
+  yearMonthOf,
+  type YearMonth,
+} from '../core/yearMonth';
 import { clearProfile, loadStored, saveProfile, unlockStored } from '../storage/persistence';
 
 interface StoreValue {
@@ -75,6 +83,10 @@ interface StoreValue {
 
   setCategoryBudget(budget: CategoryBudget): void;
   removeCategoryBudget(category: CategoryBudget['category']): void;
+
+  /** Enregistre le montant réellement touché pour un mois donné. Remplace la saisie
+   *  précédente s'il y en avait une : on corrige, on n'empile pas. */
+  declareIncome(sourceId: string, period: YearMonth, amount: Money): void;
 
   addHolding(holding: Omit<Holding, 'id'>): void;
   updateHolding(holding: Holding): void;
@@ -321,6 +333,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((p) => ({ ...p, preferences: { ...p.preferences, ...preferences } })),
 
       setCurrency: (currency) => update((p) => ({ ...p, currency })),
+
+      declareIncome: (sourceId, target, amount) =>
+        update((p) => {
+          const source = p.incomes.find((entry) => entry.id === sourceId);
+          // Daté du jour de réception habituel, ou du dernier jour du mois : la date
+          // compte pour la trésorerie, et un revenu daté du 1er décalerait la courbe.
+          const day = Math.min(source?.dayOfMonth ?? daysInMonth(target), daysInMonth(target));
+          const date = formatDate(dateOf(target, day));
+
+          const others = p.transactions.filter(
+            (entry) =>
+              !(
+                entry.kind === 'income' &&
+                entry.incomeSourceId === sourceId &&
+                containsDate(target, parseDate(entry.date))
+              ),
+          );
+
+          // Un montant nul est une réponse : « je n'ai rien touché ce mois-ci ». Il est
+          // enregistré comme telle plutôt que laissé en attente indéfinie.
+          const declared = {
+            id: id(),
+            amount,
+            date,
+            kind: 'income' as const,
+            label: source?.name ?? 'Revenu',
+            incomeCategory: source?.category,
+            incomeSourceId: sourceId,
+            note: 'Montant déclaré pour le mois',
+          };
+
+          return { ...p, transactions: [...others, declared] };
+        }),
 
       addHolding: (holding) => update((p) => ({ ...p, holdings: [...p.holdings, { ...holding, id: id() }] })),
       updateHolding: (holding) =>

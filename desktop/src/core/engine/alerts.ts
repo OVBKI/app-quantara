@@ -16,6 +16,7 @@ export type AlertKind =
   | 'envelopeExceeded'
   | 'goalMilestone'
   | 'emergencyFundMilestone'
+  | 'incomeDeclaration'
   | 'monthlyReport';
 
 export interface Alert {
@@ -150,6 +151,30 @@ export function buildAlerts(
         body:
           `${analysis.emergencyFund.current.roundedToUnit.format()} de côté, pour ` +
           `${analysis.emergencyFund.monthlyNeed.roundedToUnit.format()} de dépenses essentielles par mois.`,
+      });
+    }
+  }
+
+  /*
+   * Revenu à déclarer.
+   *
+   * Passe avant le bilan : sans le montant réellement touché, tous les chiffres du mois
+   * reposent sur du vide. C'est la seule alerte qui demande une saisie plutôt que de
+   * signaler un état.
+   */
+  if (analysis.summary.incomeDetail.awaitingDeclaration) {
+    const sources = analysis.summary.incomeDetail.sources.filter(
+      (entry) => entry.declaredMonthly && entry.actual === null,
+    );
+    if (sources.length > 0) {
+      alerts.push({
+        id: `incomeDeclaration.${analysis.period.year}-${analysis.period.month}`,
+        kind: 'incomeDeclaration',
+        title: 'Combien avez-vous touché ce mois-ci ?',
+        body:
+          sources.length === 1
+            ? `${sources[0]!.source.name} attend son montant exact. Sans lui, le budget du mois n’est qu’une supposition.`
+            : `${sources.length} revenus attendent leur montant exact pour ce mois.`,
       });
     }
   }

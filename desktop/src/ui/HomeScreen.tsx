@@ -86,6 +86,10 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
 
   const overspending = summary.disposable.isNegative;
 
+  // Aucune source déclarée au mois n'a de montant, et aucun historique ne permet de
+  // l'estimer : tout chiffre dérivé du revenu serait une invention.
+  const awaitingIncome = summary.incomeDetail.sources.some((entry) => entry.unknown);
+
   return (
     <>
       <header className="page-header">
@@ -101,6 +105,14 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
           <div className={`hero-value amount ${available.isNegative ? 'critical' : ''}`}>
             {available.roundedToUnit.format()}
           </div>
+          {awaitingIncome && (
+            <p className="hero-note warning" style={{ marginTop: 12 }}>
+              Le revenu de ce mois n’a pas encore été déclaré. Tant qu’il manque, le disponible et le reste à
+              vivre ne tiennent compte que de vos charges — l’application préfère le dire plutôt que de
+              supposer un montant.
+            </p>
+          )}
+
           <p className="hero-note">
             {profile.accounts.length === 0 ? (
               <>
@@ -146,12 +158,18 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
         <div className="grid grid-4">
           <Tile
             label="Revenus du mois"
-            value={summary.income.roundedToUnit.format()}
-            tone="positive"
+            // Un revenu non déclaré vaut « inconnu », pas zéro : afficher 0 € laisserait
+            // croire à un mois sans rentrée d'argent, ce qui est une information fausse.
+            value={awaitingIncome ? '—' : summary.income.roundedToUnit.format()}
+            tone={awaitingIncome ? undefined : 'positive'}
             note={
-              summary.incomeDetail.hasVariableSource
-                ? `Fourchette ${summary.incomeDetail.low.formatCompact()} – ${summary.incomeDetail.high.formatCompact()}`
-                : undefined
+              awaitingIncome
+                ? 'Montant à déclarer'
+                : summary.incomeDetail.sources.some((entry) => entry.provisional)
+                  ? 'Estimation d’après vos mois déclarés'
+                  : summary.incomeDetail.hasVariableSource
+                    ? `Fourchette ${summary.incomeDetail.low.formatCompact()} – ${summary.incomeDetail.high.formatCompact()}`
+                    : undefined
             }
           />
           <Tile
