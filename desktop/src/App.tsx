@@ -9,6 +9,7 @@ import { LockScreen } from './ui/LockScreen';
 import { ShortcutsHelp } from './ui/ShortcutsHelp';
 import { IncomeDeclarationPrompt, useIncomeDeclarations } from './ui/IncomeDeclarationPrompt';
 import { useHashRoute } from './ui/routing';
+import { TopBar } from './ui/TopBar';
 
 /*
  * Les écrans secondaires sont chargés à la demande.
@@ -181,6 +182,8 @@ export function App() {
     return <OnboardingScreen />;
   }
 
+  const currentLabel = [...PRIMARY, ...SECONDARY].find((entry) => entry.id === screen)?.label ?? 'Accueil';
+
   const periodPicker = (
     <div className="inline" style={{ justifyContent: 'space-between', width: '100%' }}>
       <button
@@ -232,31 +235,12 @@ export function App() {
 
         {PRIMARY.map(navButton)}
 
-        <div style={{ height: 1, background: 'var(--border)', margin: '10px 12px' }} />
-
+        <div className="nav-group">Outils</div>
         {SECONDARY.map(navButton)}
 
         <div className="nav-spacer" />
 
         <div style={{ padding: '0 4px 8px' }}>{periodPicker}</div>
-
-        {canUndo && (
-          <button type="button" className="nav-item" onClick={undo}>
-            <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
-              ↶
-            </span>
-            Annuler
-          </button>
-        )}
-
-        {encrypted && (
-          <button type="button" className="nav-item" onClick={lock}>
-            <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
-              ⌧
-            </span>
-            Verrouiller
-          </button>
-        )}
 
         {pending.length > 0 && (
           <button type="button" className="nav-item" onClick={() => setAskDeclaration(true)}>
@@ -266,13 +250,6 @@ export function App() {
             Déclarer mon revenu
           </button>
         )}
-
-        <button type="button" className="nav-item" onClick={() => setShowShortcuts(true)}>
-          <span aria-hidden="true" style={{ width: 16, textAlign: 'center' }}>
-            ⌘
-          </span>
-          Raccourcis
-        </button>
 
         <p className="nav-footnote">
           Données locales, sur cette machine. Les montants affichés proviennent tous d’un calcul explicite.
@@ -290,6 +267,40 @@ export function App() {
             </button>
           )}
         </div>
+
+        <TopBar
+          screens={[...PRIMARY, ...SECONDARY]}
+          onNavigate={(target) => setScreen(target as Screen)}
+          pendingCount={pending.length}
+          onOpenDeclaration={() => setAskDeclaration(true)}
+          right={
+            <>
+              {canUndo && (
+                <button type="button" className="icon-button" title="Annuler (Ctrl+Z)" aria-label="Annuler" onClick={undo}>
+                  ↶
+                </button>
+              )}
+              {encrypted && (
+                <button type="button" className="icon-button" title="Verrouiller" aria-label="Verrouiller" onClick={lock}>
+                  ⌧
+                </button>
+              )}
+              <button
+                type="button"
+                className="icon-button"
+                title="Raccourcis clavier (?)"
+                aria-label="Raccourcis clavier"
+                onClick={() => setShowShortcuts(true)}
+              >
+                ⌘
+              </button>
+            </>
+          }
+        />
+
+        <p className="breadcrumb">
+          Quantara / <strong>{currentLabel}</strong>
+        </p>
 
         {error && <div className="error-banner">{error}</div>}
 

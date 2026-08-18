@@ -298,9 +298,13 @@ export function TrendChart({
 
   const coordinates = points.map(at);
   const line = coordinates.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
-  const baseline = padding.top + plotHeight;
-  const area = `${line} L ${coordinates[coordinates.length - 1]![0]} ${baseline} L ${coordinates[0]![0]} ${baseline} Z`;
   const zeroY = padding.top + (1 - (0 - min) / span) * plotHeight;
+
+  // L'aplat part de la ligne du zéro, pas du bas du cadre : sinon il recouvre la zone
+  // négative et l'on ne voit plus où le solde bascule — ce qui est justement l'unique
+  // chose à voir ici.
+  const baseline = min < 0 ? zeroY : padding.top + plotHeight;
+  const area = `${line} L ${coordinates[coordinates.length - 1]![0]} ${baseline} L ${coordinates[0]![0]} ${baseline} Z`;
 
   const marker = markerAt !== undefined ? coordinates[markerAt] : undefined;
 
@@ -611,5 +615,90 @@ export function MultiTrend({
       </div>
       <Legend items={series.map((entry) => ({ label: entry.label, color: entry.color }))} />
     </>
+  );
+}
+
+/**
+ * Anneau segmenté.
+ *
+ * La marque visuelle du tableau de bord de référence : un anneau fait de petits traits
+ * plutôt que d'un arc continu, avec la valeur au centre. Les traits allumés donnent la
+ * proportion, les éteints rappellent le total — on lit donc « 64 % » sans avoir à
+ * chercher le chiffre.
+ *
+ * Le dégradé qui parcourt les traits est décoratif : il ne distingue rien, il habille.
+ * C'est pourquoi il est permis ici alors qu'il serait proscrit sur un camembert — sur
+ * un anneau à série unique, aucune identité ne peut être confondue.
+ */
+export function SegmentedRing({
+  value,
+  size = 116,
+  segments = 44,
+  from = 'var(--magenta)',
+  to = 'var(--cyan)',
+  center,
+  caption,
+}: {
+  /** Part comprise entre 0 et 1. Au-delà de 1, l'anneau est plein — un dépassement se
+   *  dit en toutes lettres à côté, pas par un anneau qui repart à zéro. */
+  readonly value: number;
+  readonly size?: number;
+  readonly segments?: number;
+  readonly from?: string;
+  readonly to?: string;
+  readonly center: string;
+  readonly caption?: string;
+}) {
+  const clamped = Math.min(Math.max(value, 0), 1);
+  const lit = Math.round(clamped * segments);
+  const cx = size / 2;
+  const outer = size / 2 - 2;
+  const inner = outer - 13;
+  const id = `ring-${from}-${to}`.replace(/[^a-z0-9]/gi, '');
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${center} ${caption ?? ''}`}>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={from} />
+          <stop offset="100%" stopColor={to} />
+        </linearGradient>
+      </defs>
+
+      {Array.from({ length: segments }, (_, index) => {
+        // On part du haut et on tourne dans le sens des aiguilles.
+        const angle = -Math.PI / 2 + (index / segments) * Math.PI * 2;
+        const [x1, y1] = polar(cx, cx, inner, angle);
+        const [x2, y2] = polar(cx, cx, outer, angle);
+        const on = index < lit;
+        return (
+          <line
+            key={index}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={on ? `url(#${id})` : 'var(--grid)'}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+        );
+      })}
+
+      <text
+        x={cx}
+        y={cx + (caption ? -2 : 6)}
+        textAnchor="middle"
+        className="amount"
+        style={{ fill: 'var(--text)', fontSize: 21, fontWeight: 650 }}
+      >
+        {center}
+      </text>
+      {caption && (
+        <text x={cx} y={cx + 15} textAnchor="middle" style={{ fill: 'var(--text-tertiary)', fontSize: 10 }}>
+          {caption}
+        </text>
+      )}
+    </svg>
   );
 }

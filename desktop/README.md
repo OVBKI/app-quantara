@@ -78,6 +78,12 @@ intermédiaires avant l'arrondi au centime. Mille additions d'un centime font ex
 **Multiplier avant de diviser.** `1 200 × (1/12)` rend 99,9996 ; `1 200 × 1 ÷ 12` rend
 exactement 100. Toute conversion de périodicité passe par une fraction exacte.
 
+**Deux systèmes de couleur, et ils ne se mélangent pas.** L'interface porte un violet
+profond, des halos et des dégradés magenta-cyan : c'est de l'habillage, il ne signifie
+rien. Les **données**, elles, gardent une palette de huit teintes vérifiée par calcul. Un
+dégradé sur un anneau à série unique est permis — aucune identité à confondre ; sur un
+camembert de catégories, il serait proscrit.
+
 **Les couleurs sont calculées, pas choisies à l'œil.** Huit teintes, dans un ordre fixe,
 vérifiées par un validateur contre les deux fonds de l'application : bande de clarté,
 plancher de saturation, séparation sous simulation protanope et tritanope, contraste. Une

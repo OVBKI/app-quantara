@@ -13,12 +13,10 @@
   /*
    * Palette de séries validée.
    *
-   * Huit teintes, dans un ordre fixe : c'est l'ordre qui garantit la lisibilité pour une
-   * déficience de la vision des couleurs, pas le choix des teintes prises une à une.
-   * Vérifiée par calcul contre les deux surfaces de l'application — bande de clarté,
-   * plancher de saturation, séparation sous simulation protanope et tritanope, contraste.
-   * Ne pas y ajouter une neuvième couleur : au-delà, deux séries deviennent
-   * indiscernables. Une catégorie de trop se replie sur « Autre ».
+   * Huit teintes, ordre fixe, vérifiées par calcul contre les surfaces réelles de
+   * l'application — bande de clarté, saturation, séparation sous simulation protanope et
+   * tritanope, contraste. Elles encodent des données : contrairement aux dégradés
+   * décoratifs de l'interface, on n'y touche pas pour des raisons esthétiques.
    */
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -29,47 +27,55 @@
   --series-7: #9085e9;
   --series-8: #e66767;
 
-  /* Surfaces et encres. */
-  --bg: #0d1117;
-  --surface: #12161d;
-  --surface-raised: #171d26;
-  --border: #232a35;
-  --border-strong: #2f3846;
-  --text: #f0f3f8;
-  --text-secondary: #a3adbb;
-  --text-tertiary: #737e8c;
+  /* Fond violet profond, éclairé par deux halos. */
+  --bg: #150a29;
+  --bg-glow-1: rgba(124, 58, 237, 0.22);
+  --bg-glow-2: rgba(6, 182, 212, 0.12);
+  --surface: rgba(38, 20, 68, 0.72);
+  --surface-solid: #241443;
+  --surface-raised: rgba(52, 29, 89, 0.78);
+  --sidebar: rgba(24, 11, 45, 0.86);
+  --border: rgba(139, 92, 246, 0.16);
+  --border-strong: rgba(139, 92, 246, 0.34);
+  --text: #f4f1fb;
+  --text-secondary: #b3a6d4;
+  --text-tertiary: #8577a8;
 
-  --accent: var(--series-1);
-  --accent-soft: rgba(57, 135, 229, 0.14);
-  --accent-strong: #5b9df0;
+  /* Accents de l'interface : magenta et cyan, comme la référence. Décoratifs — ils ne
+     portent jamais une valeur, seulement l'état de l'interface. */
+  --accent: #a855f7;
+  --accent-strong: #c084fc;
+  --accent-soft: rgba(168, 85, 247, 0.16);
+  --magenta: #ec4899;
+  --cyan: #22d3ee;
+  --gradient: linear-gradient(90deg, var(--magenta), var(--accent), var(--cyan));
 
   /* États. Réservés : jamais réutilisés comme couleur de série. */
-  --positive: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
+  --positive: #22c55e;
+  --warning: #fbbf24;
+  --serious: #fb923c;
+  --critical: #f43f5e;
   --savings: var(--series-7);
   --debt: var(--series-8);
 
-  /* Chrome des graphiques : discret par construction. */
-  --grid: #212832;
-  --axis: #313a47;
+  --grid: rgba(139, 92, 246, 0.14);
+  --axis: rgba(139, 92, 246, 0.3);
 
-  --radius-large: 16px;
-  --radius: 12px;
-  --radius-small: 8px;
+  --radius-large: 18px;
+  --radius: 13px;
+  --radius-small: 9px;
   --space: 16px;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28);
-  --shadow-raised: 0 6px 24px -8px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 2px 14px rgba(10, 4, 24, 0.4);
+  --shadow-raised: 0 12px 36px -12px rgba(88, 28, 190, 0.55);
+  --glow: 0 0 22px rgba(168, 85, 247, 0.35);
 
   --font: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, 'Inter', sans-serif;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    /* Les mêmes huit teintes, redéclinées pour une surface claire — pas un simple
-       éclaircissement : chaque pas a été revalidé contre le fond blanc. */
+    /* Les mêmes huit teintes, redéclinées et revalidées pour une surface claire. */
     --series-1: #2a78d6;
     --series-2: #eb6834;
     --series-3: #1baf7a;
@@ -79,23 +85,31 @@
     --series-7: #4a3aa7;
     --series-8: #e34948;
 
-    --bg: #f6f7f9;
-    --surface: #ffffff;
+    --bg: #f7f5fc;
+    --bg-glow-1: rgba(124, 58, 237, 0.07);
+    --bg-glow-2: rgba(6, 182, 212, 0.05);
+    --surface: rgba(255, 255, 255, 0.86);
+    --surface-solid: #ffffff;
     --surface-raised: #ffffff;
-    --border: #e4e7ec;
-    --border-strong: #d3d8e0;
-    --text: #0f1115;
-    --text-secondary: #4e5866;
-    --text-tertiary: #7a8492;
+    --sidebar: rgba(255, 255, 255, 0.9);
+    --border: rgba(88, 28, 190, 0.12);
+    --border-strong: rgba(88, 28, 190, 0.26);
+    --text: #1a1128;
+    --text-secondary: #574a6e;
+    --text-tertiary: #7d719b;
 
-    --accent-soft: rgba(42, 120, 214, 0.1);
-    --accent-strong: #1f63b4;
+    --accent: #7c3aed;
+    --accent-strong: #6d28d9;
+    --accent-soft: rgba(124, 58, 237, 0.09);
+    --magenta: #db2777;
+    --cyan: #0891b2;
 
-    --grid: #edeff3;
-    --axis: #d3d8e0;
+    --grid: rgba(88, 28, 190, 0.09);
+    --axis: rgba(88, 28, 190, 0.2);
 
-    --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.05);
-    --shadow-raised: 0 8px 28px -12px rgba(15, 17, 21, 0.18);
+    --shadow-card: 0 1px 3px rgba(26, 17, 40, 0.06);
+    --shadow-raised: 0 10px 30px -14px rgba(88, 28, 190, 0.24);
+    --glow: none;
   }
 }
 
@@ -622,153 +636,10 @@ textarea:focus {
   margin-bottom: 18px;
 }
 
-/* --- Petits écrans et fenêtres étroites --- */
 
-/*
- * L'application est une fenêtre de bureau : on la réduit, on la met à côté d'un
- * navigateur, on la consulte sur un portable de 13 pouces. La barre latérale fixe de
- * 232 px devient alors la moitié de l'écran — elle passe donc en barre de navigation
- * horizontale, en bas, là où le pouce et le curseur l'atteignent sans traverser l'écran.
- */
-@media (max-width: 900px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
-  }
 
-  .sidebar {
-    grid-row: 2;
-    flex-direction: row;
-    align-items: center;
-    gap: 2px;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* Toujours accessible, même quand la page défile. */
-    position: sticky;
-    bottom: 0;
-    z-index: 30;
-  }
 
-  /* Le titre et le sélecteur de mois n'ont pas leur place dans une barre d'onglets. */
-  .sidebar .brand,
-  .sidebar .nav-footnote,
-  .nav-spacer {
-    display: none;
-  }
 
-  .nav-item {
-    flex-direction: column;
-    gap: 3px;
-    padding: 7px 12px;
-    font-size: 11px;
-    /* `flex: none` empêche les entrées de se comprimer jusqu'à ce que « Placements » et
-       « Ma situation » se touchent ; `width: auto` annule le `width: 100 %` de la barre
-       latérale, sans lequel une seule entrée occuperait toute la barre. Les entrées
-       gardent donc leur largeur naturelle, et c'est la barre qui défile. */
-    flex: none;
-    width: auto;
-    min-width: 64px;
-    /* Cible tactile : en dessous, on vise à côté. */
-    min-height: 46px;
-    text-align: center;
-    white-space: nowrap;
-  }
-
-  /* Le fond de la barre reste opaque pendant le défilement horizontal. */
-  .sidebar::after {
-    content: '';
-    flex: none;
-    width: 4px;
-  }
-
-  .main {
-    padding: 18px 16px 28px;
-  }
-
-  .page-title {
-    font-size: 21px;
-  }
-
-  .hero {
-    padding: 20px;
-  }
-
-  .hero-value {
-    font-size: 34px;
-  }
-
-  /* Les grilles fines s'empilent : deux colonnes de 150 px ne se lisent plus. */
-  .grid-2,
-  .grid-3,
-  .grid-4,
-  .field-row {
-    grid-template-columns: 1fr;
-  }
-
-  .modal {
-    width: 100%;
-    max-height: 92vh;
-  }
-
-  .overlay {
-    padding: 12px;
-    /* Sur écran étroit, une feuille partant du bas se referme plus naturellement. */
-    align-items: end;
-  }
-}
-
-/* Le sélecteur de mois, replacé en haut sur écran étroit. */
-.period-bar {
-  display: none;
-}
-
-@media (max-width: 900px) {
-  .period-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 14px;
-    padding: 6px 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-small);
-  }
-}
-
-@media (max-width: 560px) {
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  /* Une rangée de boutons d'en-tête déborde : elle passe en grille de deux. */
-  .page-header .inline {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
-  }
-
-  .page-header .inline > .button {
-    width: 100%;
-  }
-
-  .hero-value {
-    font-size: 30px;
-  }
-
-  .row {
-    flex-wrap: wrap;
-  }
-
-  .row-amount {
-    margin-left: auto;
-  }
-}
 
 /* Un tableau ou un graphique large défile dans son propre cadre : la page, elle, ne
  * défile jamais horizontalement. */
@@ -1170,4 +1041,465 @@ textarea:focus {
 .declare-field input::placeholder {
   color: var(--text-tertiary);
   opacity: 0.45;
+}
+
+/* --- Coque violette --- */
+
+body {
+  /* Deux halos fixes derrière toute l'application : c'est ce qui donne la profondeur
+     du fond sans qu'aucune carte ait à porter son propre dégradé. */
+  background:
+    radial-gradient(90rem 50rem at 8% -8%, var(--bg-glow-1), transparent 60%),
+    radial-gradient(70rem 45rem at 100% 4%, var(--bg-glow-2), transparent 58%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+.app {
+  grid-template-areas: 'sidebar main';
+  background: transparent;
+}
+
+.sidebar {
+  grid-area: sidebar;
+  background: var(--sidebar);
+  backdrop-filter: blur(14px);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+}
+
+.main {
+  grid-area: main;
+}
+
+.brand {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  padding: 2px 12px 20px;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: var(--gradient);
+  box-shadow: var(--glow);
+}
+
+.nav-item {
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.nav-item[aria-current='page'] {
+  /* L'entrée active de la référence : un aplat rosé et une barre lumineuse à gauche. */
+  background: linear-gradient(90deg, rgba(236, 72, 153, 0.2), transparent);
+  color: var(--text);
+  position: relative;
+}
+
+.nav-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--magenta);
+  box-shadow: 0 0 10px var(--magenta);
+}
+
+.nav-group {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 16px 12px 6px;
+  font-weight: 600;
+}
+
+/* --- Barre supérieure --- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 520px;
+  position: relative;
+}
+
+.search input {
+  /* La pilule de la référence : arrondi complet, fond translucide. */
+  border-radius: 999px;
+  padding: 11px 44px 11px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+
+.search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+.search-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.icon-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.icon-button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.icon-button .badge-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--magenta);
+  border: 2px solid var(--bg);
+}
+
+.breadcrumb {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.breadcrumb strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* --- Cartes translucides --- */
+
+.card {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.hero {
+  background:
+    radial-gradient(120% 150% at 0% 0%, rgba(236, 72, 153, 0.16), transparent 55%),
+    radial-gradient(110% 140% at 100% 100%, rgba(34, 211, 238, 0.12), transparent 55%),
+    var(--surface-raised);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-strong);
+}
+
+.button-primary {
+  background: var(--gradient);
+  border-color: transparent;
+  box-shadow: var(--glow);
+}
+
+.button-primary:hover {
+  background: var(--gradient);
+  border-color: transparent;
+  filter: brightness(1.12);
+}
+
+.badge {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid var(--border-strong);
+}
+
+/* Une barre de progression prend le dégradé de l'interface : elle montre une avancée,
+   pas une catégorie — aucune identité à préserver. */
+.progress-fill {
+  background: var(--gradient);
+}
+
+.bar-track {
+  background: var(--grid);
+}
+
+/* --- Anneau segmenté --- */
+
+.ring-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.ring-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 12px;
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+
+.ring-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ring-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Résultats de recherche : une liste flottante sous la pilule. */
+.search-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  overflow: hidden;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+
+.search-result:hover,
+.search-result:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.search-result + .search-result {
+  border-top: 1px solid var(--border);
+}
+
+.search-empty {
+  padding: 14px 16px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Écrans étroits — placé en dernier à dessein.
+ *
+ * À spécificité égale, c'est la dernière règle qui l'emporte. Ces blocs doivent donc
+ * suivre le thème, sans quoi la barre latérale garderait sa colonne et laisserait une
+ * lanière sur le côté.
+ * ------------------------------------------------------------------------- */
+
+/* --- Petits écrans et fenêtres étroites --- */
+
+/*
+ * L'application est une fenêtre de bureau : on la réduit, on la met à côté d'un
+ * navigateur, on la consulte sur un portable de 13 pouces. La barre latérale fixe de
+ * 232 px devient alors la moitié de l'écran — elle passe donc en barre de navigation
+ * horizontale, en bas, là où le pouce et le curseur l'atteignent sans traverser l'écran.
+ */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    /* Les zones nommées doivent être redéclarées ici : sans cela, la grille garde ses
+       deux colonnes et il reste une lanière de barre latérale sur le côté. */
+    grid-template-areas:
+      'main'
+      'sidebar';
+  }
+
+  .sidebar {
+    grid-area: sidebar;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Toujours accessible, même quand la page défile. */
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+  }
+
+  /* Le titre et le sélecteur de mois n'ont pas leur place dans une barre d'onglets. */
+  .sidebar .brand,
+  .sidebar .nav-footnote,
+  .nav-spacer {
+    display: none;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 12px;
+    font-size: 11px;
+    /* `flex: none` empêche les entrées de se comprimer jusqu'à ce que « Placements » et
+       « Ma situation » se touchent ; `width: auto` annule le `width: 100 %` de la barre
+       latérale, sans lequel une seule entrée occuperait toute la barre. Les entrées
+       gardent donc leur largeur naturelle, et c'est la barre qui défile. */
+    flex: none;
+    width: auto;
+    min-width: 64px;
+    /* Cible tactile : en dessous, on vise à côté. */
+    min-height: 46px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Le fond de la barre reste opaque pendant le défilement horizontal. */
+  .sidebar::after {
+    content: '';
+    flex: none;
+    width: 4px;
+  }
+
+  .main {
+    padding: 18px 16px 28px;
+  }
+
+  .page-title {
+    font-size: 21px;
+  }
+
+  .hero {
+    padding: 20px;
+  }
+
+  .hero-value {
+    font-size: 34px;
+  }
+
+  /* Les grilles fines s'empilent : deux colonnes de 150 px ne se lisent plus. */
+  .grid-2,
+  .grid-3,
+  .grid-4,
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+  }
+
+  .overlay {
+    padding: 12px;
+    /* Sur écran étroit, une feuille partant du bas se referme plus naturellement. */
+    align-items: end;
+  }
+}
+
+/* Le sélecteur de mois, replacé en haut sur écran étroit. */
+.period-bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .period-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-small);
+  }
+}
+
+
+@media (max-width: 560px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Une rangée de boutons d'en-tête déborde : elle passe en grille de deux. */
+  .page-header .inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .page-header .inline > .button {
+    width: 100%;
+  }
+
+  .hero-value {
+    font-size: 30px;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .row-amount {
+    margin-left: auto;
+  }
 }

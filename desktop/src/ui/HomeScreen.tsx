@@ -8,6 +8,7 @@ import { categorize } from '../core/engine/categorizer';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
+import { SegmentedRing } from './charts';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 // Les graphiques arrivent après le reste : le solde et les tuiles n'ont pas à attendre
@@ -84,11 +85,48 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
     [summary],
   );
 
-  const overspending = summary.disposable.isNegative;
-
   // Aucune source déclarée au mois n'a de montant, et aucun historique ne permet de
   // l'estimer : tout chiffre dérivé du revenu serait une invention.
   const awaitingIncome = summary.incomeDetail.sources.some((entry) => entry.unknown);
+
+  /*
+   * Trois anneaux, trois questions : où est passé le revenu, ce qui a été mis de côté,
+   * ce qui a été placé. Le dégradé qui les parcourt est décoratif — chaque anneau porte
+   * une seule série, il n'y a donc aucune identité à confondre.
+   *
+   * Une part inconnue affiche « — » plutôt qu'un anneau vide : zéro et « pas encore
+   * déclaré » ne veulent pas dire la même chose.
+   */
+  const rings = [
+    {
+      label: 'Revenu dépensé',
+      note: awaitingIncome ? 'Revenu à déclarer' : `${spent.roundedToUnit.format()} ce mois-ci`,
+      value: awaitingIncome ? null : spentShare,
+      from: 'var(--magenta)',
+      to: 'var(--accent)',
+    },
+    {
+      label: 'Revenu épargné',
+      note: `${summary.savingsContributions.roundedToUnit.format()} mis de côté`,
+      value: awaitingIncome ? null : summary.savingsRate,
+      from: 'var(--accent)',
+      to: 'var(--cyan)',
+    },
+    {
+      label: 'Revenu placé',
+      note: invested.isPositive ? `${invested.roundedToUnit.format()} au total` : 'Aucun placement suivi',
+      value: awaitingIncome ? null : investedShare,
+      from: 'var(--cyan)',
+      to: 'var(--positive)',
+    },
+    {
+      label: 'Charges fixes',
+      note: `${summary.fixedExpenses.roundedToUnit.format()} par mois`,
+      value: awaitingIncome ? null : summary.fixedRatio,
+      from: 'var(--warning)',
+      to: 'var(--magenta)',
+    },
+  ];
 
   return (
     <>
@@ -180,37 +218,28 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             note={summary.savingsRate !== null ? `${Percent.format(summary.savingsRate, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
-            label="Placé"
-            value={invested.roundedToUnit.format()}
-            note={investedShare !== null ? `${Percent.format(investedShare, 'fr-FR', 0)} du revenu ce mois-ci` : 'Aucun placement suivi'}
+            label="Reste à répartir"
+            value={summary.disposable.roundedToUnit.format()}
+            tone={summary.disposable.isNegative ? 'critical' : 'positive'}
+            note={summary.disposable.isNegative ? 'Le mois est déficitaire' : 'Après toutes les charges'}
           />
         </div>
 
-        <div className="grid grid-3">
-          <Tile
-            label="Charges fixes"
-            value={summary.fixedExpenses.roundedToUnit.format()}
-            note={summary.fixedRatio !== null ? `${Percent.format(summary.fixedRatio, 'fr-FR', 0)} du revenu` : undefined}
-          />
-          <Tile
-            label="Dépenses variables prévues"
-            value={summary.variableReserved.roundedToUnit.format()}
-            note={
-              summary.variablePlanned.isPositive
-                ? `${summary.envelopes.totalSpent.roundedToUnit.format()} dépensés sur ${summary.variablePlanned.roundedToUnit.format()} d’enveloppes`
-                : summary.variableProjectionMethod === 'runRate'
-                  ? `Projeté d’après ${summary.variableSpentToDate.roundedToUnit.format()} en ${summary.daysElapsed} jours`
-                  : summary.variableProjectionMethod === 'history'
-                    ? 'Estimé d’après les mois précédents'
-                    : 'Constaté'
-            }
-          />
-          <Tile
-            label="Reste à répartir"
-            value={summary.disposable.roundedToUnit.format()}
-            tone={overspending ? 'critical' : 'positive'}
-            note={overspending ? 'Le mois est déficitaire' : 'Après toutes les charges du mois'}
-          />
+        <div className="ring-grid">
+          {rings.map((ring) => (
+            <div className="ring-card" key={ring.label}>
+              <SegmentedRing
+                value={ring.value ?? 0}
+                center={ring.value === null ? '—' : Percent.format(ring.value, 'fr-FR', 0)}
+                from={ring.from}
+                to={ring.to}
+              />
+              <div>
+                <div className="ring-label">{ring.label}</div>
+                <div className="ring-note">{ring.note}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <Suspense fallback={<div className="card empty">Chargement des graphiques…</div>}>
