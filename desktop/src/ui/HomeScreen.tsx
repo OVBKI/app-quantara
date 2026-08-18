@@ -99,9 +99,10 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
   const awaitingIncome = summary.incomeDetail.sources.some((entry) => entry.unknown);
 
   /*
-   * Trois anneaux, trois questions : où est passé le revenu, ce qui a été mis de côté,
-   * ce qui a été placé. Le dégradé qui les parcourt est décoratif — chaque anneau porte
-   * une seule série, il n'y a donc aucune identité à confondre.
+   * Quatre anneaux, quatre questions : où est passé le revenu, ce qui a été mis de côté,
+   * ce qui a été placé, ce que pèsent les charges. Tous portent la même teinte : chacun
+   * est seul dans sa carte et porte son propre titre — quatre couleurs différentes
+   * suggéreraient quatre familles là où il n'y en a pas.
    *
    * Une part inconnue affiche « — » plutôt qu'un anneau vide : zéro et « pas encore
    * déclaré » ne veulent pas dire la même chose.
@@ -111,29 +112,29 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
       label: 'Revenu dépensé',
       note: awaitingIncome ? 'Revenu à déclarer' : `${spent.roundedToUnit.format()} ce mois-ci`,
       value: awaitingIncome ? null : spentShare,
-      from: 'var(--magenta)',
-      to: 'var(--accent)',
+      from: 'var(--accent)',
+      to: 'var(--accent-2)',
     },
     {
       label: 'Revenu épargné',
       note: `${summary.savingsContributions.roundedToUnit.format()} mis de côté`,
       value: awaitingIncome ? null : summary.savingsRate,
       from: 'var(--accent)',
-      to: 'var(--cyan)',
+      to: 'var(--accent-2)',
     },
     {
       label: 'Revenu placé',
       note: invested.isPositive ? `${invested.roundedToUnit.format()} au total` : 'Aucun placement suivi',
       value: awaitingIncome ? null : investedShare,
-      from: 'var(--cyan)',
-      to: 'var(--positive)',
+      from: 'var(--accent)',
+      to: 'var(--accent-2)',
     },
     {
       label: 'Charges fixes',
       note: `${summary.fixedExpenses.roundedToUnit.format()} par mois`,
       value: awaitingIncome ? null : summary.fixedRatio,
-      from: 'var(--warning)',
-      to: 'var(--magenta)',
+      from: 'var(--accent)',
+      to: 'var(--accent-2)',
     },
   ];
 

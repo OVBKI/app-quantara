@@ -634,8 +634,8 @@ export function SegmentedRing({
   value,
   size = 116,
   segments = 44,
-  from = 'var(--magenta)',
-  to = 'var(--cyan)',
+  from = 'var(--accent)',
+  to = 'var(--accent-2)',
   center,
   caption,
 }: {
