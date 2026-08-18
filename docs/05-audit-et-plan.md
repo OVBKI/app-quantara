@@ -333,3 +333,49 @@ Les comptes existants reçoivent la date du jour comme date de relevé, ce qui e
 prudent — les transactions déjà enregistrées sont réputées comprises dans le solde. Si
 votre solde saisi ne tenait en réalité pas compte de certaines dépenses déjà notées,
 corrigez la date du relevé dans les Réglages : tout le reste en découle.
+
+---
+
+## Partage automatique du reste (août 2026)
+
+Demande : *« je veux que l'app me fractionne automatiquement mon salaire… les dépenses
+fixes, c'est moi qui dois les paramétrer, mais le reste doit être fractionné en argent
+libre, investir, argent de sécurité et épargne. »*
+
+### Ce qui a changé
+
+- **Quatre parts, nommées comme demandé.** `AllocationTargets` porte désormais
+  `security` / `savings` / `investment` / `free` — « argent de sécurité », « épargne »,
+  « investir », « argent libre ». L'ancienne part « besoins », qui prétendait couvrir les
+  charges, a disparu : les charges sont saisies, pas estimées par un pourcentage.
+- **Les parts portent sur le reste, pas sur le revenu brut.** `allocateByTargets` partage
+  `summary.disposable`, c'est-à-dire le revenu diminué des charges fixes, des dépenses
+  variables et des remboursements. « 25 % à l'épargne » désigne donc un quart de ce qui
+  est réellement libre. Appliquer 25 % à un revenu déjà engagé aux trois quarts
+  annoncerait une somme qui n'existe pas.
+- **Actif par défaut.** Le partage automatique n'est plus une option à découvrir : c'est
+  le comportement attendu. Il se désactive d'une case, et la cascade par priorité
+  (sécuriser, éteindre les dettes coûteuses, construire, investir) reprend la main.
+- **Le total fait toujours 100 %.** Déplacer un curseur réajuste les trois autres
+  proportionnellement (`rebalanceAllocation`, calculé en points entiers). Régler quatre
+  valeurs pour retomber juste à la main est un exercice d'arithmétique, pas un réglage —
+  et un total faux ferait basculer le partage dans un autre mode sans rien annoncer.
+- **L'arrondi est absorbé par la dernière part servie.** Quatre arrondis indépendants ne
+  retombent pas sur le total, et un centime manquant dans un budget se remarque.
+- **Deux endroits pour le voir.** Le tableau de bord affiche les quatre montants du mois ;
+  l'écran Budget porte le réglage, l'anneau et le détail. Chaque part garde sa couleur
+  d'un écran à l'autre.
+
+### Ce qui ne bloque pas, mais est dit
+
+Une dette au-delà de 8 % l'an n'interrompt pas le partage — c'est votre argent — mais
+apparaît en note : à ce taux, rembourser rapporte le taux du crédit, ce qu'aucun placement
+ne garantit. De même, un mois sans reste affiche « rien à partager » plutôt qu'un anneau
+vide.
+
+### Migration
+
+Un profil enregistré avec l'ancienne forme (`needs`) repart des valeurs conseillées
+(30 / 25 / 20 / 25), en conservant seulement le fait que le partage était actif ou non.
+Les deux formes ne se convertissent pas : hériter d'un total qui ne fait plus 100 %
+placerait l'utilisateur dans la cascade sans explication.

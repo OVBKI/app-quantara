@@ -192,26 +192,98 @@ export interface CustomCategory {
   readonly hidden?: boolean;
 }
 
-/** Répartition cible du revenu, en parts. Modifiable, contrôlée à 100 %. */
+/**
+ * Découpage automatique de ce qui reste.
+ *
+ * Les charges — fixes, variables, remboursements — sont paramétrées par l'utilisateur.
+ * Ce qui subsiste une fois qu'elles sont couvertes se partage en quatre parts, dans des
+ * proportions choisies une fois pour toutes. Chaque mois, le partage se refait tout seul
+ * sur le disponible réel.
+ *
+ * Les parts s'appliquent au **reste**, jamais au revenu brut : « 25 % » veut alors dire
+ * un quart de ce qui est effectivement libre, et non un quart d'une somme dont l'essentiel
+ * est déjà engagé.
+ */
 export interface AllocationTargets {
-  /** Actif : le plan suit ces parts. Inactif : la cascade par défaut s'applique. */
+  /** Actif : le reste est partagé selon ces parts. Inactif : la cascade par priorité. */
   readonly enabled: boolean;
-  readonly needs: number;
+  /** Matelas pour les imprévus. */
+  readonly security: number;
+  /** Objectifs : vacances, apport, projet. */
   readonly savings: number;
   readonly investment: number;
+  /** Ce qui reste pour vivre, sans affectation. */
   readonly free: number;
 }
 
+export const ALLOCATION_PART_LABELS: Record<keyof Omit<AllocationTargets, 'enabled'>, string> = {
+  security: 'Argent de sécurité',
+  savings: 'Épargne',
+  investment: 'Investir',
+  free: 'Argent libre',
+};
+
 export const DEFAULT_ALLOCATION_TARGETS: AllocationTargets = {
-  enabled: false,
-  needs: 0.5,
-  savings: 0.2,
+  // Actif par défaut : le partage automatique est le comportement attendu, pas une
+  // option à découvrir.
+  enabled: true,
+  security: 0.3,
+  savings: 0.25,
   investment: 0.2,
-  free: 0.1,
+  free: 0.25,
 };
 
 export function allocationTotal(targets: AllocationTargets): number {
-  return targets.needs + targets.savings + targets.investment + targets.free;
+  return targets.security + targets.savings + targets.investment + targets.free;
+}
+
+export type AllocationPart = keyof Omit<AllocationTargets, 'enabled'>;
+
+export const ALLOCATION_PARTS: readonly AllocationPart[] = ['security', 'savings', 'investment', 'free'];
+
+/**
+ * Déplacement d'une part, les autres suivant.
+ *
+ * Régler quatre curseurs pour retomber sur 100 % est un exercice, pas un réglage. On
+ * déplace donc une part et les trois autres se réajustent proportionnellement : le total
+ * reste exact par construction, et l'utilisateur n'a jamais à faire l'addition.
+ *
+ * Le calcul se fait en points entiers de pourcentage. En flottant, quatre parts « qui
+ * font 100 % » finissent par 0,9999999 et le partage bascule silencieusement dans la
+ * cascade par priorité.
+ */
+export function rebalanceAllocation(
+  targets: AllocationTargets,
+  part: AllocationPart,
+  share: number,
+): AllocationTargets {
+  const moved = Math.max(0, Math.min(100, Math.round(share * 100)));
+  const others = ALLOCATION_PARTS.filter((key) => key !== part);
+  const pool = 100 - moved;
+  const currentTotal = others.reduce((sum, key) => sum + Math.round(targets[key] * 100), 0);
+
+  const points: Record<string, number> = { [part]: moved };
+  let distributed = 0;
+  others.forEach((key, index) => {
+    const last = index === others.length - 1;
+    // Quand les autres parts sont toutes à zéro, il n'y a pas de proportion à respecter :
+    // le reste se partage également plutôt que de disparaître.
+    const value = last
+      ? pool - distributed
+      : currentTotal > 0
+        ? Math.round((pool * Math.round(targets[key] * 100)) / currentTotal)
+        : Math.floor(pool / others.length);
+    distributed += value;
+    points[key] = value;
+  });
+
+  return {
+    enabled: targets.enabled,
+    security: (points.security ?? 0) / 100,
+    savings: (points.savings ?? 0) / 100,
+    investment: (points.investment ?? 0) / 100,
+    free: (points.free ?? 0) / 100,
+  };
 }
 
 export type RiskProfile = 'cautious' | 'balanced' | 'dynamic';

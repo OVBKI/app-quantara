@@ -1,21 +1,29 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Money, Percent } from '../core/money';
 import { VARIABLE_CATEGORY_IDS, categoryColor, categoryLabel, type ExpenseCategoryId } from '../core/categories';
-import { availableBalance, totalInvestmentsBalance, type FinancialProfile } from '../core/model';
+import {
+  ALLOCATION_PART_LABELS,
+  ALLOCATION_PARTS,
+  availableBalance,
+  totalInvestmentsBalance,
+  type FinancialProfile,
+} from '../core/model';
 import { containsDate, daysInMonth, formatDate, formatYearMonth, parseDate, type YearMonth } from '../core/yearMonth';
 import { assessHealth, type HealthLevel } from '../core/engine/health';
+import { allocatedTo } from '../core/engine/allocation';
 import { categorize } from '../core/engine/categorizer';
 import type { Insight, InsightSeverity } from '../core/engine/insights';
 import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
 import { SegmentedRing } from './charts';
+import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS } from './allocationVisual';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 // Les graphiques arrivent après le reste : le solde et les tuiles n'ont pas à attendre
 // qu'une bibliothèque de tracé soit téléchargée pour s'afficher.
 const HomeCharts = lazy(() => import('./HomeCharts'));
 
-export type HomeTarget = 'advisor' | 'projections' | 'health';
+export type HomeTarget = 'advisor' | 'projections' | 'health' | 'budget';
 
 const HEALTH_COLOR: Record<HealthLevel, string> = {
   good: 'var(--positive)',
@@ -242,6 +250,8 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
           ))}
         </div>
 
+        <AutoSplitSummary onNavigate={onNavigate} />
+
         <Suspense fallback={<div className="card empty">Chargement des graphiques…</div>}>
           <HomeCharts
             cashFlowData={cashFlowData}
@@ -313,6 +323,54 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
  * tard est une dépense qu'on ne note pas. La catégorie est devinée depuis le libellé et
  * reste corrigeable — le formulaire complet vit dans l'onglet Transactions.
  */
+/**
+ * Le partage du mois, sur le tableau de bord.
+ *
+ * La question posée n'est pas « comment répartir ? » mais « combien, où, ce mois-ci ? ».
+ * Quatre montants suffisent à y répondre ; le réglage des parts reste sur l'écran Budget,
+ * où l'on ne va qu'une fois.
+ */
+function AutoSplitSummary({ onNavigate }: { readonly onNavigate?: (screen: HomeTarget) => void }) {
+  const { profile, analysis } = useStore();
+  const targets = profile.preferences.allocationTargets;
+  if (!targets.enabled || !analysis.allocation.disposable.isPositive) return null;
+
+  const parts = ALLOCATION_PARTS.map((part) => ({
+    part,
+    label: ALLOCATION_PART_LABELS[part],
+    amount: allocatedTo(analysis.allocation, ALLOCATION_PART_BUCKETS[part]),
+    percent: Math.round(targets[part] * 100),
+    color: ALLOCATION_PART_COLORS[part],
+  }));
+
+  return (
+    <Card
+      title="Votre argent, réparti tout seul"
+      action={
+        onNavigate && (
+          <button type="button" className="button button-small" onClick={() => onNavigate('budget')}>
+            Régler les parts
+          </button>
+        )
+      }
+    >
+      <div className="grid grid-4">
+        {parts.map((part) => (
+          <div className="split-tile" key={part.part} style={{ borderTopColor: part.color }}>
+            <div className="tile-label">{part.label}</div>
+            <div className="tile-value">{part.amount.roundedToUnit.format()}</div>
+            <div className="tile-note">{part.percent}&nbsp;% du reste</div>
+          </div>
+        ))}
+      </div>
+      <p className="rationale" style={{ marginTop: 12 }}>
+        Vos charges sont payées ; les {analysis.allocation.disposable.roundedToUnit.format()} restants se
+        partagent seuls, chaque mois, selon vos parts.
+      </p>
+    </Card>
+  );
+}
+
 function QuickExpense() {
   const { profile, addTransaction } = useStore();
   const currency = profile.currency;

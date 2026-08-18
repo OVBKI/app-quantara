@@ -2,13 +2,22 @@ import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
 import { FIXED_CATEGORY_IDS, INCOME_CATEGORIES, INCOME_LABELS, categoryLabel, type ExpenseCategoryId, type IncomeCategory } from '../core/categories';
 import { FREQUENCIES, FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from '../core/frequency';
-import type { IncomeSource, RecurringExpense } from '../core/model';
+import {
+  ALLOCATION_PART_LABELS,
+  ALLOCATION_PARTS,
+  DEFAULT_ALLOCATION_TARGETS,
+  rebalanceAllocation,
+  type AllocationPart,
+  type IncomeSource,
+  type RecurringExpense,
+} from '../core/model';
 import { useStore } from '../state/store';
 import { allocatedTo } from '../core/engine/allocation';
 import { declarationHistory, pendingDeclarations } from '../core/engine/declarations';
 import type { YearMonth } from '../core/yearMonth';
 import { BarList, Donut, Legend, type Slice } from './charts';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
+import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS, ALLOCATION_PART_HINTS } from './allocationVisual';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
 
@@ -33,6 +42,7 @@ export function BudgetScreen() {
 
       <div className="stack">
         <IncomeBreakdownCard />
+        <AutoSplitCard />
         <DeclaredIncomeCard />
         <IncomeRangeCard />
 
@@ -173,6 +183,7 @@ export function BudgetScreen() {
 
         <EnvelopesCard />
 
+        {!profile.preferences.allocationTargets.enabled && (
         <Card title="Où va le disponible">
           {allocation.lines.length === 0 ? (
             <p className="muted">
@@ -202,6 +213,7 @@ export function BudgetScreen() {
             </>
           )}
         </Card>
+        )}
       </div>
 
       {incomeForm && (
@@ -228,6 +240,134 @@ export function BudgetScreen() {
       )}
       {confirmNode}
     </>
+  );
+}
+
+/**
+ * Partage automatique de ce qui reste.
+ *
+ * Les charges sont paramétrées par l'utilisateur ; tout le reste se découpe seul, chaque
+ * mois, selon quatre parts réglées une fois. C'est la demande exacte : ne plus avoir à
+ * décider où va l'argent quand il arrive.
+ *
+ * Les curseurs se compensent — bouger l'un réajuste les trois autres — pour que le total
+ * fasse toujours 100 %. Un réglage qu'il faut faire tomber juste à la main n'est pas un
+ * réglage, c'est un devoir d'arithmétique, et un total faux ferait basculer le partage
+ * dans un autre mode sans que rien ne l'annonce.
+ */
+function AutoSplitCard() {
+  const { profile, analysis, updatePreferences } = useStore();
+  const { allocation } = analysis;
+  const targets = profile.preferences.allocationTargets;
+
+  // Le montant réellement partagé, pris du moteur : les pourcentages affichés et les
+  // euros affichés viennent ainsi du même calcul et ne peuvent pas diverger.
+  const amountOf = (part: AllocationPart): Money => allocatedTo(allocation, ALLOCATION_PART_BUCKETS[part]);
+
+  const slices: Slice[] = ALLOCATION_PARTS.map((part) => ({
+    key: part,
+    label: ALLOCATION_PART_LABELS[part],
+    value: Number(amountOf(part).units.toFixed(2)),
+    color: ALLOCATION_PART_COLORS[part],
+    formatted: amountOf(part).roundedToUnit.format(),
+  })).filter((slice) => slice.value > 0);
+
+  const nothingToShare = !allocation.disposable.isPositive;
+
+  return (
+    <Card
+      title="Partage automatique"
+      action={
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={targets.enabled}
+            onChange={(event) =>
+              updatePreferences({ allocationTargets: { ...targets, enabled: event.target.checked } })
+            }
+          />
+          <span>Activé</span>
+        </label>
+      }
+    >
+      <div className="split-head">
+        <div>
+          <div className="tile-label">Reste à partager chaque mois</div>
+          <div className={`split-amount ${nothingToShare ? 'critical' : ''}`}>
+            {allocation.disposable.roundedToUnit.format()}
+          </div>
+          <p className="rationale" style={{ marginTop: 4 }}>
+            Vos revenus, moins vos charges fixes, vos dépenses variables et vos remboursements.
+          </p>
+        </div>
+        {targets.enabled && slices.length > 0 && (
+          <Donut slices={slices} size={148} thickness={22} centerValue={allocation.disposable.roundedToUnit.formatCompact()} centerLabel="partagés" />
+        )}
+      </div>
+
+      {!targets.enabled ? (
+        <p className="rationale" style={{ marginTop: 12 }}>
+          Le partage automatique est désactivé : le disponible est réparti par ordre de priorité (sécurité,
+          dettes coûteuses, objectifs, puis investissement). Activez-le pour fixer vos propres parts.
+        </p>
+      ) : (
+        <>
+          <div className="split-rows">
+            {ALLOCATION_PARTS.map((part) => {
+              const percent = Math.round(targets[part] * 100);
+              return (
+                <div className="split-row" key={part}>
+                  <div className="split-row-head">
+                    <span className="dot" style={{ background: ALLOCATION_PART_COLORS[part] }} aria-hidden="true" />
+                    <span className="split-row-label">{ALLOCATION_PART_LABELS[part]}</span>
+                    <span className="split-row-percent">{percent}&nbsp;%</span>
+                    <span className="split-row-amount amount">{amountOf(part).roundedToUnit.format()}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={percent}
+                    aria-label={`Part ${ALLOCATION_PART_LABELS[part]}`}
+                    // La portion parcourue prend la couleur de la part : le curseur, la
+                    // pastille et l'anneau disent alors la même chose sans légende.
+                    style={{
+                      background: `linear-gradient(90deg, ${ALLOCATION_PART_COLORS[part]} ${percent}%, var(--grid) ${percent}%)`,
+                    }}
+                    onChange={(event) =>
+                      updatePreferences({
+                        allocationTargets: rebalanceAllocation(targets, part, Number(event.target.value) / 100),
+                      })
+                    }
+                  />
+                  <p className="rationale">{ALLOCATION_PART_HINTS[part]}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {allocation.skippedSteps.map((step) => (
+            <p className="rationale" key={step} style={{ marginTop: 12 }}>
+              ⏸ {step}
+            </p>
+          ))}
+
+          <div className="split-actions">
+            <button
+              type="button"
+              className="button button-small"
+              onClick={() => updatePreferences({ allocationTargets: DEFAULT_ALLOCATION_TARGETS })}
+            >
+              Valeurs conseillées
+            </button>
+            <span className="tertiary">
+              Bouger une part réajuste les autres : le total fait toujours 100&nbsp;%.
+            </span>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

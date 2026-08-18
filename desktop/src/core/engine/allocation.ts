@@ -1,5 +1,5 @@
 import { Money } from '../money';
-import { allocationTotal, type AllocationTargets, type RiskProfile } from '../model';
+import { ALLOCATION_PART_LABELS, allocationTotal, type AllocationTargets, type RiskProfile } from '../model';
 import type { MonthlySummary } from './budget';
 import type { EmergencyFundStatus } from './emergencyFund';
 import type { GoalPlan } from './goals';
@@ -47,72 +47,91 @@ const INVESTMENT_SHARE: Record<RiskProfile, number> = {
 };
 
 /**
- * Répartition dirigée par des parts choisies.
+ * Partage automatique de ce qui reste.
  *
- * L'utilisateur décide : 50 % aux besoins, 20 % à l'épargne, etc. Les parts s'appliquent
- * au **revenu**, comme dans la règle qu'elles imitent, et non au seul disponible — sans
- * quoi « 20 % d'épargne » voudrait dire tout autre chose que ce que l'utilisateur croit
- * avoir demandé.
+ * Les charges sont paramétrées par l'utilisateur ; ce qui subsiste se découpe en quatre
+ * parts fixées une fois pour toutes. Rien à refaire chaque mois : le partage se rejoue
+ * sur le disponible réel, qui varie avec le revenu et les dépenses.
  *
- * Les charges déjà engagées viennent en déduction de la part « besoins » : elles sont
- * payées, qu'on le veuille ou non. Si elles la dépassent, le dépassement est signalé
- * plutôt que masqué.
+ * Les parts portent sur le **reste**, pas sur le revenu brut. C'est la différence qui
+ * compte : « 25 % à l'épargne » sur un revenu déjà engagé à 80 % promettrait une somme
+ * qui n'existe pas.
+ *
+ * Les arrondis sont absorbés par la dernière part servie plutôt que répartis : quatre
+ * arrondis indépendants ne retombent pas sur le total, et un centime manquant dans un
+ * budget se remarque.
  */
 function allocateByTargets(input: AllocationInput, targets: AllocationTargets): AllocationPlan {
-  const { summary } = input;
+  const { summary, emergencyFund, highInterestOutstanding } = input;
   const currency = summary.currency;
   const disposable = summary.disposable.clampedToZero;
-  const income = summary.income;
+
+  const parts = [
+    {
+      key: 'security' as const,
+      bucket: 'emergencyFund' as const,
+      label: ALLOCATION_PART_LABELS.security,
+      share: targets.security,
+      rationale: emergencyFund.remaining.isPositive
+        ? `Il manque ${emergencyFund.remaining.roundedToUnit.format()} pour atteindre votre fonds d’urgence.`
+        : 'Votre fonds d’urgence est constitué ; cette part continue de l’étoffer.',
+    },
+    {
+      key: 'savings' as const,
+      bucket: 'goals' as const,
+      label: ALLOCATION_PART_LABELS.savings,
+      share: targets.savings,
+      rationale: 'Pour vos objectifs.',
+    },
+    {
+      key: 'investment' as const,
+      bucket: 'investment' as const,
+      label: ALLOCATION_PART_LABELS.investment,
+      share: targets.investment,
+      rationale: 'Placement long terme. Un placement peut perdre de la valeur.',
+    },
+    {
+      key: 'free' as const,
+      bucket: 'freeMoney' as const,
+      label: ALLOCATION_PART_LABELS.free,
+      share: targets.free,
+      rationale: 'Sans affectation : de quoi vivre le mois sans puiser ailleurs.',
+    },
+  ];
 
   const lines: AllocationLine[] = [];
   const skipped: string[] = [];
-  let remaining = disposable;
+  let distributed = Money.zero(currency);
 
-  const take = (requested: Money): Money => {
-    const amount = Money.min(requested, remaining).clampedToZero;
-    remaining = remaining.minus(amount);
-    return amount;
-  };
+  parts.forEach((part, index) => {
+    const last = index === parts.length - 1;
+    const amount = last
+      ? disposable.minus(distributed).clampedToZero
+      : disposable.timesFraction(BigInt(Math.round(part.share * 10_000)), 10_000n);
+    distributed = distributed.plus(amount);
+    if (!amount.isPositive) return;
 
-  const needsTarget = income.times(targets.needs);
-  const committed = summary.totalExpenses.minus(summary.savingsContributions).clampedToZero;
-  if (committed.greaterThan(needsTarget)) {
+    lines.push({
+      bucket: part.bucket,
+      label: part.label,
+      amount,
+      rationale: `${Math.round(part.share * 100)}\u202f% de ce qui reste. ${part.rationale}`,
+    });
+  });
+
+  if (!disposable.isPositive) {
     skipped.push(
-      `Vos charges atteignent ${committed.roundedToUnit.format()}, soit plus que les ` +
-        `${Math.round(targets.needs * 100)} % prévus pour les besoins ` +
-        `(${needsTarget.roundedToUnit.format()}). Le reste du plan s'ajuste sur ce qui subsiste.`,
+      'Rien à partager ce mois-ci : vos charges absorbent la totalité du revenu. Les parts s’appliqueront dès qu’un reste apparaîtra.',
     );
   }
 
-  const savings = take(income.times(targets.savings));
-  if (savings.isPositive) {
-    lines.push({
-      bucket: 'emergencyFund',
-      label: 'Épargne',
-      amount: savings,
-      rationale: `${Math.round(targets.savings * 100)} % du revenu, selon la répartition que vous avez définie.`,
-    });
-  }
-
-  const investment = take(income.times(targets.investment));
-  if (investment.isPositive) {
-    lines.push({
-      bucket: 'investment',
-      label: BUCKET_LABELS.investment,
-      amount: investment,
-      rationale:
-        `${Math.round(targets.investment * 100)} % du revenu, selon votre répartition. ` +
-        'Un placement peut perdre de la valeur — aucun rendement n’est garanti.',
-    });
-  }
-
-  if (remaining.isPositive) {
-    lines.push({
-      bucket: 'freeMoney',
-      label: BUCKET_LABELS.freeMoney,
-      amount: remaining,
-      rationale: 'Ce qui reste après vos parts : libre d’emploi.',
-    });
+  // Une dette coûteuse ne suspend pas le partage — c'est votre choix — mais elle est
+  // signalée : à ce taux, rembourser rapporte davantage, et sans risque.
+  if (highInterestOutstanding.isPositive) {
+    skipped.push(
+      `Vous portez ${highInterestOutstanding.roundedToUnit.format()} de dettes au-delà de 8\u202f% l’an. ` +
+        'Chaque euro remboursé rapporte le taux du crédit, ce qu’aucun placement ne garantit.',
+    );
   }
 
   const allocated = Money.sum(lines.map((line) => line.amount), currency);

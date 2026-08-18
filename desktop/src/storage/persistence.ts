@@ -1,5 +1,12 @@
 import { Money, isMoneyJSON, type Currency } from '../core/money';
-import { emptyProfile, DEFAULT_PREFERENCES, type Account, type FinancialProfile } from '../core/model';
+import {
+  allocationTotal,
+  emptyProfile,
+  DEFAULT_PREFERENCES,
+  type Account,
+  type AllocationTargets,
+  type FinancialProfile,
+} from '../core/model';
 import { decrypt, encrypt, isEncryptedEnvelope } from '../security/vault';
 
 const FILE_NAME = 'quantara-profile.json';
@@ -50,6 +57,33 @@ export function deserializeProfile(text: string): FinancialProfile {
 interface LegacyFields {
   readonly savingsBalance?: Money;
   readonly investmentsBalance?: Money;
+}
+
+/**
+ * Parts de répartition venues d'une version antérieure.
+ *
+ * L'ancienne forme portait une part « besoins » prélevée sur le revenu brut ; la nouvelle
+ * partage ce qui reste une fois les charges payées, en quatre parts nommées autrement.
+ * Les deux ne se convertissent pas : un profil ancien repart des valeurs par défaut,
+ * plutôt que d'hériter d'un total qui ne fait plus 100 % et ferait basculer le partage
+ * dans la cascade sans que rien ne l'explique.
+ */
+function migrateAllocationTargets(raw: unknown): AllocationTargets {
+  const defaults = DEFAULT_PREFERENCES.allocationTargets;
+  if (typeof raw !== 'object' || raw === null) return defaults;
+
+  const candidate = raw as Partial<AllocationTargets>;
+  const merged: AllocationTargets = {
+    enabled: candidate.enabled ?? defaults.enabled,
+    security: candidate.security ?? defaults.security,
+    savings: candidate.savings ?? defaults.savings,
+    investment: candidate.investment ?? defaults.investment,
+    free: candidate.free ?? defaults.free,
+  };
+  if (Math.abs(allocationTotal(merged) - 1) > 0.005) {
+    return { ...defaults, enabled: merged.enabled };
+  }
+  return merged;
 }
 
 /** `balance` était l'ancien nom, et il ne portait pas de date. */
@@ -126,10 +160,7 @@ function normalise(input: Partial<FinancialProfile>): FinancialProfile {
       ...DEFAULT_PREFERENCES,
       ...(raw.preferences ?? {}),
       alerts: { ...DEFAULT_PREFERENCES.alerts, ...(raw.preferences?.alerts ?? {}) },
-      allocationTargets: {
-        ...DEFAULT_PREFERENCES.allocationTargets,
-        ...(raw.preferences?.allocationTargets ?? {}),
-      },
+      allocationTargets: migrateAllocationTargets(raw.preferences?.allocationTargets),
       // Le drapeau est postérieur aux premiers fichiers : un profil qui porte déjà des
       // données a forcément été mis en route, et ne doit pas y être renvoyé.
       onboardingCompleted:

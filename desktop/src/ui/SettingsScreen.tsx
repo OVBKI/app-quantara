@@ -2,10 +2,8 @@ import { useRef, useState } from 'react';
 import { CURRENCIES, Money, type Currency } from '../core/money';
 import {
   accountBalance,
-  allocationTotal,
   type Account,
   type AccountKind,
-  type AllocationTargets,
   type Debt,
   type DebtKind,
   type RiskProfile,
@@ -172,8 +170,6 @@ export function SettingsScreen() {
             <span>Lisser les revenus irréguliers sur la médiane des mois passés</span>
           </label>
         </Card>
-
-        <AllocationTargetsCard />
 
         <Card
           title="Comptes"
@@ -537,93 +533,6 @@ function SecuritySection({
         part : <strong>le perdre, c’est perdre les données</strong>.
       </p>
     </>
-  );
-}
-
-/**
- * Répartition cible du revenu.
- *
- * Les parts s'appliquent au revenu, comme dans les règles qu'elles imitent (50/30/20 et
- * consorts). Tant qu'elles ne totalisent pas 100 %, elles ne sont pas appliquées : une
- * répartition incomplète donnerait un plan faux sans le dire.
- *
- * Désactivée, l'application revient à sa cascade par défaut — sécuriser, éteindre les
- * dettes chères, construire, puis investir — qui tient compte de la situation réelle là
- * où un pourcentage fixe l'ignore.
- */
-function AllocationTargetsCard() {
-  const { profile, updatePreferences } = useStore();
-  const targets = profile.preferences.allocationTargets;
-  const total = allocationTotal(targets);
-  const balanced = Math.abs(total - 1) < 0.005;
-  const gap = 1 - total;
-
-  const parts: { key: keyof Omit<AllocationTargets, 'enabled'>; label: string; hint: string }[] = [
-    { key: 'needs', label: 'Besoins', hint: 'Logement, énergie, courses, transport' },
-    { key: 'savings', label: 'Épargne', hint: 'Fonds d’urgence et objectifs' },
-    { key: 'investment', label: 'Investissement', hint: 'Placements long terme' },
-    { key: 'free', label: 'Libre', hint: 'Loisirs et imprévus' },
-  ];
-
-  function setPart(key: keyof Omit<AllocationTargets, 'enabled'>, percent: number) {
-    updatePreferences({
-      allocationTargets: { ...targets, [key]: Math.min(Math.max(percent, 0), 100) / 100 },
-    });
-  }
-
-  return (
-    <Card title="Répartition de votre revenu">
-      <label className="inline" style={{ marginBottom: 12 }}>
-        <input
-          type="checkbox"
-          checked={targets.enabled}
-          onChange={(event) => updatePreferences({ allocationTargets: { ...targets, enabled: event.target.checked } })}
-          style={{ width: 16 }}
-        />
-        <span>Répartir selon mes propres pourcentages</span>
-      </label>
-
-      <p className="section-note">
-        Désactivé, le plan suit un ordre de priorité qui s’adapte à votre situation : sécuriser un mois de
-        dépenses, éteindre les dettes coûteuses, compléter le fonds d’urgence, financer les objectifs, puis
-        investir. Activé, il suit vos parts, quelles que soient les circonstances.
-      </p>
-
-      <div className="field-row">
-        {parts.map((part) => (
-          <Field key={part.key} label={`${part.label} — ${Math.round(targets[part.key] * 100)} %`} hint={part.hint}>
-            {(id) => (
-              <input
-                id={id}
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                disabled={!targets.enabled}
-                value={Math.round(targets[part.key] * 100)}
-                onChange={(event) => setPart(part.key, Number(event.target.value))}
-              />
-            )}
-          </Field>
-        ))}
-      </div>
-
-      {targets.enabled && !balanced && (
-        <p className="error-text">
-          {gap > 0
-            ? `Il vous reste ${Math.round(gap * 100)} % de votre revenu à attribuer. Tant que le total n’atteint pas 100 %, la répartition par priorité reste appliquée.`
-            : `Vos parts totalisent ${Math.round(total * 100)} %, soit ${Math.round(-gap * 100)} % de trop. Réduisez un poste : on ne peut pas répartir plus que ce qui entre.`}
-        </p>
-      )}
-
-      {targets.enabled && balanced && (
-        <p className="rationale">
-          Total : 100 %. Sur un revenu de {profile.currency === 'EUR' ? '2 500 €' : '2 500'}, cela ferait{' '}
-          {Math.round(targets.savings * 2500)} d’épargne et {Math.round(targets.investment * 2500)} de placement
-          par mois.
-        </p>
-      )}
-    </Card>
   );
 }
 
