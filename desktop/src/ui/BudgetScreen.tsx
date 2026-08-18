@@ -320,8 +320,7 @@ function IncomeBreakdownCard() {
         </div>
       </div>
       <p className="figure-hint">
-        Des montants, pas des pourcentages théoriques : ce sont vos charges réelles et la répartition que le
-        plan propose du reste. Modifiez une charge et l’anneau suit immédiatement.
+        Vos montants réels, pas des pourcentages théoriques.
         {overCommitted && (
           <>
             {' '}
@@ -358,9 +357,7 @@ function DeclaredIncomeCard() {
 
   return (
     <Card title="Revenus déclarés au mois">
-      <p className="section-note">
-        Pour ces revenus, aucune moyenne n’est supposée : seul compte le montant que vous saisissez.
-      </p>
+      <p className="section-note">Seul compte le montant que vous saisissez.</p>
 
       {sources.map((source) => {
         const history = declarationHistory(profile, source);
@@ -573,11 +570,8 @@ function IncomeForm({
 
       {nature === 'declared' && (
         <p className="field-hint" style={{ marginBottom: 14 }}>
-          Aucune fourchette ne sera inventée. Le dernier jour de chaque mois, l’application vous demandera
-          combien vous avez touché exactement — et si vous ratez ce jour-là, elle vous le redemandera à
-          l’ouverture suivante. Tant qu’un mois n’est pas déclaré, son revenu est traité comme{' '}
-          <strong>inconnu</strong> plutôt que comme une moyenne déguisée en certitude. Le montant ci-dessus ne
-          sert alors qu’à situer un mois ordinaire.
+          En fin de mois, l’application vous demandera combien vous avez reçu. Aucune moyenne n’est supposée
+          tant que vous n’avez pas répondu.
         </p>
       )}
 

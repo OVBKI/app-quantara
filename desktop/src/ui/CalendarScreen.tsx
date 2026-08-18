@@ -130,9 +130,8 @@ export function CalendarScreen() {
           </div>
 
           <p className="rationale" style={{ marginTop: 14 }}>
-            Un triangle signale un jour où le solde projeté passerait sous zéro. Les dépenses variables ne
-            figurent pas ici : elles n’ont pas de date connue, seulement un rythme, et les inventer donnerait
-            une fausse précision.
+            ⚠ marque un jour où le solde passerait sous zéro. Les dépenses variables n’y figurent pas : elles
+            n’ont pas de date.
           </p>
         </Card>
 

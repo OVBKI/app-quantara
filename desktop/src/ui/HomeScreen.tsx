@@ -107,23 +107,19 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
           </div>
           {awaitingIncome && (
             <p className="hero-note warning" style={{ marginTop: 12 }}>
-              Le revenu de ce mois n’a pas encore été déclaré. Tant qu’il manque, le disponible et le reste à
-              vivre ne tiennent compte que de vos charges — l’application préfère le dire plutôt que de
-              supposer un montant.
+              Revenu du mois pas encore déclaré. Les chiffres ci-dessous ne comptent que vos charges.
             </p>
           )}
 
           <p className="hero-note">
             {profile.accounts.length === 0 ? (
               <>
-                Aucun compte enregistré. Ajoutez-en un dans les Réglages : c’est ce solde qui répond à la
-                première question — combien ai-je, maintenant.
+                Aucun compte enregistré. Ajoutez-en un dans les Réglages pour voir ce solde.
               </>
             ) : summary.daysRemaining > 0 ? (
               <>
-                Soit <strong className="amount">{summary.safeToSpendPerDay.roundedToUnit.format()}</strong> par
-                jour jusqu’à la fin du mois, une fois provisionnées les échéances à venir. Solde prévu au{' '}
-                {daysInMonth(period)} :{' '}
+                <strong className="amount">{summary.safeToSpendPerDay.roundedToUnit.format()}</strong> par jour
+                jusqu’à la fin du mois. Solde prévu le {daysInMonth(period)} :{' '}
                 <strong className="amount">{cashFlow.endOfMonthBalance.roundedToUnit.format()}</strong>.
               </>
             ) : (
@@ -245,9 +241,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             tone={emergencyFund.monthsCovered < 1 ? 'var(--warning)' : 'var(--positive)'}
           />
           <p className="rationale">
-            La cible se calcule sur vos dépenses <strong>essentielles</strong> (
-            {emergencyFund.monthlyNeed.roundedToUnit.format()} par mois), pas sur votre train de vie complet :
-            en cas de coup dur, les loisirs s’arrêtent, le loyer non.
+            Calculé sur vos dépenses essentielles : {emergencyFund.monthlyNeed.roundedToUnit.format()} par mois.
           </p>
         </Card>
 
@@ -265,8 +259,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
               </div>
             ))}
             <p className="rationale" style={{ marginTop: 10 }}>
-              La couleur compare la part consommée à la part du mois écoulée : dépenser 60 % de son budget
-              courses n’a pas le même sens le 5 et le 25.
+              La couleur compare ce qui est dépensé au temps écoulé dans le mois.
             </p>
           </Card>
         )}

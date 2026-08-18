@@ -79,9 +79,8 @@ export function HealthScreen() {
             </span>
           </div>
           <p className="hero-note" style={{ marginTop: 10 }}>
-            L’état d’ensemble reprend le plus mauvais des six critères, jamais leur moyenne : un fonds
-            d’urgence vide ne se compense pas par un bon taux d’épargne. Ces seuils sont des repères courants,
-            pas un verdict sur votre situation.
+            L’état d’ensemble reprend le plus mauvais des six critères, pas leur moyenne. Ce sont des repères
+            courants, pas un verdict.
           </p>
         </section>
 
@@ -116,10 +115,7 @@ export function HealthScreen() {
         </Card>
 
         <Card title="Où part l’argent">
-          <p className="section-note">
-            Comparé à une moyenne, et non à un seul mois : un mois de vacances n’est pas un dérapage, et un
-            mois calme n’est pas un progrès.
-          </p>
+          <p className="section-note">Comparé à une moyenne, pas à un seul mois.</p>
 
           <div className="chip-row">
             {WINDOWS.map((entry) => (
@@ -190,9 +186,8 @@ export function HealthScreen() {
                 ))}
 
               <p className="rationale" style={{ marginTop: 12 }}>
-                Moyenne établie sur {comparison.monthsObserved} mois réellement saisi
-                {comparison.monthsObserved > 1 ? 's' : ''}. Les mois sans aucune dépense enregistrée sont
-                écartés : un mois vide n’est pas un mois sobre, c’est un mois non renseigné.
+                Moyenne sur {comparison.monthsObserved} mois saisi{comparison.monthsObserved > 1 ? 's' : ''}.
+                Les mois vides sont écartés.
               </p>
             </>
           )}

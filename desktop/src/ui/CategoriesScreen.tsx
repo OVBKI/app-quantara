@@ -150,12 +150,12 @@ export function CategoriesScreen() {
         {section(
           'Charges fixes',
           fixed,
-          'Des dépenses qui tombent d’elles-mêmes, au même montant. Elles ne sont jamais proposées à la coupe automatiquement : les réduire suppose une résiliation ou une renégociation, pas un effort de volonté.',
+          'Elles tombent d’elles-mêmes, au même montant. Les réduire suppose une résiliation ou une renégociation.',
         )}
         {section(
           'Dépenses variables',
           variable,
-          'Celles sur lesquelles vous décidez au jour le jour. Un plafond en fait une enveloppe, suivie en continu par rapport au calendrier du mois.',
+          'Celles sur lesquelles vous décidez au jour le jour. Un plafond en fait une enveloppe suivie.',
         )}
       </div>
 

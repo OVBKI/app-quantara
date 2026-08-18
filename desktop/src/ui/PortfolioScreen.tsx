@@ -167,10 +167,7 @@ export function PortfolioScreen() {
                 <BarList slices={slices} />
               </div>
             </div>
-            <p className="figure-hint">
-              Une famille d’actifs concentrant l’essentiel du portefeuille n’est ni bien ni mal en soi — c’est
-              une information, pas un conseil. L’application ne recommande aucune répartition.
-            </p>
+            <p className="figure-hint">L’application ne recommande aucune répartition.</p>
             <Legend items={slices.map((slice) => ({ label: slice.label, color: slice.color }))} />
           </Card>
         )}

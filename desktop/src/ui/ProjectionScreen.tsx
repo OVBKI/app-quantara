@@ -110,10 +110,7 @@ function ForecastCard() {
 
   return (
     <Card title={`Prévision — ${formatYearMonth(period)}`}>
-      <p className="section-note">
-        Ce que devrait donner le mois si rien d’inattendu ne survient. Les charges fixes sont connues ; les
-        dépenses variables sont une estimation, et c’est écrit en face de chaque ligne.
-      </p>
+      <p className="section-note">Ce que devrait donner le mois. Chaque ligne dit si elle est connue ou estimée.</p>
 
       {lines.map((line) => (
         <div className="row" key={line.label} style={{ alignItems: 'flex-start' }}>
@@ -251,9 +248,8 @@ function SimulationCard() {
             }
           />
           <p className="figure-hint">
-            Le trait pointillé est la somme que vous aurez versée, sans aucun rendement. L’écart entre lui et
-            les courbes est l’effet du temps — et rien ne le garantit : ce sont des hypothèses, pas des
-            promesses. Une seule échelle verticale, pour que les quatre courbes restent comparables.
+            Le trait pointillé est ce que vous aurez versé, sans rendement. Le reste est une hypothèse, pas
+            une promesse.
           </p>
         </div>
       )}
@@ -396,10 +392,7 @@ function MonthlyReportCard() {
             </div>
           )}
 
-          <p className="figure-hint">
-            La longueur des barres compare les écarts entre eux, pas les montants dépensés : c’est le
-            mouvement d’un mois à l’autre qui est en question ici.
-          </p>
+          <p className="figure-hint">Les barres comparent les écarts, pas les montants dépensés.</p>
         </>
       )}
     </Card>

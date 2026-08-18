@@ -67,8 +67,8 @@ export default function HomeCharts({
           }
           hint={
             cashFlow.projectedOverdraft
-              ? 'Le point marqué est le jour où le solde descend le plus bas. C’est lui qui provoque un découvert, pas le solde de fin de mois.'
-              : 'Chaque échéance est placée à sa date réelle, jamais lissée sur le mois : c’est ce qui rend le creux visible.'
+              ? 'Le point marqué est le jour le plus bas du mois.'
+              : 'Chaque échéance est placée à sa date réelle.'
           }
         >
           <TrendChart
@@ -91,9 +91,7 @@ export default function HomeCharts({
               </div>
             </div>
             <p className="figure-hint">
-              L’anneau donne le poids de chaque poste d’un coup d’œil ; les barres, le classement exact — l’œil
-              compare des longueurs, pas des angles. Une couleur appartient à une catégorie et ne change pas
-              d’un mois à l’autre.
+              L’anneau donne le poids de chaque poste, les barres le classement exact.
             </p>
             <Legend items={slices.map((slice) => ({ label: slice.label, color: slice.color }))} />
           </>

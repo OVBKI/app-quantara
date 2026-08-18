@@ -2,22 +2,18 @@ import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
 import { pendingDeclarations, type PendingDeclaration } from '../core/engine/declarations';
 import { useStore } from '../state/store';
-import { Field, Modal, MoneyInput, parseAmount } from './components';
+import { Modal, parseAmount } from './components';
 
 /**
- * « Combien avez-vous touché ce mois-ci ? »
+ * « Combien avez-vous reçu ? »
  *
- * La fenêtre qui rend utilisable un revenu trop irrégulier pour porter une fourchette.
- * Elle s'ouvre d'elle-même quand un mois attend sa réponse : le dernier jour du mois
- * pour le mois courant, et à l'ouverture suivante pour un mois déjà clos — parce qu'une
- * fenêtre qui n'apparaîtrait que le 31 serait manquée par quiconque n'ouvre pas
- * l'application ce jour-là.
+ * Une question, un champ, un bouton. Tout le reste a été retiré : une explication de
+ * trois paragraphes autour d'une question à un chiffre n'aide personne, elle fait
+ * hésiter. Ce que le montant déclenche ensuite se voit sur les écrans, il n'a pas besoin
+ * d'être annoncé ici.
  *
- * Trois façons de répondre, et aucune n'est un piège :
- * - un montant, qui devient une certitude et remplace toute estimation ;
- * - « je n'ai rien touché », qui est une réponse et non un oubli — enregistrée comme un
- *   mois à zéro, elle arrête les rappels ;
- * - « plus tard », qui repousse au lendemain sans rien inventer entre-temps.
+ * La fenêtre s'ouvre le dernier jour du mois, et de nouveau à l'ouverture suivante si ce
+ * jour-là a été manqué.
  */
 const DISMISS_KEY = 'quantara.declaration.dismissedOn';
 
@@ -33,7 +29,7 @@ function rememberDismissal(reference: Date): void {
   try {
     window.localStorage.setItem(DISMISS_KEY, reference.toISOString().slice(0, 10));
   } catch {
-    // Stockage indisponible : au pire la question se reposera, ce n'est pas grave.
+    // Stockage indisponible : au pire la question se reposera demain.
   }
 }
 
@@ -58,94 +54,60 @@ export function IncomeDeclarationPrompt({
   const currency = profile.currency;
 
   const [index, setIndex] = useState(0);
-  const entry = pending[index];
   const [amount, setAmount] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const entry = pending[index];
 
   if (!entry) return null;
 
   const parsed = parseAmount(amount, currency);
   const remaining = pending.length - index - 1;
 
-  function next() {
+  function submit(value: Money) {
+    if (!entry) return;
+    declareIncome(entry.source.id, entry.period, value);
     setAmount('');
-    setError(null);
     if (index + 1 < pending.length) setIndex(index + 1);
     else onClose();
   }
 
-  function submit(value: Money) {
-    if (!entry) return;
-    declareIncome(entry.source.id, entry.period, value);
-    next();
-  }
-
-  function confirm() {
-    if (!parsed) {
-      setError('Indiquez un montant, ou choisissez « Je n’ai rien touché ».');
-      return;
-    }
-    submit(parsed);
-  }
-
   return (
-    <Modal title={`${entry.source.name} — ${entry.label}`} onClose={onClose}>
-      <p style={{ marginTop: 0, color: 'var(--text-secondary)' }}>
-        {entry.closed ? (
-          <>
-            Le mois de <strong>{entry.label}</strong> est terminé. Combien avez-vous touché exactement ?
-          </>
-        ) : (
-          <>
-            Dernier jour du mois. Combien avez-vous touché en <strong>{entry.label}</strong> ?
-          </>
-        )}
-      </p>
+    <Modal title={entry.source.name} onClose={onClose}>
+      <div style={{ textAlign: 'center', padding: '6px 0 4px' }}>
+        <p className="hero-label" style={{ margin: 0 }}>
+          {entry.label}
+        </p>
+        <p style={{ fontSize: 22, fontWeight: 620, margin: '8px 0 20px' }}>Combien avez-vous reçu ?</p>
 
-      <Field
-        label="Montant net reçu"
-        hint={
-          entry.suggestion
-            ? `Vos mois déclarés tournent autour de ${entry.suggestion.roundedToUnit.format()} — à titre de repère seulement.`
-            : 'Le montant exact, tel qu’il est arrivé sur le compte.'
-        }
-      >
-        {(id) => (
-          <MoneyInput
-            id={id}
+        {/* Un seul champ, grand, prêt à recevoir un nombre. */}
+        <div className="declare-field">
+          <input
+            className="amount"
+            inputMode="decimal"
             value={amount}
-            currency={currency}
-            onChange={(value) => {
-              setAmount(value);
-              setError(null);
-            }}
             autoFocus
+            placeholder="0"
+            aria-label={`Montant reçu en ${entry.label}`}
+            onChange={(event) => setAmount(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') confirm();
+              if (event.key === 'Enter' && parsed) submit(parsed);
             }}
           />
+          <span aria-hidden="true">{currency === 'EUR' ? '€' : currency}</span>
+        </div>
+
+        {entry.suggestion && (
+          <button
+            type="button"
+            className="chip"
+            style={{ marginTop: 14 }}
+            onClick={() => setAmount(String(entry.suggestion?.units ?? ''))}
+          >
+            Comme d’habitude : {entry.suggestion.roundedToUnit.format()}
+          </button>
         )}
-      </Field>
+      </div>
 
-      {entry.suggestion && (
-        <button
-          type="button"
-          className="button button-small"
-          style={{ marginBottom: 12 }}
-          onClick={() => setAmount(String(entry.suggestion?.units ?? ''))}
-        >
-          Reprendre {entry.suggestion.roundedToUnit.format()}
-        </button>
-      )}
-
-      {error && <p className="error-text">{error}</p>}
-
-      <p className="field-hint">
-        Ce montant remplace toute estimation : le budget, la trésorerie et les objectifs se recalculent sur
-        cette valeur, et non sur une moyenne. Il reste modifiable à tout moment depuis l’écran Budget.
-      </p>
-
-      <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+      <div className="modal-actions" style={{ justifyContent: 'space-between', marginTop: 22 }}>
         <button
           type="button"
           className="button button-ghost"
@@ -159,13 +121,24 @@ export function IncomeDeclarationPrompt({
 
         <div className="inline">
           <button type="button" className="button" onClick={() => submit(Money.zero(currency))}>
-            Je n’ai rien touché
+            Rien reçu
           </button>
-          <button type="button" className="button button-primary" onClick={confirm}>
-            {remaining > 0 ? `Enregistrer (${remaining} mois ensuite)` : 'Enregistrer'}
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={!parsed}
+            onClick={() => parsed && submit(parsed)}
+          >
+            Valider
           </button>
         </div>
       </div>
+
+      {remaining > 0 && (
+        <p className="tertiary" style={{ textAlign: 'center', fontSize: 12, margin: '12px 0 0' }}>
+          Encore {remaining} mois après celui-ci
+        </p>
+      )}
     </Modal>
   );
 }

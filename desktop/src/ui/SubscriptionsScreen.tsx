@@ -77,10 +77,7 @@ export function SubscriptionsScreen() {
                 )}
               />
 
-              <p className="figure-hint" style={{ marginBottom: 18 }}>
-                Une seule couleur : il n’y a qu’une série ici, et colorer chaque barre différemment ferait
-                croire à une distinction qui n’existe pas.
-              </p>
+
 
               <div className="scroll-x">
                 {summary.lines.map((line) => (
@@ -117,9 +114,7 @@ export function SubscriptionsScreen() {
               </div>
 
               <p className="rationale" style={{ marginTop: 14 }}>
-                Le total annuel n’est pas là pour culpabiliser : un abonnement utilisé vaut son prix. Il est là
-                parce qu’un prélèvement mensuel modeste ne déclenche jamais la question, alors que la même
-                somme sur douze mois la déclenche.
+                15 € par mois ne fait pas réfléchir. 180 € par an, si.
               </p>
             </>
           )}

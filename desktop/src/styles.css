@@ -1107,3 +1107,67 @@ textarea:focus {
     transition: none;
   }
 }
+
+/* Champ de saisie du revenu déclaré : un seul chiffre à donner, donc un seul champ,
+   assez grand pour qu'on ne se demande pas où taper. */
+.declare-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  transition: border-color 140ms ease;
+}
+
+.declare-field:focus-within {
+  border-color: var(--accent);
+}
+
+.declare-field input {
+  border: none;
+  background: none;
+  padding: 0;
+  width: 7ch;
+  font-size: 34px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  text-align: right;
+}
+
+.declare-field input:focus {
+  outline: none;
+}
+
+.declare-field span {
+  font-size: 22px;
+  color: var(--text-secondary);
+}
+
+/* Un bouton désactivé doit se voir comme tel. Sans cette règle, « Valider » paraissait
+   cliquable alors que le champ était vide — on clique, rien ne se passe, on ne sait pas
+   pourquoi. */
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.button:disabled:hover {
+  border-color: var(--border);
+  color: inherit;
+  filter: none;
+}
+
+.button-primary:disabled:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* Le zéro d'invite ne doit pas passer pour un montant déjà saisi. */
+.declare-field input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.45;
+}
