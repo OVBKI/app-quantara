@@ -379,3 +379,32 @@ Un profil enregistré avec l'ancienne forme (`needs`) repart des valeurs conseil
 (30 / 25 / 20 / 25), en conservant seulement le fait que le partage était actif ou non.
 Les deux formes ne se convertissent pas : hériter d'un total qui ne fait plus 100 %
 placerait l'utilisateur dans la cascade sans explication.
+
+### Le partage exécuté, pas seulement affiché
+
+Demande suivante : *« une fois le calcul du budget fait, qu'il retire directement de ma
+balance totale une fois que j'ai mis oui. »*
+
+Un partage qui reste à l'écran ne change rien : tant que la part de sécurité dort sur le
+compte courant, elle finit dépensée — non par négligence, mais parce qu'elle était là.
+Le bouton **« Mettre de côté maintenant »** (tableau de bord et écran Budget) transforme
+donc le plan en écritures réelles, et le solde disponible baisse d'autant.
+
+- **Où va quoi.** Argent de sécurité et épargne partent vers un livret, la part
+  d'investissement vers le compte de placement. L'argent libre ne bouge pas : il est là
+  précisément pour rester à portée.
+- **Rien sans confirmation.** La fenêtre décrit chaque mouvement — montant, compte de
+  départ, compte d'arrivée — avant que quoi que ce soit ne bouge. Le compte source
+  proposé est le compte courant le mieux garni ; il se change dans la fenêtre.
+- **Un mois, un partage.** Les écritures portent le mois qu'elles matérialisent
+  (`allocationMonth`). Un mois déjà partagé l'affiche et propose de défaire plutôt que
+  de recommencer ; « Annuler le partage » retire les écritures d'un seul geste, et
+  `Ctrl+Z` fonctionne aussi.
+- **Dates.** Un partage appliqué en retard reste daté du mois concerné, sans quoi le
+  solde de tous les mois intermédiaires serait faux.
+- **Ce que ce n'est pas.** Ces écritures sont internes à Quantara : elles enregistrent ce
+  que vous faites de votre argent. L'application ne parle à aucune banque et ne commande
+  aucun virement réel — le virement, vous le faites de votre côté.
+
+Vérifié par onze tests dédiés, dont celui qui compte le plus : le solde disponible baisse
+exactement du montant déplacé, et retrouve sa valeur d'origine quand on annule.

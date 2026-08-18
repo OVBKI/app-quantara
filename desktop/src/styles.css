@@ -473,7 +473,9 @@ textarea:focus {
 }
 
 .modal {
-  background: var(--surface);
+  /* Opaque, contrairement aux cartes : une fenêtre modale translucide laisse le contenu
+     de la page transparaître à travers son texte, et devient illisible. */
+  background: var(--surface-solid);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px;
@@ -1444,6 +1446,59 @@ body {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 18px;
+}
+
+/* --- Passage à l'acte : le partage appliqué --- */
+
+.apply-done {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-small);
+  border: 1px solid color-mix(in srgb, var(--positive) 40%, transparent);
+  background: color-mix(in srgb, var(--positive) 10%, transparent);
+}
+
+.apply-done-mark {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--positive);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.apply-done-title {
+  font-weight: 600;
+}
+
+.apply-done .button {
+  margin-left: auto;
+}
+
+.apply-list {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0;
+}
+
+.apply-move {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.apply-move-main {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Interrupteur d'en-tête de carte : la case native, agrandie, plutôt qu'un faux bouton

@@ -99,6 +99,11 @@ export interface Transaction {
    *  récurrente : elle est alors exclue du variable, sinon elle compterait deux fois. */
   readonly recurringExpenseId?: string;
   readonly incomeSourceId?: string;
+  /** Mois (`AAAA-MM`) dont cette écriture matérialise le partage automatique. Sert à
+   *  reconnaître un partage déjà appliqué, et à le défaire d'un seul geste. */
+  readonly allocationMonth?: string;
+  /** Part du partage à l'origine de l'écriture. */
+  readonly allocationPart?: AllocationPart;
 }
 
 export type DebtKind = 'creditCard' | 'consumerLoan' | 'carLoan' | 'studentLoan' | 'mortgage' | 'overdraft' | 'otherDebt';

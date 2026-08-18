@@ -18,6 +18,7 @@ import type { YearMonth } from '../core/yearMonth';
 import { BarList, Donut, Legend, type Slice } from './charts';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS, ALLOCATION_PART_HINTS } from './allocationVisual';
+import { ApplyAllocationButton } from './ApplyAllocation';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
 
@@ -354,6 +355,7 @@ function AutoSplitCard() {
           ))}
 
           <div className="split-actions">
+            <ApplyAllocationButton />
             <button
               type="button"
               className="button button-small"

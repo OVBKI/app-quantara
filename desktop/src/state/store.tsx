@@ -66,6 +66,9 @@ interface StoreValue {
   updateTransaction(transaction: Transaction): void;
   addTransactions(transactions: readonly Omit<Transaction, 'id'>[]): void;
   removeTransaction(id: string): void;
+  /** Retire plusieurs écritures d'un coup : défaire un partage doit être une seule
+   *  action, annulable d'un seul `undo`. */
+  removeTransactions(ids: readonly string[]): void;
   learnCategorization(rule: CategorizationRule): void;
 
   addGoal(goal: Omit<Goal, 'id' | 'createdAt' | 'achieved'>): void;
@@ -258,6 +261,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       removeTransaction: (target) =>
         update((p) => ({ ...p, transactions: p.transactions.filter((entry) => entry.id !== target) })),
+
+      removeTransactions: (targets) => {
+        const removed = new Set(targets);
+        update((p) => ({ ...p, transactions: p.transactions.filter((entry) => !removed.has(entry.id)) }));
+      },
 
       addGoal: (goal) =>
         update((p) => ({

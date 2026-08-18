@@ -17,6 +17,7 @@ import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, ProgressBar, Tile, parseAmount } from './components';
 import { SegmentedRing } from './charts';
 import { ALLOCATION_PART_BUCKETS, ALLOCATION_PART_COLORS } from './allocationVisual';
+import { ApplyAllocationButton } from './ApplyAllocation';
 import { ENVELOPE_STATE_TONE } from '../core/engine/envelopes';
 
 // Les graphiques arrivent après le reste : le solde et les tuiles n'ont pas à attendre
@@ -367,6 +368,9 @@ function AutoSplitSummary({ onNavigate }: { readonly onNavigate?: (screen: HomeT
         Vos charges sont payées ; les {analysis.allocation.disposable.roundedToUnit.format()} restants se
         partagent seuls, chaque mois, selon vos parts.
       </p>
+      <div className="split-actions">
+        <ApplyAllocationButton />
+      </div>
     </Card>
   );
 }
