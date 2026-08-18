@@ -20,7 +20,11 @@ export interface CashFlowEvent {
 
 export interface CashFlowForecast {
   readonly points: readonly CashFlowPoint[];
+  /** **Toutes** les échéances du mois, passées comprises. Un calendrier qui masquerait
+   *  le début du mois empêcherait de vérifier ce qui est déjà tombé. */
   readonly events: readonly CashFlowEvent[];
+  /** Celles qui restent à venir, dans l'ordre. */
+  readonly upcoming: readonly CashFlowEvent[];
   readonly lowestBalance: Money;
   readonly lowestBalanceDate: Date | null;
   readonly projectedOverdraft: boolean;
@@ -128,13 +132,13 @@ export function forecastCashFlow(
     }
   }
 
-  const upcoming = events
-    .filter((event) => event.date >= reference)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const chronological = [...events].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const upcoming = chronological.filter((event) => event.date >= reference);
 
   return {
     points,
-    events: upcoming,
+    events: chronological,
+    upcoming,
     lowestBalance: lowest,
     lowestBalanceDate: lowestDate,
     projectedOverdraft: lowest.isNegative,

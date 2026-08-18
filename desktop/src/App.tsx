@@ -28,6 +28,7 @@ const GoalsScreen = lazy(() => import('./ui/GoalsScreen').then((m) => ({ default
 const PortfolioScreen = lazy(() => import('./ui/PortfolioScreen').then((m) => ({ default: m.PortfolioScreen })));
 const HealthScreen = lazy(() => import('./ui/HealthScreen').then((m) => ({ default: m.HealthScreen })));
 const CalendarScreen = lazy(() => import('./ui/CalendarScreen').then((m) => ({ default: m.CalendarScreen })));
+const AccountsScreen = lazy(() => import('./ui/AccountsScreen').then((m) => ({ default: m.AccountsScreen })));
 const SubscriptionsScreen = lazy(() =>
   import('./ui/SubscriptionsScreen').then((m) => ({ default: m.SubscriptionsScreen })),
 );
@@ -39,6 +40,7 @@ const SettingsScreen = lazy(() => import('./ui/SettingsScreen').then((m) => ({ d
 export type Screen =
   | 'home'
   | 'budget'
+  | 'accounts'
   | 'transactions'
   | 'goals'
   | 'portfolio'
@@ -60,6 +62,9 @@ export type Screen =
 const PRIMARY: { id: Screen; label: string; icon: string }[] = [
   { id: 'home', label: 'Accueil', icon: '◆' },
   { id: 'budget', label: 'Budget', icon: '▤' },
+  // Les comptes viennent juste après le budget : l'un dit ce qui était prévu, l'autre ce
+  // qu'il y a réellement. On passe de l'un à l'autre en permanence.
+  { id: 'accounts', label: 'Comptes', icon: '▣' },
   { id: 'transactions', label: 'Transactions', icon: '⇄' },
   { id: 'goals', label: 'Objectifs', icon: '◎' },
   { id: 'portfolio', label: 'Placements', icon: '△' },
@@ -307,6 +312,7 @@ export function App() {
         <Suspense fallback={<div className="empty">Chargement de l’écran…</div>}>
           {screen === 'home' && <HomeScreen onNavigate={setScreen} />}
           {screen === 'budget' && <BudgetScreen />}
+          {screen === 'accounts' && <AccountsScreen />}
           {screen === 'transactions' && <TransactionsScreen />}
           {screen === 'goals' && <GoalsScreen />}
           {screen === 'portfolio' && <PortfolioScreen />}

@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { Money, type Currency } from '../core/money';
 import {
+  accountBalance,
   emptyProfile,
   type BudgetPreferences,
   type CustomCategory,
@@ -368,6 +369,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
           // Un montant nul est une réponse : « je n'ai rien touché ce mois-ci ». Il est
           // enregistré comme telle plutôt que laissé en attente indéfinie.
+          /*
+           * Le compte du revenu, à défaut le compte courant le mieux garni.
+           *
+           * Sans compte, l'écriture comptait dans le budget mais n'augmentait aucun
+           * solde : le suivi ne voyait que des sorties, et tous les comptes finissaient
+           * à découvert dans l'application sans l'être dans la réalité.
+           */
+          const fallback = p.accounts
+            .filter((entry) => !entry.archived && (entry.kind === 'checking' || entry.kind === 'cash'))
+            .reduce<Account | null>(
+              (best, entry) =>
+                best === null || accountBalance(p, entry).greaterThan(accountBalance(p, best)) ? entry : best,
+              null,
+            );
+          const accountId = source?.accountId ?? fallback?.id;
+
           const declared = {
             id: id(),
             amount,
@@ -377,6 +394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             incomeCategory: source?.category,
             incomeSourceId: sourceId,
             note: 'Montant déclaré pour le mois',
+            ...(accountId ? { accountId } : {}),
           };
 
           return { ...p, transactions: [...others, declared] };

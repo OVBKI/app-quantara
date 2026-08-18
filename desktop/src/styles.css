@@ -715,23 +715,65 @@ textarea:focus {
   gap: 5px;
 }
 
+.calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding-bottom: 2px;
+}
+
+/* Chaque case est un bouton : un jour se consulte, donc il se clique. Le style reste
+   celui d'une case — c'est le curseur et le focus qui disent qu'elle est actionnable. */
 .calendar-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius-small);
   padding: 6px;
-  min-height: 66px;
+  min-height: 78px;
   font-size: 11px;
   background: var(--surface);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.calendar-cell:hover {
+  border-color: var(--border-strong);
 }
 
 .calendar-cell.today {
   border-color: var(--accent);
 }
 
+.calendar-cell.selected {
+  background: var(--surface-raised);
+  border-color: var(--accent);
+}
+
+.calendar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
 .calendar-day {
   color: var(--text-tertiary);
   font-weight: 600;
-  margin-bottom: 3px;
+}
+
+/* Le solde net du jour, à droite du numéro : c'est le chiffre qu'on cherche en balayant
+   le mois du regard, avant même de lire les libellés. */
+.calendar-net {
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
 }
 
 .calendar-entry {
@@ -739,6 +781,114 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-left: 7px;
+  position: relative;
+}
+
+/* Réel : trait plein. Prévu : trait pointillé. La distinction ne repose pas sur la seule
+   couleur — elle doit tenir en noir et blanc comme en vision déficiente. */
+.calendar-entry.real::before,
+.calendar-entry.planned::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+}
+
+.calendar-entry.real::before {
+  background: var(--text-secondary);
+}
+
+.calendar-entry.planned::before {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--text-tertiary) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+.calendar-entry.planned {
+  color: var(--text-tertiary);
+}
+
+.calendar-flag {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: auto;
+}
+
+/* --- Suivi des comptes --- */
+
+.account-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-card.open {
+  border-color: var(--border-strong);
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-balance {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.account-trend {
+  margin: 14px 0 10px;
+}
+
+.account-figures {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-swatch {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.legend-swatch.real {
+  background: var(--text-secondary);
+}
+
+.legend-swatch.planned {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--text-tertiary) 0 2px,
+    transparent 2px 4px
+  );
 }
 
 .error-text {

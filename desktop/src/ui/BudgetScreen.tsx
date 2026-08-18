@@ -691,6 +691,7 @@ function IncomeForm({
   onSubmit: (income: Omit<IncomeSource, 'id'>) => void;
   currency: Money['currency'];
 }) {
+  const { profile } = useStore();
   const [name, setName] = useState(initial?.name ?? '');
   const [amount, setAmount] = useState(editable(initial?.amount));
   const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? 'monthly');
@@ -704,6 +705,7 @@ function IncomeForm({
   const [minAmount, setMinAmount] = useState(editable(initial?.minAmount));
   const [maxAmount, setMaxAmount] = useState(editable(initial?.maxAmount));
   const [dayOfMonth, setDayOfMonth] = useState(String(initial?.dayOfMonth ?? 28));
+  const [accountId, setAccountId] = useState(initial?.accountId ?? '');
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
@@ -756,6 +758,23 @@ function IncomeForm({
           )}
         </Field>
       </div>
+      {spendingAccounts(profile).length > 0 && (
+        <Field
+          label="Versé sur quel compte ?"
+          hint="Sans compte, un encaissement confirmé n’augmente aucun solde"
+        >
+          {(id) => (
+            <select id={id} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+              <option value="">Aucun compte précisé</option>
+              {spendingAccounts(profile).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
       <Field label="Nature de ce revenu">
         {(id) => (
           <select
@@ -824,6 +843,7 @@ function IncomeForm({
               minAmount: nature === 'range' && parsedMin ? parsedMin : undefined,
               maxAmount: nature === 'range' && parsedMax ? parsedMax : undefined,
               dayOfMonth: Math.min(Math.max(Number(dayOfMonth) || 28, 1), 31),
+              accountId: accountId || undefined,
               active: initial?.active ?? true,
             });
             onClose();

@@ -57,6 +57,9 @@ export interface IncomeSource {
    *  payé le 2 ou le 28, le point bas du mois n'est pas du tout le même. Absent, la
    *  prévision retient le 28 — l'hypothèse la moins favorable. */
   readonly dayOfMonth?: number;
+  /** Compte sur lequel ce revenu est versé. Sans lui, un encaissement confirmé
+   *  n'augmente aucun solde — l'écriture existe, mais elle flotte. */
+  readonly accountId?: string;
   readonly startDate?: string;
   readonly endDate?: string;
   readonly active: boolean;

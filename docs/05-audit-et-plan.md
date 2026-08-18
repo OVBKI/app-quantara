@@ -502,3 +502,59 @@ navigateur configuré ainsi : le solde s'affiche exact dès 120 ms.
 
 Aucune animation ne retarde une information. Aucune ne se déclenche sur un défilement.
 Rien ne clignote, rien ne rebondit, rien ne dure plus de 700 ms.
+
+## Suivi réel des comptes
+
+Signalement : *« le calendrier que tu m'as fait, il n'y a aucune dépense qui s'affiche
+alors que je veux un vrai suivi de mes comptes. »*
+
+Trois défauts, dont deux étaient de vrais bugs.
+
+### 1. Le calendrier ne montrait que le prévu, et seulement le futur
+
+Il affichait les échéances issues du moteur de trésorerie — loyer, abonnements,
+remboursements — et **aucune** des dépenses réellement notées. Pire : le moteur ne rendait
+que les échéances `date >= aujourd'hui`, si bien que le début du mois paraissait vide,
+alors même que le commentaire de l'écran affirmait montrer tout le mois.
+
+- `CashFlowForecast.events` porte désormais **tout** le mois ; `upcoming` porte ce qui
+  reste à venir. Les deux consommateurs ont été repris.
+- Le calendrier affiche les deux natures côte à côte : **écriture réelle** (trait plein)
+  et **échéance prévue** (trait pointillé). La distinction ne repose pas sur la couleur
+  seule — elle tient en noir et blanc.
+- Chaque case porte le **net du jour**, chaque jour se clique pour son détail, et un
+  sélecteur filtre sur un compte.
+
+### 2. Les revenus n'atterrissaient sur aucun compte
+
+Défaut plus grave, invisible à l'œil : `declareIncome` créait bien une écriture de revenu,
+mais **sans compte**. Le solde suivi ne voyait donc que des sorties. Un compte qui ne
+reçoit jamais rien finit fatalement à découvert dans l'application sans l'être dans la
+réalité.
+
+- `IncomeSource.accountId` — chaque revenu dit sur quel compte il est versé, réglable
+  dans le formulaire.
+- Un revenu déclaré crédite ce compte ; à défaut, le compte courant le mieux garni.
+- Nouveau bouton **« J'ai reçu »** : un revenu inscrit au budget est une *attente*, pas un
+  encaissement. Le confirmer crée l'écriture et fait monter le solde. L'écriture est datée
+  du jour de réception habituel, **jamais dans le futur** — confirmer le 20 une paie
+  attendue le 31 la rendrait invisible onze jours de plus.
+
+### 3. Il n'existait aucune vue par compte
+
+Nouvel écran **Comptes**, placé juste après Budget : l'un dit ce qui était prévu, l'autre
+ce qu'il y a.
+
+- Total, puis une carte par compte : solde, courbe du mois, entrées, sorties, net.
+- Le **relevé** d'un compte, avec le solde après chaque ligne. C'est ce qui distingue un
+  relevé d'une liste de dépenses : on voit à quel moment le compte est passé sous zéro.
+- Un compte de placement détaillé ligne à ligne vaut **la somme de ses lignes**, comme
+  partout ailleurs. Sans cette règle, le même PEA affichait 0 € ici et 18 370 € sur
+  l'écran Placements.
+- Les écritures **sans compte** sont listées à part : elles comptent dans le budget mais
+  ne bougent aucun solde. Les répartir d'office rendrait tous les soldes faux ; les taire
+  les ferait disparaître du suivi.
+
+Aucun solde n'est stocké nulle part : tout se déduit du solde de départ daté et des
+écritures postérieures. Corriger une dépense de la semaine dernière remet donc tous les
+soldes d'aplomb, sans rien à ressaisir. Quatorze tests couvrent ces règles.
