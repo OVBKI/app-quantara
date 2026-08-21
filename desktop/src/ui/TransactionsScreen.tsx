@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
 import {
-  ALL_CATEGORY_IDS,
   INCOME_CATEGORIES,
   INCOME_LABELS,
-  VARIABLE_CATEGORY_IDS,
+  visibleCategoryIds,
   allCategories,
   categoryLabel,
   type ExpenseCategoryId,
@@ -457,7 +456,7 @@ function TransactionForm({
                 setAutoCategorized(false);
               }}
             >
-              {[...VARIABLE_CATEGORY_IDS, ...ALL_CATEGORY_IDS.filter((entry) => entry.startsWith('fixed.'))].map(
+              {[...visibleCategoryIds('variable'), ...visibleCategoryIds('fixed')].map(
                 (entry) => (
                   <option key={entry} value={entry}>
                     {categoryLabel(entry)}

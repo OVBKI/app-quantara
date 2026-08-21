@@ -249,7 +249,7 @@ export function App() {
 
         <div className="nav-spacer" />
 
-        <div style={{ padding: '0 4px 8px' }}>{periodPicker}</div>
+        <div className="sidebar-period" style={{ padding: '0 4px 8px' }}>{periodPicker}</div>
 
         {pending.length > 0 && (
           <button type="button" className="nav-item" onClick={() => setAskDeclaration(true)}>

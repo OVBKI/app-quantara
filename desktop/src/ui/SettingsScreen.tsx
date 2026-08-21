@@ -202,7 +202,10 @@ export function SettingsScreen() {
                   type="button"
                   className="button button-ghost"
                   aria-label={`Supprimer ${account.name}`}
-                  onClick={() => confirm(`Supprimer le compte « ${account.name} » ?`, () => removeAccount(account.id))}
+                  onClick={() => confirm(
+                        `Supprimer le compte « ${account.name} » ? Ses écritures ne seront pas supprimées, ` +
+                          'mais elles ne compteront plus dans aucun solde : elles apparaîtront dans ' +
+                          '« Écritures sans compte », sur l’écran Comptes.', () => removeAccount(account.id))}
                 >
                   ✕
                 </button>
@@ -335,7 +338,19 @@ export function SettingsScreen() {
           <SecuritySection
             encrypted={encrypted}
             onEnable={enableEncryption}
-            onDisable={disableEncryption}
+            // Retirer la protection remet tout le budget en clair sur le disque : cela
+            // vaut bien la même confirmation que n'importe quelle suppression.
+            onDisable={() =>
+              new Promise<void>((resolve) => {
+                confirm(
+                  'Retirer la protection ? Vos revenus, vos dettes et vos dépenses repasseront en clair ' +
+                    'dans le fichier, lisibles par quiconque accède à cette machine.',
+                  () => {
+                    void disableEncryption().then(resolve);
+                  },
+                );
+              })
+            }
           />
         </Card>
 

@@ -307,6 +307,14 @@ export function categoryLabel(id: ExpenseCategoryId): string {
   return categoryInfo(id).label;
 }
 
+/**
+ * Nature d'une catégorie, d'après le registre vivant.
+ *
+ * L'ancienne version testait le préfixe `fixed.` de l'identifiant. Une catégorie créée
+ * par l'utilisateur porte un identifiant `custom.…` : elle était donc déclarée variable
+ * quoi qu'il arrive, y compris quand elle se disait fixe — deux sources de vérité
+ * contradictoires pour la même question.
+ */
 export function isFixedCategory(id: ExpenseCategoryId): boolean {
-  return id.startsWith('fixed.');
+  return categoryInfo(id).kind === 'fixed';
 }

@@ -69,6 +69,15 @@ export function CategoriesScreen() {
   const fixed = categories.filter((entry) => entry.info.kind === 'fixed');
   const variable = categories.filter((entry) => entry.info.kind === 'variable');
 
+  /*
+   * Les catégories livrées mises de côté.
+   *
+   * Le dialogue de suppression promettait qu'elles « pourront revenir ». Elles ne le
+   * pouvaient pas : aucun écran ne les listait, et `allCategories()` les filtre. Une
+   * promesse tenue coûte cette section.
+   */
+  const hidden = profile.categories.filter((entry) => entry.hidden);
+
   function section(title: string, entries: typeof categories, note: string) {
     return (
       <Card title={title}>
@@ -169,6 +178,29 @@ export function CategoriesScreen() {
             else removeCategoryBudget(category.id);
           }}
         />
+      )}
+
+      {hidden.length > 0 && (
+        <Card title="Catégories mises de côté">
+          <p className="section-note">
+            Elles n’apparaissent plus dans les menus. Les écritures déjà classées dedans n’ont pas bougé.
+          </p>
+          {hidden.map((entry) => (
+            <div className="row" key={entry.id}>
+              <span aria-hidden="true">{entry.icon}</span>
+              <div className="row-main">
+                <div className="row-title">{entry.label}</div>
+              </div>
+              <button
+                type="button"
+                className="button button-small"
+                onClick={() => saveCategory({ ...entry, hidden: false })}
+              >
+                Remettre
+              </button>
+            </div>
+          ))}
+        </Card>
       )}
 
       {deleting && (

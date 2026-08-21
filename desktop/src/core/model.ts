@@ -447,7 +447,7 @@ export function isEssential(expense: RecurringExpense): boolean {
  * le stocker, et donc de le voir se corriger tout seul quand une transaction est modifiée
  * ou supprimée.
  */
-function movementOn(accountId: string, transaction: Transaction): Money | null {
+export function movementOn(accountId: string, transaction: Transaction): Money | null {
   const currency = transaction.amount.currency;
   const leaves = transaction.accountId === accountId;
   const arrives = transaction.toAccountId === accountId;

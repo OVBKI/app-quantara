@@ -437,8 +437,14 @@ textarea {
   padding: 6px 8px;
 }
 
-.button-ghost:hover {
+/* Le rouge est réservé à ce qui détruit. L'appliquer au survol de « Tout afficher »,
+   « Ignorer » ou des chevrons de mois lui faisait perdre son sens. */
+.button-ghost[aria-label^='Supprimer']:hover {
   color: var(--critical);
+}
+
+.button-ghost:hover {
+  color: var(--text);
   border-color: transparent;
 }
 
@@ -630,11 +636,8 @@ textarea:focus {
   color: var(--text-secondary);
 }
 
-.legend-swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-}
+/* (définition unique plus bas : trait vertical de 3 px) */
+
 
 .onboarding {
   max-width: 620px;
@@ -2127,6 +2130,11 @@ body {
   }
 
   /* Le titre et le sélecteur de mois n'ont pas leur place dans une barre d'onglets. */
+  /* Le sélecteur de mois repasse en haut du contenu (`.period-bar`) : le laisser aussi
+     dans la barre d'onglets en affichait deux, identiques, avec le même libellé
+     accessible — un lecteur d'écran annonçait deux fois « Mois précédent » sans pouvoir
+     les distinguer. */
+  .sidebar-period,
   .sidebar .brand,
   .sidebar .nav-footnote,
   .nav-spacer {

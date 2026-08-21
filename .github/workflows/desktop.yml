@@ -11,6 +11,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Le jeton du dépôt n'a besoin que de lire : ce workflow ne publie rien, il compile.
+# Un jeton en écriture serait la seule chose qu'une action tierce compromise pourrait
+# retourner contre le dépôt.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: desktop

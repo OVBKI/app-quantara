@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
-import { VARIABLE_CATEGORY_IDS, categoryLabel, type ExpenseCategoryId } from '../core/categories';
+import { categoryLabel, visibleCategoryIds, type ExpenseCategoryId } from '../core/categories';
 import { addMonths, lastMonths } from '../core/yearMonth';
 import {
   ENVELOPE_STATE_LABELS,
@@ -193,7 +193,7 @@ function EnvelopeForm({
   // enveloppe en perdant l'historique de celle-ci.
   const available = initial
     ? [initial.category]
-    : VARIABLE_CATEGORY_IDS.filter((category) => !existing.includes(category));
+    : visibleCategoryIds('variable').filter((category) => !existing.includes(category));
   const [category, setCategory] = useState<ExpenseCategoryId>(
     initial?.category ?? available[0] ?? 'variable.groceries',
   );

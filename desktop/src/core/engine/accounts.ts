@@ -1,5 +1,5 @@
 import { Money } from '../money';
-import { accountBalance, type Account, type FinancialProfile, type Transaction } from '../model';
+import { accountBalance, movementOn, type Account, type FinancialProfile, type Transaction } from '../model';
 import { containsDate, daysInMonth, dateOf, parseDate, type YearMonth } from '../yearMonth';
 
 /**
@@ -17,24 +17,14 @@ import { containsDate, daysInMonth, dateOf, parseDate, type YearMonth } from '..
  * postérieurs. Un solde tenu à la main dérive dès qu'une écriture est corrigée.
  */
 
-/** Sens d'un mouvement pour un compte donné. `null` : la transaction ne le concerne pas. */
-export function movementFor(accountId: string, transaction: Transaction): Money | null {
-  const currency = transaction.amount.currency;
-  const leaves = transaction.accountId === accountId;
-  const arrives = transaction.toAccountId === accountId;
-  switch (transaction.kind) {
-    case 'income':
-      return leaves ? transaction.amount : null;
-    case 'expense':
-    case 'debtPayment':
-      return leaves ? Money.zero(currency).minus(transaction.amount) : null;
-    case 'savings':
-    case 'transfer':
-      if (leaves) return Money.zero(currency).minus(transaction.amount);
-      if (arrives) return transaction.amount;
-      return null;
-  }
-}
+/**
+ * Sens d'un mouvement pour un compte donné, réexporté depuis le modèle.
+ *
+ * Ce fichier en portait une copie, mot pour mot. Deux exemplaires de la table de vérité
+ * comptable, c'est un signe corrigé d'un côté et resté faux de l'autre — sans erreur de
+ * compilation, sans test rouge, avec des soldes qui divergent d'un écran à l'autre.
+ */
+export { movementOn as movementFor } from '../model';
 
 export interface AccountMovement {
   readonly transaction: Transaction;
@@ -78,7 +68,7 @@ export function accountMovements(
 
   const movements: AccountMovement[] = [];
   for (const { transaction, date } of inPeriod) {
-    const amount = movementFor(account.id, transaction);
+    const amount = movementOn(account.id, transaction);
     if (amount === null) continue;
     balance = balance.plus(amount);
     movements.push({ transaction, date, amount, balanceAfter: balance });

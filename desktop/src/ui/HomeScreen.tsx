@@ -1,6 +1,6 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Money, Percent } from '../core/money';
-import { VARIABLE_CATEGORY_IDS, categoryColor, categoryLabel, type ExpenseCategoryId } from '../core/categories';
+import { categoryColor, categoryLabel, visibleCategoryIds, type ExpenseCategoryId } from '../core/categories';
 import {
   ALLOCATION_PART_LABELS,
   ALLOCATION_PARTS,
@@ -516,7 +516,7 @@ function QuickExpense() {
                 setGuessed(false);
               }}
             >
-              {VARIABLE_CATEGORY_IDS.map((entry) => (
+              {visibleCategoryIds('variable').map((entry) => (
                 <option key={entry} value={entry}>
                   {categoryLabel(entry)}
                 </option>

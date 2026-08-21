@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Money } from '../core/money';
-import { FIXED_CATEGORY_IDS, INCOME_CATEGORIES, INCOME_LABELS, categoryLabel, type ExpenseCategoryId, type IncomeCategory } from '../core/categories';
+import { INCOME_CATEGORIES, INCOME_LABELS, categoryLabel, visibleCategoryIds, type ExpenseCategoryId, type IncomeCategory } from '../core/categories';
 import { FREQUENCIES, FREQUENCY_LABELS, monthlyEquivalent, type Frequency } from '../core/frequency';
 import {
   ALLOCATION_PART_LABELS,
@@ -922,7 +922,7 @@ function ExpenseForm({
               value={category}
               onChange={(event) => setCategory(event.target.value as ExpenseCategoryId)}
             >
-              {FIXED_CATEGORY_IDS.map((entry) => (
+              {visibleCategoryIds('fixed').map((entry) => (
                 <option key={entry} value={entry}>
                   {categoryLabel(entry)}
                 </option>
