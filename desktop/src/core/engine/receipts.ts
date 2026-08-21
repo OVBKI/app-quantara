@@ -1,7 +1,7 @@
 import { Money } from '../money';
 import { monthlyEquivalent } from '../frequency';
-import { incomesFor, type FinancialProfile, type IncomeSource, type Transaction } from '../model';
-import { containsDate, daysInMonth, dateOf, parseDate, type YearMonth } from '../yearMonth';
+import { incomesFor, transactionsIn, type FinancialProfile, type IncomeSource, type Transaction } from '../model';
+import { containsDate, daysInMonth, dateOf, type YearMonth } from '../yearMonth';
 
 /**
  * Encaissements.
@@ -56,11 +56,8 @@ export function expectedIncomes(
   _reference: Date = new Date(),
 ): readonly ExpectedIncome[] {
   return incomesFor(profile, period).map((source) => {
-    const receipts = profile.transactions.filter(
-      (transaction) =>
-        transaction.kind === 'income' &&
-        transaction.incomeSourceId === source.id &&
-        containsDate(period, parseDate(transaction.date)),
+    const receipts = transactionsIn(profile, period).filter(
+      (transaction) => transaction.kind === 'income' && transaction.incomeSourceId === source.id,
     );
     const expected = monthlyEquivalent(source.amount, source.frequency);
     const amount = receipts.length === 0 ? null : Money.sum(receipts.map((entry) => entry.amount), profile.currency);

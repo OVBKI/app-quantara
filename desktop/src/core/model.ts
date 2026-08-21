@@ -2,7 +2,14 @@ import { Money, type Currency } from './money';
 import type { Frequency } from './frequency';
 import type { ExpenseCategoryId, IncomeCategory } from './categories';
 import { categoryInfo } from './categories';
-import { containsDate, endOfMonth, parseDate, startOfMonth, type YearMonth } from './yearMonth';
+import {
+  endOfMonth,
+  parseDate,
+  startOfMonth,
+  yearMonthKey,
+  yearMonthOf,
+  type YearMonth,
+} from './yearMonth';
 import type { CategorizationRule } from './engine/categorizer';
 import type { IncomePlanningMode } from './engine/income';
 import { DEFAULT_ALERT_PREFERENCES, type AlertPreferences } from './engine/alerts';
@@ -453,8 +460,41 @@ export function activeGoals(profile: FinancialProfile): Goal[] {
   return [...profile.goals].filter((goal) => !goal.achieved).sort((a, b) => a.priority - b.priority);
 }
 
-export function transactionsIn(profile: FinancialProfile, period: YearMonth): Transaction[] {
-  return profile.transactions.filter((transaction) => containsDate(period, parseDate(transaction.date)));
+/**
+ * Index des écritures par mois.
+ *
+ * `transactionsIn` était un parcours complet de la liste, et il est appelé des dizaines de
+ * fois pour afficher un seul écran : un budget, six mois d'historique, une comparaison sur
+ * douze mois, une médiane sur six. Sur cinq ans d'usage assidu, cela faisait des dizaines
+ * de milliers d'éléments parcourus pour un rendu.
+ *
+ * La clé est le profil lui-même. Il est immuable — chaque modification en produit un
+ * nouveau — si bien qu'un index périmé est impossible par construction : un profil
+ * différent est un autre objet, donc une autre entrée. La `WeakMap` laisse au ramasse-
+ * miettes le soin d'oublier les anciens.
+ */
+const monthIndexes = new WeakMap<FinancialProfile, Map<string, Transaction[]>>();
+const NO_TRANSACTIONS: readonly Transaction[] = [];
+
+function monthIndex(profile: FinancialProfile): Map<string, Transaction[]> {
+  const cached = monthIndexes.get(profile);
+  if (cached) return cached;
+
+  const index = new Map<string, Transaction[]>();
+  for (const transaction of profile.transactions) {
+    const key = yearMonthKey(yearMonthOf(parseDate(transaction.date)));
+    const bucket = index.get(key);
+    if (bucket) bucket.push(transaction);
+    else index.set(key, [transaction]);
+  }
+  monthIndexes.set(profile, index);
+  return index;
+}
+
+/** Les écritures d'un mois, dans l'ordre où elles ont été enregistrées. Le tableau est
+ *  partagé : `readonly` pour que le compilateur interdise de le modifier sur place. */
+export function transactionsIn(profile: FinancialProfile, period: YearMonth): readonly Transaction[] {
+  return monthIndex(profile).get(yearMonthKey(period)) ?? NO_TRANSACTIONS;
 }
 
 /** Retire une clé d'un objet sans écrire `undefined` : le champ disparaît vraiment, y
@@ -544,18 +584,62 @@ export function movementOn(accountId: string, transaction: Transaction): Money |
  * Les transactions antérieures à `balanceDate` sont ignorées : elles sont déjà comprises
  * dans le relevé. Sans cette règle, importer un an d'historique ferait exploser le solde.
  */
+/**
+ * Écritures triées par date, avec leur date déjà analysée.
+ *
+ * `accountBalance` parcourait toute la liste et analysait la date de chaque écriture pour
+ * n'en retenir qu'une poignée — celles postérieures au relevé. La prévision de trésorerie
+ * l'appelle une fois par jour et par compte : sur cinq ans d'usage, cela faisait plusieurs
+ * centaines de milliers d'analyses de date pour afficher un écran.
+ *
+ * Même clé que l'index par mois, et pour la même raison : le profil est immuable, donc un
+ * index périmé est impossible.
+ */
+interface DatedTransaction {
+  readonly at: number;
+  readonly transaction: Transaction;
+}
+
+const datedIndexes = new WeakMap<FinancialProfile, readonly DatedTransaction[]>();
+
+function datedTransactions(profile: FinancialProfile): readonly DatedTransaction[] {
+  const cached = datedIndexes.get(profile);
+  if (cached) return cached;
+
+  const dated = profile.transactions
+    .map((transaction) => ({ at: parseDate(transaction.date).getTime(), transaction }))
+    .sort((a, b) => a.at - b.at);
+  datedIndexes.set(profile, dated);
+  return dated;
+}
+
+/** Première écriture strictement postérieure à `time`. Recherche dichotomique : la liste
+ *  est triée, il n'y a aucune raison de la parcourir. */
+function firstAfter(dated: readonly DatedTransaction[], time: number): number {
+  let low = 0;
+  let high = dated.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (dated[middle]!.at <= time) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
 export function accountBalance(
   profile: FinancialProfile,
   account: Account,
   reference: Date = new Date(),
 ): Money {
-  const since = parseDate(account.balanceDate);
+  const since = parseDate(account.balanceDate).getTime();
+  const until = reference.getTime();
+  const dated = datedTransactions(profile);
   let balance = account.openingBalance;
 
-  for (const transaction of profile.transactions) {
-    const date = parseDate(transaction.date);
-    if (date <= since || date > reference) continue;
-    const movement = movementOn(account.id, transaction);
+  for (let index = firstAfter(dated, since); index < dated.length; index += 1) {
+    const entry = dated[index]!;
+    if (entry.at > until) break;
+    const movement = movementOn(account.id, entry.transaction);
     if (movement) balance = balance.plus(movement);
   }
   return balance;

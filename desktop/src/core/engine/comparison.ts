@@ -1,8 +1,8 @@
 import { Money, type Currency } from '../money';
 import { monthlyEquivalent } from '../frequency';
 import { categoryInfo, type ExpenseCategoryId } from '../categories';
-import { containsDate, parseDate, addMonths, type YearMonth } from '../yearMonth';
-import { isRecurringInstance, recurringExpensesFor, type FinancialProfile } from '../model';
+import { addMonths, type YearMonth } from '../yearMonth';
+import { isRecurringInstance, recurringExpensesFor, transactionsIn, type FinancialProfile } from '../model';
 
 /**
  * Comparaison des dépenses dans le temps.
@@ -76,9 +76,8 @@ function monthTotals(profile: FinancialProfile, period: YearMonth): Map<ExpenseC
     add(expense.category, monthlyEquivalent(expense.amount, expense.frequency));
   }
 
-  for (const transaction of profile.transactions) {
+  for (const transaction of transactionsIn(profile, period)) {
     if (transaction.kind !== 'expense' || isRecurringInstance(transaction)) continue;
-    if (!containsDate(period, parseDate(transaction.date))) continue;
     add(transaction.category ?? 'variable.otherVariable', transaction.amount);
   }
 
@@ -94,11 +93,8 @@ function monthTotals(profile: FinancialProfile, period: YearMonth): Map<ExpenseC
  * mois sobre et tirerait la moyenne vers le bas.
  */
 function hasActivity(profile: FinancialProfile, period: YearMonth): boolean {
-  return profile.transactions.some(
-    (transaction) =>
-      transaction.kind === 'expense' &&
-      !isRecurringInstance(transaction) &&
-      containsDate(period, parseDate(transaction.date)),
+  return transactionsIn(profile, period).some(
+    (transaction) => transaction.kind === 'expense' && !isRecurringInstance(transaction),
   );
 }
 
