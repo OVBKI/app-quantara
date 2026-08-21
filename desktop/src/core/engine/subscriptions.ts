@@ -1,6 +1,6 @@
 import { Money, type Currency } from '../money';
 import { monthlyEquivalent } from '../frequency';
-import { activeRecurringExpenses, type FinancialProfile, type RecurringExpense } from '../model';
+import { isSubscription, activeRecurringExpenses, type FinancialProfile, type RecurringExpense } from '../model';
 
 /**
  * Vue des abonnements.
@@ -42,9 +42,7 @@ export function summarizeSubscriptions(
   reference: Date = new Date(),
 ): SubscriptionSummary {
   const currency = profile.currency;
-  const subscriptions = activeRecurringExpenses(profile, reference).filter(
-    (expense) => expense.subscription || expense.category === 'fixed.subscriptions',
-  );
+  const subscriptions = activeRecurringExpenses(profile, reference).filter(isSubscription);
 
   const lines = subscriptions
     .map((expense): SubscriptionLine => {
@@ -56,7 +54,7 @@ export function summarizeSubscriptions(
         shareOfIncome: monthly.ratioTo(monthlyIncome),
       };
     })
-    .sort((a, b) => (b.monthly.greaterThan(a.monthly) ? 1 : -1));
+    .sort((a, b) => Money.compareDescending(a.monthly, b.monthly));
 
   const monthlyTotal = Money.sum(
     lines.map((line) => line.monthly),

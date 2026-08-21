@@ -104,16 +104,6 @@ export function savingsTransaction(amount: number, day: number, period: YearMont
   };
 }
 
-export function incomeTransaction(amount: number, day: number, period: YearMonth = MARCH_2026): Transaction {
-  return {
-    id: nextId('transaction'),
-    amount: Money.of(amount),
-    date: formatDate(dateOf(period, day)),
-    kind: 'income',
-    label: 'Revenu ponctuel',
-  };
-}
-
 export function debt(
   name: string,
   outstanding: number,

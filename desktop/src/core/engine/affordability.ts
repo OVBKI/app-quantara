@@ -1,4 +1,4 @@
-import { Money } from '../money';
+import { Money, formatDecimal } from '../money';
 import { monthsToCover } from './goals';
 import type { MonthlySummary } from './budget';
 import type { EmergencyFundStatus } from './emergencyFund';
@@ -88,7 +88,7 @@ export function canIAfford(
 
   if (wouldBreakEmergencyFund) {
     reasons.push(
-      `Financer cet achat entamerait votre épargne, qui ne couvre que ${emergencyFund.monthsCovered.toFixed(1)} ` +
+      `Financer cet achat entamerait votre épargne, qui ne couvre que ${formatDecimal(emergencyFund.monthsCovered)} ` +
         'mois de dépenses essentielles. C’est précisément la réserve qui évite le crédit en cas de coup dur.',
     );
   }

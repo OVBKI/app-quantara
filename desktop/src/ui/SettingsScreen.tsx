@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CURRENCIES, Money, type Currency } from '../core/money';
+import { CURRENCIES, Money, formatDecimal, type Currency } from '../core/money';
 import {
   accountBalance,
   type Account,
@@ -249,7 +249,7 @@ export function SettingsScreen() {
                       )}
                     </div>
                     <div className="row-subtitle">
-                      {DEBT_KINDS[debt.kind]} · {(debt.annualRate * 100).toFixed(2)} % · mensualité{' '}
+                      {DEBT_KINDS[debt.kind]} · {formatDecimal(debt.annualRate * 100, 2)} % · mensualité{' '}
                       {debt.monthlyPayment.format()}
                     </div>
                   </div>

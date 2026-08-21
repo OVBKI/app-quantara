@@ -98,7 +98,7 @@ export function summarizePortfolio(
       value,
       share: value.ratioTo(currentValue),
     }))
-    .sort((a, b) => (b.value.greaterThan(a.value) ? 1 : -1));
+    .sort((a, b) => Money.compareDescending(a.value, b.value));
 
   const gain = currentValue.minus(invested);
 
@@ -108,7 +108,7 @@ export function summarizePortfolio(
     currentValue,
     gain,
     gainRatio: gain.ratioTo(invested),
-    lines: [...lines].sort((a, b) => (b.holding.currentValue.greaterThan(a.holding.currentValue) ? 1 : -1)),
+    lines: [...lines].sort((a, b) => Money.compareDescending(a.holding.currentValue, b.holding.currentValue)),
     byAssetClass,
     investedThisMonth,
     staleCount: lines.filter((line) => line.staleDays > STALE_AFTER_DAYS).length,

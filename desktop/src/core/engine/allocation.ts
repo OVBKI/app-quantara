@@ -1,4 +1,4 @@
-import { Money } from '../money';
+import { Money, formatDecimal } from '../money';
 import { ALLOCATION_PART_LABELS, allocationTotal, type AllocationTargets, type RiskProfile } from '../model';
 import type { MonthlySummary } from './budget';
 import type { EmergencyFundStatus } from './emergencyFund';
@@ -186,7 +186,7 @@ export function allocate(input: AllocationInput): AllocationPlan {
         label: BUCKET_LABELS.safetyBuffer,
         amount,
         rationale:
-          `Votre épargne couvre ${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles. ` +
+          `Votre épargne couvre ${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles. ` +
           'Le premier mois se constitue en priorité : sans lui, le moindre imprévu passe par le découvert ou le crédit.',
       });
     }

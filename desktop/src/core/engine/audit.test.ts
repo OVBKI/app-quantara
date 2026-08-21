@@ -28,6 +28,8 @@ import { importCsv } from './csv';
 import { canIAfford } from './affordability';
 import { compareSpending } from './comparison';
 import { optimize } from './optimization';
+import { monthsToCover } from './goals';
+import { summarizeSubscriptions } from './subscriptions';
 import { expectedIncomes, receiptTotals } from './receipts';
 
 /**
@@ -240,6 +242,51 @@ describe('Patrimoine — une ligne de portefeuille ne compte qu’une fois', () 
     });
 
     expect(netWorth(profile, referenceDate(28)).equals(Money.of(10000))).toBe(true);
+  });
+});
+
+describe('Abonnements — une seule définition', () => {
+  it('compte pareil dans le Budget et dans l’écran Abonnements', () => {
+    /*
+     * L'écran Abonnements retenait « case cochée OU catégorie Abonnements » ; la tuile du
+     * Budget, seulement la case. Une charge rangée dans la bonne catégorie mais dont la
+     * case avait été oubliée figurait à un endroit et pas à l'autre, pour le même mois.
+     */
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [
+        fixedExpense('Streaming', 15, 'fixed.subscriptions', { subscription: true }),
+        // Catégorie « Abonnements », mais la case n'a pas été cochée.
+        fixedExpense('Presse', 10, 'fixed.subscriptions'),
+      ],
+      transactions: [],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(28));
+    const listed = summarizeSubscriptions(profile, summary.income, referenceDate(28));
+
+    expect(summary.subscriptions.equals(Money.of(25))).toBe(true);
+    expect(listed.monthlyTotal.equals(summary.subscriptions)).toBe(true);
+  });
+});
+
+describe('Durée d’un objectif — comptée en entiers', () => {
+  it('n’ajoute pas un mois entier à cause d’un milliardième', () => {
+    /*
+     * `Math.ceil(1 666,65 / 333,33)` rend 6 : la division en virgule flottante dépasse 5
+     * d'un milliardième, et l'arrondi supérieur transforme cette poussière en un mois de
+     * plus. 333,33 € est exactement ce qu'on obtient en partageant 1 000 € en trois — le
+     * cas n'a rien d'exotique.
+     */
+    expect(monthsToCover(Money.of(1666.65), Money.of(333.33))).toBe(5);
+    expect(monthsToCover(Money.of(3333.3), Money.of(333.33))).toBe(10);
+
+    // Le reste du contrat ne bouge pas.
+    expect(monthsToCover(Money.of(1200), Money.of(100))).toBe(12);
+    expect(monthsToCover(Money.of(1250), Money.of(100))).toBe(13);
+    expect(monthsToCover(Money.zero('EUR'), Money.of(100))).toBe(0);
+    expect(monthsToCover(Money.of(1000), Money.zero('EUR'))).toBeNull();
   });
 });
 

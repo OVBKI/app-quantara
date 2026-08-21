@@ -71,10 +71,6 @@ export function annualEquivalent(amount: Money, frequency: Frequency): Money {
   return amount.times(occurrences);
 }
 
-export function isRecurring(frequency: Frequency): boolean {
-  return frequency !== 'oneOff';
-}
-
 /** Nombre de jours approximatif entre deux occurrences — sert à placer les échéances
  *  non mensuelles dans la projection de trésorerie. */
 export function approximateDayInterval(frequency: Frequency): number | null {

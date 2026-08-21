@@ -1,4 +1,4 @@
-import { Money, Percent } from '../money';
+import { formatDecimal, Money, Percent } from '../money';
 import { categoryLabel } from '../categories';
 import { activeDebts, type FinancialProfile } from '../model';
 import { formatYearMonth } from '../yearMonth';
@@ -141,11 +141,6 @@ export function ask(question: string, analysis: FinancialAnalysis): AdvisorAnswe
   }
 }
 
-export function answerFor(id: string, analysis: FinancialAnalysis): AdvisorAnswer {
-  const question = SUGGESTED_QUESTIONS.find((entry) => entry.id === id)?.label ?? '';
-  return ask(question, analysis);
-}
-
 // --- Réponses ---
 
 function whereDoesMoneyGo(analysis: FinancialAnalysis, caveats: string[]): AdvisorAnswer {
@@ -229,7 +224,7 @@ function emergencyFundAnswer(analysis: FinancialAnalysis, caveats: string[]): Ad
       title: 'Il est déjà complet',
       paragraphs: [
         `${emergencyFund.current.roundedToUnit.format()} de côté couvrent ` +
-          `${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles. ` +
+          `${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles. ` +
           'Le surplus peut désormais aller vers vos objectifs de long terme.',
       ],
       figures: [
@@ -260,7 +255,7 @@ function emergencyFundAnswer(analysis: FinancialAnalysis, caveats: string[]): Ad
     figures: [
       { label: 'Actuel', value: emergencyFund.current.roundedToUnit.format() },
       { label: 'Restant', value: emergencyFund.remaining.roundedToUnit.format() },
-      { label: 'Couverture', value: `${emergencyFund.monthsCovered.toFixed(1)} mois` },
+      { label: 'Couverture', value: `${formatDecimal(emergencyFund.monthsCovered)} mois` },
     ],
     caveats,
   };
@@ -325,8 +320,8 @@ function budgetHealth(analysis: FinancialAnalysis, caveats: string[]): AdvisorAn
 
   signals.push(
     emergencyFund.monthsCovered < 1
-      ? `Votre épargne couvre ${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles. C’est le point faible principal.`
-      : `Votre épargne couvre ${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles.`,
+      ? `Votre épargne couvre ${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles. C’est le point faible principal.`
+      : `Votre épargne couvre ${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles.`,
   );
 
   if (summary.savingsRate !== null) {
@@ -374,7 +369,7 @@ function debtAnswer(analysis: FinancialAnalysis, caveats: string[]): AdvisorAnsw
       ],
       figures: debts.map((debt) => ({
         label: debt.name,
-        value: `${debt.outstanding.roundedToUnit.format()} à ${(debt.annualRate * 100).toFixed(1)} %`,
+        value: `${debt.outstanding.roundedToUnit.format()} à ${formatDecimal(debt.annualRate * 100)} %`,
       })),
       caveats,
     };

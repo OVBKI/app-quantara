@@ -148,6 +148,20 @@ export class Money {
     return a.greaterThan(b) ? a : b;
   }
 
+  /**
+   * Comparateur de tri, du plus grand au plus petit.
+   *
+   * Rend bien **zéro** pour deux montants égaux. Les comparateurs écrits
+   * `(a, b) => b.greaterThan(a) ? 1 : -1` n'en rendent jamais : ils affirment à la fois
+   * que `a` précède `b` et que `b` précède `a`, ce qui n'est pas un ordre. Sur des
+   * montants ex æquo — deux postes à 120 €, deux abonnements au même prix — l'ordre
+   * obtenu dépend alors de l'implémentation du tri et peut changer d'un rendu à l'autre.
+   */
+  static compareDescending(a: Money, b: Money): number {
+    if (a.micros === b.micros) return 0;
+    return a.micros > b.micros ? -1 : 1;
+  }
+
   // --- Prédicats ---
 
   get isZero(): boolean {
@@ -343,3 +357,18 @@ export const Percent = {
     return Number(current.micros - previous.micros) / Math.abs(Number(previous.micros));
   },
 };
+
+/**
+ * Un nombre décimal, écrit en français.
+ *
+ * `toFixed` produit « 3.5 » : le point décimal anglais, au milieu d'une interface en
+ * français, à côté de montants qui utilisent la virgule. Trois écrans affichaient ainsi
+ * « 3.5 mois couverts » et « 5.00 % » — un détail, mais de ceux qui font douter du reste.
+ */
+export function formatDecimal(value: number, decimals = 1, locale = 'fr-FR'): string {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
+}

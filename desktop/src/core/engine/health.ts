@@ -1,4 +1,4 @@
-import { Money, Percent } from '../money';
+import { formatDecimal, Money, Percent } from '../money';
 import { activeDebts } from '../model';
 import { highInterestDebts } from './debt';
 import type { FinancialAnalysis } from './analysis';
@@ -75,7 +75,7 @@ export function assessHealth(analysis: FinancialAnalysis): HealthReport {
     id: 'emergencyFund',
     label: 'Fonds d’urgence',
     level: months >= 3 ? 'good' : months >= 1 ? 'watch' : 'alert',
-    detail: `${months.toFixed(1)} mois de dépenses essentielles couverts.`,
+    detail: `${formatDecimal(months)} mois de dépenses essentielles couverts.`,
     action:
       months >= 3
         ? null

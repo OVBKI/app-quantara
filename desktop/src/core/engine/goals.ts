@@ -30,15 +30,24 @@ export interface GoalPlan {
   readonly scheduleDeviation: number | null;
 }
 
-/** Nombre de mois pour couvrir un montant à un rythme donné.
- *  Arrondi au supérieur : un mois entamé ne finance pas l'objectif. */
+/**
+ * Nombre de mois nécessaires pour couvrir un montant à une cadence donnée.
+ *
+ * Arrondi au supérieur : un mois entamé ne finance pas l'objectif.
+ *
+ * Le calcul se fait sur les micro-unités entières, jamais sur les euros en virgule
+ * flottante. `Math.ceil(1666.65 / 333.33)` rend 6 : la division approchée dépasse 5 d'un
+ * milliardième, et l'arrondi supérieur ajoute un mois entier à la prévision. Le même
+ * calcul en entiers rend 5, qui est la bonne réponse.
+ */
 export function monthsToCover(amount: Money, monthlyRate: Money): number | null {
   if (!monthlyRate.isPositive) return null;
   if (!amount.isPositive) return 0;
-  return Math.ceil(amount.units / monthlyRate.units);
+  const rate = monthlyRate.micros;
+  return Number((amount.micros + rate - 1n) / rate);
 }
 
-export function goalProgress(goal: Goal): number {
+function goalProgress(goal: Goal): number {
   const ratio = goal.current.ratioTo(goal.target);
   return ratio === null ? 0 : Math.min(Math.max(ratio, 0), 1);
 }

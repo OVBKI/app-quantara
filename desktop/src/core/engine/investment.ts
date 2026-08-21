@@ -1,4 +1,4 @@
-import { Money } from '../money';
+import { formatDecimal, Money } from '../money';
 import { isHighInterest, type FinancialProfile } from '../model';
 import type { EmergencyFundStatus } from './emergencyFund';
 import type { MonthlySummary } from './budget';
@@ -136,7 +136,7 @@ export function investmentGuidance(
       label: 'Fonds d’urgence constitué',
       passed: emergencyFund.remaining.isZero && emergencyFund.target.isPositive,
       detail: emergencyFund.remaining.isZero
-        ? `${emergencyFund.current.roundedToUnit.format()} de côté, soit ${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles.`
+        ? `${emergencyFund.current.roundedToUnit.format()} de côté, soit ${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles.`
         : `Il manque ${emergencyFund.remaining.roundedToUnit.format()} pour atteindre ${emergencyFund.target.roundedToUnit.format()}. ` +
           'Sans cette réserve, le moindre imprévu obligerait à vendre au pire moment.',
       blocking: true,
@@ -149,7 +149,7 @@ export function investmentGuidance(
         highInterest.length === 0
           ? 'Aucune dette au-dessus de 8 % : rien ne prime sur l’investissement de ce côté.'
           : `${highInterestTotal.roundedToUnit.format()} à rembourser en priorité. Rembourser un crédit à ` +
-            `${(Math.max(...highInterest.map((debt) => debt.annualRate)) * 100).toFixed(1)} % rapporte ce taux, ` +
+            `${formatDecimal(Math.max(...highInterest.map((debt) => debt.annualRate)) * 100)} % rapporte ce taux, ` +
             'sans risque — aucun placement ne l’égale à coup sûr.',
       blocking: true,
     },

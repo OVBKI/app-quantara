@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Money } from '../core/money';
 import { SUGGESTED_QUESTIONS, ask, missingData, type AdvisorAnswer } from '../core/advisor/advisor';
 import { optimize, EFFORT_LABELS } from '../core/engine/optimization';
 import { canIAfford, VERDICT_TONE } from '../core/engine/affordability';
@@ -247,5 +246,3 @@ function AffordabilityCard() {
     </Card>
   );
 }
-
-export { Money };

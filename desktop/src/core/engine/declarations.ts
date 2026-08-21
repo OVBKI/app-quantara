@@ -103,7 +103,7 @@ export function pendingDeclarations(
     const suggestion =
       history.length === 0
         ? null
-        : [...history].sort((a, b) => (a.greaterThan(b) ? 1 : -1))[Math.floor(history.length / 2)] ?? null;
+        : [...history].sort((a, b) => Money.compareDescending(b, a))[Math.floor(history.length / 2)] ?? null;
 
     // Du plus ancien au plus récent : on rattrape l'arriéré dans l'ordre du calendrier.
     for (let back = MAX_PENDING_MONTHS; back >= 0; back -= 1) {

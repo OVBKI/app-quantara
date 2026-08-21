@@ -69,13 +69,3 @@ export function emergencyFundStatus(
     monthsToTarget: remaining.isZero ? 0 : monthsToCover(remaining, monthlyCapacity),
   };
 }
-
-export function isEmergencyFundThin(status: EmergencyFundStatus): boolean {
-  return status.monthsCovered < 1;
-}
-
-export function isEmergencyFundComplete(status: EmergencyFundStatus): boolean {
-  return status.remaining.isZero && status.target.isPositive;
-}
-
-export { Money };

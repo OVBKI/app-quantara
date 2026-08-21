@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { Money, Percent } from '../core/money';
+import { Money, Percent, formatDecimal } from '../core/money';
 import { categoryColor, categoryLabel, visibleCategoryIds, type ExpenseCategoryId } from '../core/categories';
 import {
   ALLOCATION_PART_LABELS,
@@ -334,7 +334,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
                 sur {emergencyFund.target.roundedToUnit.format()}
               </span>
             </span>
-            <span className="badge">{emergencyFund.monthsCovered.toFixed(1)} mois couverts</span>
+            <span className="badge">{formatDecimal(emergencyFund.monthsCovered)} mois couverts</span>
           </div>
           <ProgressBar
             value={emergencyFund.progress}

@@ -25,10 +25,6 @@ export function yearMonthEquals(a: YearMonth, b: YearMonth): boolean {
   return a.year === b.year && a.month === b.month;
 }
 
-export function compareYearMonth(a: YearMonth, b: YearMonth): number {
-  return a.year !== b.year ? a.year - b.year : a.month - b.month;
-}
-
 export function addMonths(period: YearMonth, count: number): YearMonth {
   const zeroBased = period.year * 12 + (period.month - 1) + count;
   return { year: Math.floor(zeroBased / 12), month: (((zeroBased % 12) + 12) % 12) + 1 };

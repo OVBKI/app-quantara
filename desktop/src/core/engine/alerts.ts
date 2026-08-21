@@ -1,5 +1,4 @@
 import { Money } from '../money';
-import { parseDate } from '../yearMonth';
 import type { FinancialAnalysis } from './analysis';
 
 /**
@@ -203,8 +202,4 @@ export function buildAlerts(
 export function alertSignature(alert: Alert, reference: Date = new Date()): string {
   const permanent = alert.kind === 'goalMilestone' || alert.kind === 'emergencyFundMilestone';
   return permanent ? alert.id : `${alert.id}|${reference.toISOString().slice(0, 10)}`;
-}
-
-export function parseISODate(value: string): Date {
-  return parseDate(value);
 }

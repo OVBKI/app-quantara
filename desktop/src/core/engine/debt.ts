@@ -177,7 +177,3 @@ export function debtPayoffPlan(
 export function highInterestDebts(debts: readonly Debt[]): Debt[] {
   return debts.filter(isHighInterest);
 }
-
-export function debtToIncomeRatio(monthlyPayments: Money, income: Money): number | null {
-  return monthlyPayments.ratioTo(income);
-}

@@ -143,7 +143,7 @@ export function compareSpending(
         share: null,
       };
     })
-    .sort((a, b) => (b.current.greaterThan(a.current) ? 1 : -1));
+    .sort((a, b) => Money.compareDescending(a.current, b.current));
 
   const currentTotal = Money.sum(
     categories.map((entry) => entry.current),

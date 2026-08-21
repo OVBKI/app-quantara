@@ -1,7 +1,14 @@
-import { Money } from '../money';
+import { Money, formatDecimal } from '../money';
 import { categoryInfo, categoryLabel, type ExpenseCategoryId } from '../categories';
 import { monthlyEquivalent, annualEquivalent } from '../frequency';
-import { activeDebts, activeRecurringExpenses, isRecurringInstance, transactionsIn, type FinancialProfile } from '../model';
+import {
+  activeDebts,
+  activeRecurringExpenses,
+  isRecurringInstance,
+  isSubscription,
+  transactionsIn,
+  type FinancialProfile,
+} from '../model';
 import { addMonths, lastMonths, type YearMonth } from '../yearMonth';
 import { Statistics } from './statistics';
 import type { MonthlySummary } from './budget';
@@ -137,7 +144,7 @@ export function optimize(
   }
 
   // 2. Abonnements — leur coût annuel est ce qui frappe, pas leur prix mensuel.
-  const subscriptions = activeRecurringExpenses(profile, reference).filter((expense) => expense.subscription);
+  const subscriptions = activeRecurringExpenses(profile, reference).filter(isSubscription);
   if (subscriptions.length >= 2) {
     const monthly = Money.sum(
       subscriptions.map((expense) => monthlyEquivalent(expense.amount, expense.frequency)),
@@ -195,7 +202,7 @@ export function optimize(
       kind: 'expensiveDebt',
       title: `${debt.name} : ${monthlyInterest.roundedToUnit.format()} d'intérêts par mois`,
       detail:
-        `${debt.outstanding.roundedToUnit.format()} à ${(debt.annualRate * 100).toFixed(1)} %. ` +
+        `${debt.outstanding.roundedToUnit.format()} à ${formatDecimal(debt.annualRate * 100)} %. ` +
         'Chaque euro remboursé par anticipation rapporte ce taux, sans risque — aucun placement ne l’égale à coup sûr.',
       monthlySaving: monthlyInterest,
       annualSaving: monthlyInterest.times(12n),
@@ -244,7 +251,7 @@ export function optimize(
     });
   }
 
-  const ranked = [...suggestions].sort((a, b) => Number(b.monthlySaving.micros - a.monthlySaving.micros));
+  const ranked = [...suggestions].sort((a, b) => Money.compareDescending(a.monthlySaving, b.monthlySaving));
   const totalMonthly = Money.sum(ranked.map((entry) => entry.monthlySaving), currency);
 
   const newSavings = summary.savingsContributions.plus(totalMonthly);

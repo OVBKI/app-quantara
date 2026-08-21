@@ -552,6 +552,21 @@ export function isEssential(expense: RecurringExpense): boolean {
 }
 
 /**
+ * Une charge est-elle un abonnement ?
+ *
+ * La case « C'est un abonnement » **ou** la catégorie « Abonnements ». Deux modules
+ * répondaient différemment : l'écran Abonnements retenait les deux critères, la tuile du
+ * Budget seulement la case. Une charge rangée dans la bonne catégorie mais dont la case
+ * n'avait pas été cochée figurait donc à un endroit et pas à l'autre, pour le même mois.
+ *
+ * Le critère large est le bon : choisir la catégorie « Abonnements » est déjà une
+ * déclaration d'intention, et oublier la case n'a pas à coûter une ligne dans la liste.
+ */
+export function isSubscription(expense: RecurringExpense): boolean {
+  return expense.subscription || expense.category === 'fixed.subscriptions';
+}
+
+/**
  * Effet d'une transaction sur le solde d'un compte.
  *
  * Une seule table, à un seul endroit. C'est ce qui permet de déduire un solde au lieu de

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Money } from '../core/money';
+import { Money, formatDecimal } from '../core/money';
 import {
   FIXED_CATEGORY_IDS,
   VARIABLE_CATEGORY_IDS,
@@ -602,7 +602,7 @@ export function OnboardingScreen() {
                     <div className="row-main">
                       <div className="row-title">{debt.name}</div>
                       <div className="row-subtitle">
-                        {DEBT_KINDS[debt.kind]} · {(debt.annualRate * 100).toFixed(2)} % · mensualité{' '}
+                        {DEBT_KINDS[debt.kind]} · {formatDecimal(debt.annualRate * 100, 2)} % · mensualité{' '}
                         {debt.monthlyPayment.roundedToUnit.format()}
                       </div>
                     </div>

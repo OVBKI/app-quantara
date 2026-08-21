@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react';
  * Suivi en direct : quelqu'un qui active le réglage pendant que l'application tourne
  * n'a pas à la redémarrer — et c'est souvent parce qu'un mouvement vient de le gêner.
  */
-export function usePrefersReducedMotion(): boolean {
+function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(() =>
     typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches

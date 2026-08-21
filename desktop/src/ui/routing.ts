@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
  * serveur pour répondre à `/budget`, et l'historique HTML5 y renverrait une page absente.
  */
 
-export function readRoute<T extends string>(allowed: readonly T[], fallback: T): T {
+function readRoute<T extends string>(allowed: readonly T[], fallback: T): T {
   const raw = window.location.hash.replace(/^#\/?/, '');
   return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
 }

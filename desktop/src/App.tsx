@@ -114,8 +114,9 @@ export function App() {
   // Les alertes partent à l'ouverture, une fois le profil déverrouillé et chargé.
   useEffect(() => {
     if (!ready || locked) return;
-    void notify(buildAlerts(analysis, profile.preferences.alerts));
-  }, [ready, locked, analysis, profile.preferences.alerts]);
+    // Profil chiffré : le suivi de ce qui a déjà été notifié ne quitte pas la mémoire.
+    void notify(buildAlerts(analysis, profile.preferences.alerts), new Date(), encrypted);
+  }, [ready, locked, encrypted, analysis, profile.preferences.alerts]);
 
   // Sur écran étroit, la navigation est une barre d'onglets qui défile : l'entrée
   // courante peut se retrouver hors champ après un changement d'écran au clavier ou

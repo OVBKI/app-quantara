@@ -39,6 +39,7 @@ import {
   type YearMonth,
 } from '../core/yearMonth';
 import { clearProfile, loadStored, saveProfile, unlockStored, withCurrency } from '../storage/persistence';
+import { forgetPersistedNotifications } from '../notifications/notifier';
 
 interface StoreValue {
   readonly profile: FinancialProfile;
@@ -232,6 +233,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       enableEncryption: async (candidate) => {
         await saveProfile(profile, candidate);
         password.current = candidate;
+        // Ce qui a été notifié avant le chiffrement était noté en clair à côté du
+        // fichier : chiffrer sans l'effacer laisserait la trace derrière soi.
+        forgetPersistedNotifications();
         setEncrypted(true);
       },
 

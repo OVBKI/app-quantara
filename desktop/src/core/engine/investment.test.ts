@@ -47,7 +47,8 @@ describe('Préalables à l’investissement', () => {
     expect(guidance.state).toBe('blocked');
     const check = guidance.checks.find((entry) => entry.id === 'noExpensiveDebt');
     expect(check?.passed).toBe(false);
-    expect(check?.detail).toContain('18.0 %');
+    // Séparateur décimal français : « 18,0 % », pas « 18.0 % ».
+    expect(check?.detail).toContain('18,0 %');
   });
 
   it('bloque quand rien n’est disponible à placer', () => {

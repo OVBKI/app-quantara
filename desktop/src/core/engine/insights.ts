@@ -1,4 +1,4 @@
-import { Money, Percent } from '../money';
+import { formatDecimal, Money, Percent } from '../money';
 import { categoryLabel } from '../categories';
 import { DEBT_TO_INCOME_ALERT } from './debt';
 import type { MonthlySummary } from './budget';
@@ -210,7 +210,7 @@ export function buildInsights(input: {
       severity: 'warning',
       title: 'Fonds d’urgence à constituer',
       message:
-        `Votre épargne couvre ${emergencyFund.monthsCovered.toFixed(1)} mois de dépenses essentielles ` +
+        `Votre épargne couvre ${formatDecimal(emergencyFund.monthsCovered)} mois de dépenses essentielles ` +
         `(${emergencyFund.monthlyNeed.roundedToUnit.format()} par mois). Le premier objectif est d’en couvrir un.`,
       amount: emergencyFund.remaining,
     });
@@ -221,7 +221,7 @@ export function buildInsights(input: {
       severity: 'positive',
       title: 'Fonds d’urgence complet',
       message:
-        `${emergencyFund.current.roundedToUnit.format()} de côté, soit ${emergencyFund.monthsCovered.toFixed(1)} mois ` +
+        `${emergencyFund.current.roundedToUnit.format()} de côté, soit ${formatDecimal(emergencyFund.monthsCovered)} mois ` +
         'de dépenses essentielles. Le surplus peut désormais servir vos objectifs de long terme.',
       amount: emergencyFund.current,
     });

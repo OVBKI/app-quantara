@@ -6,6 +6,7 @@ import {
   ALLOCATION_PART_LABELS,
   ALLOCATION_PARTS,
   DEFAULT_ALLOCATION_TARGETS,
+  isSubscription,
   rebalanceAllocation,
   type AllocationPart,
   type IncomeSource,
@@ -149,7 +150,7 @@ export function BudgetScreen() {
                   <div className="row-main">
                     <div className="row-title">
                       {expense.name}
-                      {expense.subscription && (
+                      {isSubscription(expense) && (
                         <span className="badge" style={{ marginLeft: 8 }}>
                           abonnement
                         </span>

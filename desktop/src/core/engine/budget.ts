@@ -5,6 +5,7 @@ import { categoryInfo, type ExpenseCategoryId } from '../categories';
 import {
   activeDebts,
   isEssential,
+  isSubscription,
   isRecurringInstance,
   recurringExpensesFor,
   transactionsIn,
@@ -121,7 +122,7 @@ export function monthlyIncome(profile: FinancialProfile, period: YearMonth, refe
  * multipliée par 31/6, une dépense de 500 € en devenait 2 583 € et faisait basculer le
  * budget dans un déficit imaginaire.
  */
-export function realizedVariableSpending(
+function realizedVariableSpending(
   profile: FinancialProfile,
   period: YearMonth,
   reference: Date = new Date(),
@@ -152,7 +153,7 @@ export function realizedVariableSpending(
  * Exposé séparément pour pouvoir n'extrapoler qu'une partie des dépenses : celles qui
  * ne sont couvertes par aucune enveloppe.
  */
-export function runRateFactor(period: YearMonth, reference: Date): { total: number; elapsed: number } | null {
+function runRateFactor(period: YearMonth, reference: Date): { total: number; elapsed: number } | null {
   if (!yearMonthEquals(period, yearMonthOf(reference))) return null;
   const total = daysInMonth(period);
   const elapsed = Math.min(reference.getDate(), total);
@@ -235,7 +236,7 @@ function essentialVariableNeed(profile: FinancialProfile, period: YearMonth, ref
  * suffisant, on s'en tient au déclaré — mieux vaut une référence assumée qu'une moyenne
  * calculée sur deux points.
  */
-export function smoothedIncomeBaseline(
+function smoothedIncomeBaseline(
   profile: FinancialProfile,
   period: YearMonth,
   declared: Money,
@@ -284,7 +285,7 @@ function categoryTotals(
       share: amount.ratioTo(totalExpenses),
       essential: categoryInfo(category).essential,
     }))
-    .sort((a, b) => (b.amount.micros > a.amount.micros ? 1 : -1));
+    .sort((a, b) => Money.compareDescending(a.amount, b.amount));
 }
 
 export function monthlySummary(
@@ -306,7 +307,7 @@ export function monthlySummary(
   );
   const subscriptions = Money.sum(
     recurring
-      .filter((expense) => expense.subscription)
+      .filter(isSubscription)
       .map((expense) => monthlyEquivalent(expense.amount, expense.frequency)),
     currency,
   );
@@ -451,7 +452,7 @@ export function compareMonths(previous: MonthlySummary, current: MonthlySummary)
       delta: total.amount.minus(previousByCategory.get(total.category) ?? Money.zero(current.currency)),
     }))
     .filter((entry) => entry.delta.isPositive)
-    .sort((a, b) => (b.delta.micros > a.delta.micros ? 1 : -1))
+    .sort((a, b) => Money.compareDescending(a.delta, b.delta))
     .slice(0, 3);
 
   return {

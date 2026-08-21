@@ -247,13 +247,6 @@ export function applyCategories(custom: readonly CategoryDefinition[]): void {
   registry = next;
 }
 
-/** Remet le catalogue livré. Utile aux tests, qui doivent partir d'un état connu. */
-export function resetCategories(): void {
-  registry = { ...BUILTIN_CATEGORIES };
-}
-
-export const CATEGORIES: Record<string, CategoryInfo> = BUILTIN_CATEGORIES;
-
 export const FIXED_CATEGORY_IDS = Object.keys(FIXED).map(
   (key) => `fixed.${key}` as ExpenseCategoryId,
 );
@@ -261,8 +254,6 @@ export const FIXED_CATEGORY_IDS = Object.keys(FIXED).map(
 export const VARIABLE_CATEGORY_IDS = Object.keys(VARIABLE).map(
   (key) => `variable.${key}` as ExpenseCategoryId,
 );
-
-export const ALL_CATEGORY_IDS: ExpenseCategoryId[] = [...FIXED_CATEGORY_IDS, ...VARIABLE_CATEGORY_IDS];
 
 /**
  * Description d'une catégorie.
@@ -315,6 +306,3 @@ export function categoryLabel(id: ExpenseCategoryId): string {
  * quoi qu'il arrive, y compris quand elle se disait fixe — deux sources de vérité
  * contradictoires pour la même question.
  */
-export function isFixedCategory(id: ExpenseCategoryId): boolean {
-  return categoryInfo(id).kind === 'fixed';
-}
