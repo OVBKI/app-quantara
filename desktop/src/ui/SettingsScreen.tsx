@@ -15,6 +15,7 @@ import { useStore } from '../state/store';
 import { deserializeProfile, downloadProfile } from '../storage/persistence';
 import { encryptionAvailable, passwordStrength } from '../security/vault';
 import { Card, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
+import { formatFullDay } from './dates';
 
 const RISK_LABELS: Record<RiskProfile, string> = {
   cautious: 'Prudent',
@@ -191,7 +192,7 @@ export function SettingsScreen() {
                   <div className="row-title">{account.name}</div>
                   <div className="row-subtitle">
                     {ACCOUNT_KINDS[account.kind]} · relevé du{' '}
-                    {new Date(account.balanceDate).toLocaleDateString('fr-FR')}
+                    {formatFullDay(account.balanceDate)}
                   </div>
                 </div>
                 <div className="row-amount amount">{accountBalance(profile, account).format()}</div>

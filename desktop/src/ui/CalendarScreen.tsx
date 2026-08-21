@@ -7,6 +7,7 @@ import type { CashFlowEvent } from '../core/engine/cashflow';
 import { movementFor } from '../core/engine/accounts';
 import { useStore } from '../state/store';
 import { Card, Tile } from './components';
+import { formatLongWeekday } from './dates';
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -303,7 +304,7 @@ export function CalendarScreen() {
                 <div className="row-main">
                   <div className="row-title">{event.label}</div>
                   <div className="row-subtitle">
-                    {event.date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {formatLongWeekday(event.date)}
                   </div>
                 </div>
                 <div className={`row-amount amount ${event.kind === 'income' ? 'positive' : ''}`}>

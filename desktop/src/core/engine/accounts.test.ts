@@ -138,7 +138,7 @@ describe('Encaissements', () => {
     const entries = expectedIncomes(profile, MARCH_2026, REFERENCE);
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.received).toBeNull();
+    expect(entries[0]!.receipts).toHaveLength(0);
     expect(entries[0]!.expected.equals(Money.of(4000))).toBe(true);
   });
 
@@ -184,7 +184,7 @@ describe('Encaissements', () => {
     const updated = { ...profile, transactions: [...profile.transactions, { ...draft, id: 'reçu' }] };
 
     const after = expectedIncomes(updated, MARCH_2026, REFERENCE)[0]!;
-    expect(after.received?.id).toBe('reçu');
+    expect(after.receipts.map((entry) => entry.id)).toEqual(['reçu']);
     expect(receiptTotals([after], 'EUR').pending).toBe(0);
   });
 
@@ -204,7 +204,7 @@ describe('Encaissements', () => {
     const updated = { ...profile, transactions: [...profile.transactions, zero] };
 
     const after = expectedIncomes(updated, MARCH_2026, REFERENCE)[0]!;
-    expect(after.received).not.toBeNull();
+    expect(after.receipts).toHaveLength(1);
     expect(after.amount?.isZero).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, Tile, parseAmount, useConfirm } from './components';
 import { ReadinessSection } from './InvestmentGuidance';
 import { BarList, Donut, Legend, type Slice } from './charts';
+import { formatFullDay } from './dates';
 
 /** Sept familles, sept jetons de la palette validée, dans l'ordre fixe. */
 const ASSET_COLORS: Record<AssetClassId, string> = {
@@ -122,7 +123,7 @@ export function PortfolioScreen() {
                   <div className="row-subtitle">
                     {ASSET_CLASS_LABELS[line.holding.assetClass]} · versé{' '}
                     {line.holding.invested.roundedToUnit.format()} · valeur du{' '}
-                    {new Date(line.holding.valuedOn).toLocaleDateString('fr-FR')}
+                    {formatFullDay(line.holding.valuedOn)}
                     {line.staleDays > STALE_AFTER_DAYS && <span className="warning"> · à réévaluer</span>}
                   </div>
                 </div>

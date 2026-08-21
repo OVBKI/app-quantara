@@ -27,6 +27,7 @@ import {
 import { ApplyAllocationButton } from './ApplyAllocation';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
+import { formatDay } from './dates';
 
 export function BudgetScreen() {
   const { profile, analysis, addIncome, updateIncome, removeIncome, addExpense, updateExpense, removeExpense } =
@@ -81,6 +82,7 @@ export function BudgetScreen() {
                       {income.amount.format()} · {FREQUENCY_LABELS[income.frequency].toLowerCase()} ·{' '}
                       {INCOME_LABELS[income.category]}
                       {income.dayOfMonth ? ` · le ${income.dayOfMonth}` : ''}
+                      {validityNote(income)}
                       {income.declaredMonthly ? (
                         <span className="badge" style={{ marginLeft: 8 }}>
                           déclaré au mois
@@ -156,6 +158,7 @@ export function BudgetScreen() {
                     <div className="row-subtitle">
                       {expense.amount.format()} · {FREQUENCY_LABELS[expense.frequency].toLowerCase()} ·{' '}
                       {categoryLabel(expense.category)} · le {expense.dayOfMonth}
+                      {validityNote(expense)}
                     </div>
                   </div>
                   <div className="row-amount amount">
@@ -696,6 +699,55 @@ function DeclarationForm({
   );
 }
 
+/** Rappel de la période de validité dans la liste : une charge close doit se voir close,
+ *  faute de quoi elle a l'air d'avoir disparu des mois où elle ne compte plus. */
+function validityNote(entry: { startDate?: string; endDate?: string }): string {
+  const from = entry.startDate ? formatDay(entry.startDate) : null;
+  const to = entry.endDate ? formatDay(entry.endDate) : null;
+  if (from && to) return ` · du ${from} au ${to}`;
+  if (from) return ` · à partir du ${from}`;
+  if (to) return ` · jusqu’au ${to}`;
+  return '';
+}
+
+/**
+ * Période de validité d'un revenu ou d'une charge.
+ *
+ * Repliée par défaut, et dépliée d'office dès qu'une date est déjà posée : la grande
+ * majorité des charges n'ont ni début ni fin à déclarer, et deux champs de date de plus
+ * sur chaque formulaire coûteraient plus qu'ils ne rapportent.
+ */
+function ValidityPeriod({
+  startDate,
+  endDate,
+  onStart,
+  onEnd,
+  hint,
+}: {
+  startDate: string;
+  endDate: string;
+  onStart: (value: string) => void;
+  onEnd: (value: string) => void;
+  hint: string;
+}) {
+  return (
+    <details className="disclosure" open={Boolean(startDate || endDate)}>
+      <summary>Période de validité</summary>
+      <p className="field-hint" style={{ marginTop: 8, marginBottom: 12 }}>
+        {hint}
+      </p>
+      <div className="field-row">
+        <Field label="À partir de" hint="Laissez vide si cela a toujours existé">
+          {(id) => <input id={id} type="date" value={startDate} onChange={(event) => onStart(event.target.value)} />}
+        </Field>
+        <Field label="Jusqu’au" hint="Laissez vide si c’est toujours en cours">
+          {(id) => <input id={id} type="date" value={endDate} onChange={(event) => onEnd(event.target.value)} />}
+        </Field>
+      </div>
+    </details>
+  );
+}
+
 function IncomeForm({
   initial,
   onClose,
@@ -722,6 +774,8 @@ function IncomeForm({
   const [maxAmount, setMaxAmount] = useState(editable(initial?.maxAmount));
   const [dayOfMonth, setDayOfMonth] = useState(String(initial?.dayOfMonth ?? 28));
   const [accountId, setAccountId] = useState(initial?.accountId ?? '');
+  const [startDate, setStartDate] = useState(initial?.startDate ?? '');
+  const [endDate, setEndDate] = useState(initial?.endDate ?? '');
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
@@ -833,6 +887,14 @@ function IncomeForm({
         </>
       ) : null}
 
+      <ValidityPeriod
+        startDate={startDate}
+        endDate={endDate}
+        onStart={setStartDate}
+        onEnd={setEndDate}
+        hint="Un revenu n’est compté que dans les mois qu’il couvre. Datez la fin d’un ancien emploi et le début du nouveau : les mois passés gardent le bon montant."
+      />
+
       {monthly && (
         <p className="rationale">
           Équivalent mensuel : <strong className="amount">{monthly.roundedTo(2).format()}</strong>
@@ -861,6 +923,8 @@ function IncomeForm({
               dayOfMonth: Math.min(Math.max(Number(dayOfMonth) || 28, 1), 31),
               accountId: accountId || undefined,
               active: initial?.active ?? true,
+              ...(startDate ? { startDate } : {}),
+              ...(endDate ? { endDate } : {}),
             });
             onClose();
           }}
@@ -889,6 +953,8 @@ function ExpenseForm({
   const [category, setCategory] = useState<ExpenseCategoryId>(initial?.category ?? 'fixed.rent');
   const [day, setDay] = useState(String(initial?.dayOfMonth ?? 5));
   const [subscription, setSubscription] = useState(initial?.subscription ?? false);
+  const [startDate, setStartDate] = useState(initial?.startDate ?? '');
+  const [endDate, setEndDate] = useState(initial?.endDate ?? '');
 
   const parsed = parseAmount(amount, currency);
   const monthly = parsed ? monthlyEquivalent(parsed, frequency) : null;
@@ -953,6 +1019,14 @@ function ExpenseForm({
         <span>C’est un abonnement</span>
       </label>
 
+      <ValidityPeriod
+        startDate={startDate}
+        endDate={endDate}
+        onStart={setStartDate}
+        onEnd={setEndDate}
+        hint="Une charge n’est comptée que dans les mois qu’elle couvre. Pour enregistrer une hausse de loyer sans réécrire le passé : datez la fin de l’ancienne, puis créez la nouvelle à partir du mois suivant."
+      />
+
       {monthly && (
         <p className="rationale">
           Équivalent mensuel : <strong className="amount">{monthly.roundedTo(2).format()}</strong>
@@ -978,6 +1052,8 @@ function ExpenseForm({
               dayOfMonth: Math.min(Math.max(Number(day) || 1, 1), 31),
               subscription,
               active: initial?.active ?? true,
+              ...(startDate ? { startDate } : {}),
+              ...(endDate ? { endDate } : {}),
             });
             onClose();
           }}

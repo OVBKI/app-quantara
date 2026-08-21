@@ -44,6 +44,27 @@ const DRIFT_THRESHOLD = 0.25;
 const DISCRETIONARY_CUT = 0.3;
 
 /**
+ * Dépenses ponctuelles d'un mois, par catégorie.
+ *
+ * Les matérialisations de charges récurrentes sont exclues : elles ne relèvent pas d'un
+ * arbitrage du mois. C'est cette même mesure qui sert pour l'historique et pour le mois en
+ * cours — sans quoi la comparaison oppose deux grandeurs différentes.
+ */
+function discretionarySpendingByCategory(
+  profile: FinancialProfile,
+  period: YearMonth,
+  currency: Money['currency'],
+): Map<ExpenseCategoryId, Money> {
+  const totals = new Map<ExpenseCategoryId, Money>();
+  for (const transaction of transactionsIn(profile, period)) {
+    if (transaction.kind !== 'expense' || isRecurringInstance(transaction) || !transaction.category) continue;
+    const previous = totals.get(transaction.category) ?? Money.zero(currency);
+    totals.set(transaction.category, previous.plus(transaction.amount));
+  }
+  return totals;
+}
+
+/**
  * « Optimiser mon budget ».
  *
  * Le point de comparaison est l'utilisateur lui-même, sur ses propres mois passés, et
@@ -64,39 +85,54 @@ export function optimize(
   const historyByCategory = new Map<ExpenseCategoryId, Money[]>();
 
   for (const month of history) {
-    const totals = new Map<ExpenseCategoryId, Money>();
-    for (const transaction of transactionsIn(profile, month)) {
-      if (transaction.kind !== 'expense' || isRecurringInstance(transaction) || !transaction.category) continue;
-      const previous = totals.get(transaction.category) ?? Money.zero(currency);
-      totals.set(transaction.category, previous.plus(transaction.amount));
-    }
-    for (const [category, amount] of totals) {
+    for (const [category, amount] of discretionarySpendingByCategory(profile, month, currency)) {
       historyByCategory.set(category, [...(historyByCategory.get(category) ?? []), amount]);
     }
   }
 
+  /*
+   * Le mois en cours doit être mesuré exactement comme l'historique : ses seules dépenses
+   * ponctuelles. `summary.categoryTotals` y ajoute les charges récurrentes ramenées au
+   * mois — comparer les deux revenait à reprocher à l'utilisateur un abonnement inchangé
+   * depuis un an, et à proposer d'économiser une somme qui n'est pas libre.
+   */
+  const currentByCategory = discretionarySpendingByCategory(profile, period, currency);
+
+  /*
+   * Une catégorie ne produit qu'une piste. « Revenir à votre habitude » et « réduire ce
+   * poste de 30 % » visent le même argent : les additionner promettait 580 € d'économies
+   * sur un poste qui en coûte 600. C'est la plus généreuse des deux qui fait foi.
+   */
+  const perCategory = new Map<ExpenseCategoryId, OptimizationSuggestion>();
+  const keepBest = (suggestion: OptimizationSuggestion & { category: ExpenseCategoryId }): void => {
+    const existing = perCategory.get(suggestion.category);
+    if (!existing || suggestion.monthlySaving.greaterThan(existing.monthlySaving)) {
+      perCategory.set(suggestion.category, suggestion);
+    }
+  };
+
   // 1. Catégories au-dessus de l'habitude de l'utilisateur.
-  for (const total of summary.categoryTotals) {
-    const past = historyByCategory.get(total.category);
+  for (const [category, amount] of currentByCategory) {
+    const past = historyByCategory.get(category);
     if (!past || past.length < 3) continue;
     const median = Statistics.median(past, currency);
     if (!median.isPositive) continue;
-    const drift = total.amount.minus(median);
+    const drift = amount.minus(median);
     const ratio = drift.ratioTo(median);
     if (ratio === null || ratio < DRIFT_THRESHOLD) continue;
 
-    suggestions.push({
-      id: `drift.${total.category}`,
+    keepBest({
+      id: `drift.${category}`,
       kind: 'categoryAboveHabit',
-      title: `${categoryLabel(total.category)} : ${Math.round(ratio * 100)} % au-dessus de votre habitude`,
+      title: `${categoryLabel(category)} : ${Math.round(ratio * 100)} % au-dessus de votre habitude`,
       detail:
-        `${total.amount.roundedToUnit.format()} ce mois-ci contre ${median.roundedToUnit.format()} en médiane ` +
+        `${amount.roundedToUnit.format()} ce mois-ci contre ${median.roundedToUnit.format()} en médiane ` +
         `sur vos ${past.length} derniers mois. Revenir à votre propre rythme libérerait ` +
         `${drift.roundedToUnit.format()}.`,
       monthlySaving: drift,
       annualSaving: drift.times(12n),
       effort: 'moderate',
-      category: total.category,
+      category,
     });
   }
 
@@ -128,24 +164,26 @@ export function optimize(
   }
 
   // 3. Postes discrétionnaires : on cible la part réellement compressible.
-  for (const total of summary.categoryTotals) {
-    const info = categoryInfo(total.category);
-    if (info.essential || info.compressibility < 0.5 || !total.amount.isPositive) continue;
-    const saving = total.amount.times(Math.min(DISCRETIONARY_CUT, info.compressibility));
+  for (const [category, amount] of currentByCategory) {
+    const info = categoryInfo(category);
+    if (info.essential || info.compressibility < 0.5 || !amount.isPositive) continue;
+    const saving = amount.times(Math.min(DISCRETIONARY_CUT, info.compressibility));
     if (saving.roundedToUnit.units < 10) continue;
-    suggestions.push({
-      id: `discretionary.${total.category}`,
+    keepBest({
+      id: `discretionary.${category}`,
       kind: 'discretionarySpending',
-      title: `${categoryLabel(total.category)} : ${saving.roundedToUnit.format()} récupérables`,
+      title: `${categoryLabel(category)} : ${saving.roundedToUnit.format()} récupérables`,
       detail:
-        `${total.amount.roundedToUnit.format()} ce mois-ci. Réduire d'environ ${Math.round(DISCRETIONARY_CUT * 100)} % ` +
+        `${amount.roundedToUnit.format()} ce mois-ci. Réduire d'environ ${Math.round(DISCRETIONARY_CUT * 100)} % ` +
         `est un objectif tenable sur un poste de ce type — c'est vous qui décidez s'il en vaut la peine.`,
       monthlySaving: saving,
       annualSaving: saving.times(12n),
       effort: 'demanding',
-      category: total.category,
+      category,
     });
   }
+
+  suggestions.push(...perCategory.values());
 
   // 4. Dettes coûteuses : l'intérêt payé est une dépense invisible.
   for (const debt of activeDebts(profile)) {

@@ -9,6 +9,7 @@ import { useStore } from '../state/store';
 import { AnimatedAmount, Card, EmptyState } from './components';
 import { Sparkline } from './charts';
 import { useToast } from './Toast';
+import { formatDay, formatFullDay, formatWeekday } from './dates';
 
 const KIND_LABEL: Record<AccountKind, string> = {
   checking: 'Compte courant',
@@ -103,39 +104,30 @@ export function AccountsScreen() {
                 <div className="row-main">
                   <div className="row-title">{entry.source.name}</div>
                   <div className="row-subtitle">
-                    Attendu le {entry.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                    Attendu le {formatDay(entry.date)}
                     {entry.source.accountId
                       ? ` · vers ${profile.accounts.find((a) => a.id === entry.source.accountId)?.name ?? 'compte inconnu'}`
                       : fallbackAccount
                         ? ` · vers ${fallbackAccount.name}`
                         : ' · aucun compte à créditer'}
                     {entry.unassigned && ' · reçu, mais rattaché à aucun compte'}
+                    {entry.amount && entry.remaining.isPositive &&
+                      ` · ${entry.amount.roundedToUnit.format()} reçus, ${entry.remaining.roundedToUnit.format()} attendus`}
                   </div>
                 </div>
                 <div className="row-amount amount">
                   {(entry.amount ?? entry.expected).roundedToUnit.format()}
                 </div>
-                {entry.received ? (
-                  <button
-                    type="button"
-                    className="button button-small"
-                    onClick={() => {
-                      removeTransaction(entry.received!.id);
-                      toast({ message: `Encaissement de « ${entry.source.name} » annulé.` });
-                    }}
-                  >
-                    Annuler
-                  </button>
-                ) : (
+                {entry.remaining.isPositive ? (
                   <button
                     type="button"
                     className="button button-primary button-small"
                     onClick={() => {
                       const created = addTransaction(
-                        receiptTransaction(entry, period, entry.expected, fallbackAccount?.id, analysis.reference),
+                        receiptTransaction(entry, period, entry.remaining, fallbackAccount?.id, analysis.reference),
                       );
                       toast({
-                        message: `${entry.expected.roundedToUnit.format()} crédités sur ${
+                        message: `${entry.remaining.roundedToUnit.format()} crédités sur ${
                           profile.accounts.find(
                             (candidate) => candidate.id === (entry.source.accountId ?? fallbackAccount?.id),
                           )?.name ?? 'aucun compte'
@@ -145,7 +137,18 @@ export function AccountsScreen() {
                       });
                     }}
                   >
-                    J’ai reçu
+                    {entry.amount ? 'Compléter' : 'J’ai reçu'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => {
+                      for (const receipt of entry.receipts) removeTransaction(receipt.id);
+                      toast({ message: `Encaissement de « ${entry.source.name} » annulé.` });
+                    }}
+                  >
+                    Annuler
                   </button>
                 )}
               </div>
@@ -184,7 +187,7 @@ export function AccountsScreen() {
                   <div className="row-title">
                     {transaction.label || (transaction.category ? categoryLabel(transaction.category) : 'Écriture')}
                   </div>
-                  <div className="row-subtitle">{transaction.date}</div>
+                  <div className="row-subtitle">{formatFullDay(transaction.date)}</div>
                 </div>
                 <div className="row-amount amount">{transaction.amount.roundedToUnit.format()}</div>
               </div>
@@ -254,7 +257,7 @@ function AccountCard({
             ? 'Valeur des lignes de portefeuille'
             : movementCount === 0
               ? 'Aucun mouvement ce mois-ci'
-              : `${movementCount} mouvement${movementCount > 1 ? 's' : ''} · relevé du ${parseDate(account.balanceDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+              : `${movementCount} mouvement${movementCount > 1 ? 's' : ''} · relevé du ${formatFullDay(account.balanceDate)}`}
         </span>
         <button type="button" className="button button-small" onClick={onToggle} disabled={movementCount === 0}>
           {open ? 'Masquer' : 'Voir le détail'}
@@ -289,7 +292,7 @@ function MovementsCard({ summary }: { readonly summary: AccountSummary }) {
                 (movement.transaction.category ? categoryLabel(movement.transaction.category) : 'Écriture')}
             </div>
             <div className="row-subtitle">
-              {movement.date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })}
+              {formatWeekday(movement.date)}
               {movement.transaction.category ? ` · ${categoryLabel(movement.transaction.category)}` : ''}
             </div>
           </div>

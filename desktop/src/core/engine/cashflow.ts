@@ -1,6 +1,6 @@
 import { Money } from '../money';
 import { approximateDayInterval, monthlyEquivalent } from '../frequency';
-import { activeDebts, activeIncomes, activeRecurringExpenses, availableBalance, type FinancialProfile } from '../model';
+import { activeDebts, availableBalance, incomesFor, recurringExpensesFor, type FinancialProfile } from '../model';
 import { containsDate, daysInMonth, dateOf, parseDate, startOfDay, type YearMonth } from '../yearMonth';
 import type { MonthlySummary } from './budget';
 
@@ -51,7 +51,7 @@ export function forecastCashFlow(
   const events: CashFlowEvent[] = [];
 
   // Revenus : placés à leur date d'échéance, ou en fin de mois à défaut d'information.
-  for (const income of activeIncomes(profile, reference)) {
+  for (const income of incomesFor(profile, period)) {
     const monthly = monthlyEquivalent(income.amount, income.frequency);
     if (!monthly.isPositive) continue;
     const interval = approximateDayInterval(income.frequency);
@@ -84,7 +84,7 @@ export function forecastCashFlow(
     }
   }
 
-  for (const expense of activeRecurringExpenses(profile, reference)) {
+  for (const expense of recurringExpensesFor(profile, period)) {
     const monthly = monthlyEquivalent(expense.amount, expense.frequency);
     if (!monthly.isPositive) continue;
     events.push({

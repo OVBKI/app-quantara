@@ -9,11 +9,23 @@ import {
   rebalanceAllocation,
   type Transaction,
 } from '../model';
-import { MARCH_2026, account, fixedExpense, income, referenceDate, savingsAccount, standardProfile } from '../testing/fixtures';
+import { addMonths, dateOf, formatDate, lastMonths } from '../yearMonth';
+import {
+  MARCH_2026,
+  account,
+  expense,
+  fixedExpense,
+  income,
+  referenceDate,
+  savingsAccount,
+  standardProfile,
+} from '../testing/fixtures';
 import { analyse } from './analysis';
 import { monthlySummary } from './budget';
 import { accountMovements, summariseAccount } from './accounts';
 import { importCsv } from './csv';
+import { optimize } from './optimization';
+import { expectedIncomes, receiptTotals } from './receipts';
 
 /**
  * Régressions issues de l'audit.
@@ -225,6 +237,222 @@ describe('Patrimoine — une ligne de portefeuille ne compte qu’une fois', () 
     });
 
     expect(netWorth(profile, referenceDate(28)).equals(Money.of(10000))).toBe(true);
+  });
+});
+
+describe('Historique — un mois passé se calcule avec les charges de ce mois-là', () => {
+  it('ne fait pas apparaître dans mars une charge qui commence en juin', () => {
+    /*
+     * Les dates de début et de fin d'une charge existaient, mais étaient toujours
+     * évaluées à la date du jour : quel que soit le mois affiché, c'était la liste des
+     * charges d'aujourd'hui qui servait. Conséquence directe : impossible d'enregistrer
+     * une hausse de loyer sans réécrire tout le passé, puisque clore l'ancienne charge et
+     * en ouvrir une nouvelle ne changeait rien à ce qui était affiché.
+     */
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [
+        { ...fixedExpense('Loyer', 800, 'fixed.rent'), endDate: '2026-05-31' },
+        { ...fixedExpense('Loyer augmenté', 900, 'fixed.rent'), startDate: '2026-06-01' },
+      ],
+      transactions: [],
+    });
+
+    // Vu depuis juillet — le mois de mars ne connaît que l'ancien loyer.
+    const july = referenceDate(10, addMonths(MARCH_2026, 4));
+    expect(monthlySummary(profile, MARCH_2026, july).fixedExpenses.equals(Money.of(800))).toBe(true);
+    expect(monthlySummary(profile, addMonths(MARCH_2026, 4), july).fixedExpenses.equals(Money.of(900))).toBe(true);
+  });
+
+  it('garde une charge close en cours de mois pour le mois qu’elle a couvert', () => {
+    // Un abonnement résilié le 12 mars a bien été payé en mars.
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [{ ...fixedExpense('Streaming', 30, 'fixed.subscriptions'), endDate: '2026-03-12' }],
+      transactions: [],
+    });
+
+    expect(monthlySummary(profile, MARCH_2026, referenceDate(28)).fixedExpenses.equals(Money.of(30))).toBe(true);
+    expect(
+      monthlySummary(profile, addMonths(MARCH_2026, 1), referenceDate(28)).fixedExpenses.isZero,
+    ).toBe(true);
+  });
+
+  it('ne compte pas un revenu qui n’avait pas encore commencé', () => {
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [{ ...income('Nouveau poste', 3000), startDate: '2026-06-01' }],
+      recurringExpenses: [],
+      transactions: [],
+    });
+
+    const july = referenceDate(10, addMonths(MARCH_2026, 4));
+    expect(monthlySummary(profile, MARCH_2026, july).income.isZero).toBe(true);
+    expect(monthlySummary(profile, addMonths(MARCH_2026, 4), july).income.equals(Money.of(3000))).toBe(true);
+  });
+});
+
+describe('Revenus — un encaissement complète l’attente, il ne la remplace pas', () => {
+  function received(amount: number, day: number, sourceId: string, period = MARCH_2026): Transaction {
+    return {
+      id: `recu-${sourceId}-${day}`,
+      amount: Money.of(amount),
+      date: formatDate(dateOf(period, day)),
+      kind: 'income',
+      label: 'Virement',
+      incomeSourceId: sourceId,
+    };
+  }
+
+  it('ne ramène pas un salaire de 3 000 € à 1 500 € parce qu’un acompte est saisi', () => {
+    /*
+     * Saisir un acompte faisait tomber le revenu du mois au montant de l'acompte, et le
+     * disponible avec lui : l'application annonçait un budget en déficit à quelqu'un dont
+     * le salaire arrive dans huit jours. Le geste le plus naturel — noter ce qui vient
+     * d'arriver sur le compte — était puni.
+     */
+    const salaire = income('Salaire', 3000);
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 2000)],
+      incomes: [salaire],
+      recurringExpenses: [],
+      transactions: [received(1500, 10, salaire.id)],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(12));
+
+    expect(summary.income.equals(Money.of(3000))).toBe(true);
+    expect(summary.incomeDetail.received.equals(Money.of(1500))).toBe(true);
+  });
+
+  it('retient le montant réel quand il dépasse l’attente', () => {
+    const salaire = income('Salaire', 3000);
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 2000)],
+      incomes: [salaire],
+      recurringExpenses: [],
+      transactions: [received(3200, 27, salaire.id)],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(28));
+    expect(summary.income.equals(Money.of(3200))).toBe(true);
+  });
+
+  it('propose de compléter un acompte au lieu de le tenir pour soldé', () => {
+    const salaire = income('Salaire', 3000);
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 2000)],
+      incomes: [salaire],
+      transactions: [received(1500, 10, salaire.id), received(1500, 27, salaire.id)],
+    });
+
+    const [entry] = expectedIncomes(profile, MARCH_2026, referenceDate(28));
+
+    // Les deux versements comptent : ne lire que le premier laissait le mois
+    // éternellement à moitié encaissé.
+    expect(entry!.receipts).toHaveLength(2);
+    expect(entry!.amount!.equals(Money.of(3000))).toBe(true);
+    expect(entry!.remaining.isZero).toBe(true);
+    expect(receiptTotals([entry!], 'EUR').pending).toBe(0);
+  });
+
+  it('ne compte pas trois fois un revenu trimestriel encaissé', () => {
+    /*
+     * Un revenu trimestriel de 3 000 € vaut 1 000 €/mois une fois lissé. Saisir
+     * l'encaissement le portait à 3 000 € pour le mois qui le reçoit, sans rien retirer
+     * aux deux autres : le trimestre en annonçait 5 000.
+     */
+    const prime = income('Prime trimestrielle', 3000, 'quarterly');
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 2000)],
+      incomes: [prime],
+      recurringExpenses: [],
+      transactions: [received(3000, 5, prime.id)],
+    });
+
+    const quarter = [MARCH_2026, addMonths(MARCH_2026, 1), addMonths(MARCH_2026, 2)].map(
+      (month) => monthlySummary(profile, month, referenceDate(28)).income,
+    );
+
+    expect(quarter[0]!.equals(Money.of(1000))).toBe(true);
+    expect(Money.sum(quarter, 'EUR').equals(Money.of(3000))).toBe(true);
+  });
+});
+
+describe('Optimisation — une même économie ne se compte qu’une fois', () => {
+  /** Six mois à 200 € de restaurants, puis un mois à 600 €. */
+  function restaurantHistory(): Transaction[] {
+    return lastMonths(addMonths(MARCH_2026, -1), 6).map((month, index) => ({
+      id: `resto-${index}`,
+      amount: Money.of(200),
+      date: formatDate(dateOf(month, 10)),
+      kind: 'expense' as const,
+      label: 'Restaurant',
+      category: 'variable.restaurants' as const,
+    }));
+  }
+
+  it('n’annonce pas 580 € d’économies sur un poste qui en coûte 600', () => {
+    /*
+     * Deux pistes visaient la même catégorie et s'additionnaient : « revenir à votre
+     * habitude » libérait 400 €, « réduire ce poste discrétionnaire de 30 % » en libérait
+     * 180 de plus. Total annoncé : 580 € sur un poste de 600 € — soit une réduction de
+     * 97 % présentée comme tenable.
+     *
+     * Les deux pistes mènent au même argent : la plus généreuse fait foi, elles ne
+     * s'ajoutent pas.
+     */
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [],
+      transactions: [...restaurantHistory(), expense(600, 'variable.restaurants', 10)],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(28));
+    const result = optimize(profile, summary, MARCH_2026, referenceDate(28));
+
+    const onRestaurants = result.suggestions.filter((entry) => entry.category === 'variable.restaurants');
+    const claimed = Money.sum(onRestaurants.map((entry) => entry.monthlySaving), 'EUR');
+
+    expect(claimed.equals(Money.of(400))).toBe(true);
+    expect(claimed.greaterThan(Money.of(600))).toBe(false);
+  });
+
+  it('ne prend pas une charge récurrente pour un dérapage de comportement', () => {
+    /*
+     * L'habitude était mesurée sur les seules dépenses ponctuelles, mais le mois en cours
+     * y ajoutait les charges récurrentes de la même catégorie. Un abonnement de salle de
+     * sport inchangé depuis un an suffisait donc à déclencher « Loisirs : 50 % au-dessus
+     * de votre habitude » — et à proposer d'économiser une somme qui n'est pas libre.
+     */
+    const history: Transaction[] = lastMonths(addMonths(MARCH_2026, -1), 6).map((month, index) => ({
+      id: `loisir-${index}`,
+      amount: Money.of(100),
+      date: formatDate(dateOf(month, 10)),
+      kind: 'expense' as const,
+      label: 'Cinéma',
+      category: 'variable.leisure' as const,
+    }));
+
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [fixedExpense('Salle de sport', 50, 'variable.leisure')],
+      transactions: [...history, expense(100, 'variable.leisure', 10)],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(28));
+    const result = optimize(profile, summary, MARCH_2026, referenceDate(28));
+
+    // Rien n'a changé dans le comportement : aucune dérive à signaler.
+    expect(result.suggestions.some((entry) => entry.kind === 'categoryAboveHabit')).toBe(false);
+
+    // Et la piste discrétionnaire porte sur les 100 € réellement libres, pas sur 150.
+    const discretionary = result.suggestions.find((entry) => entry.kind === 'discretionarySpending');
+    expect(discretionary?.monthlySaving.equals(Money.of(30))).toBe(true);
   });
 });
 

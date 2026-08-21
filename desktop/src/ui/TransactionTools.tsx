@@ -5,6 +5,7 @@ import { importCsv, exportCsv, type ImportReport } from '../core/engine/csv';
 import { detectRecurrences, normalize } from '../core/engine/categorizer';
 import { useStore } from '../state/store';
 import { Modal } from './components';
+import { formatFullDay } from './dates';
 
 /**
  * Import d'un relevé bancaire.
@@ -90,7 +91,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
                   <div className="row-main">
                     <div className="row-title">{transaction.label}</div>
                     <div className="row-subtitle">
-                      {transaction.date}
+                      {formatFullDay(transaction.date)}
                       {transaction.category ? ` · ${categoryLabel(transaction.category)}` : ' · non catégorisé'}
                     </div>
                   </div>

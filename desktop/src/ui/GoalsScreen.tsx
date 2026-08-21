@@ -4,6 +4,7 @@ import type { Goal, GoalKind } from '../core/model';
 import type { GoalPlan } from '../core/engine/goals';
 import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, ProgressBar, parseAmount, useConfirm } from './components';
+import { formatFullDay } from './dates';
 
 const GOAL_KINDS: Record<GoalKind, string> = {
   emergencyFund: 'Fonds d’urgence',
@@ -90,7 +91,7 @@ export function GoalsScreen() {
                   <h2 style={{ margin: 0, fontSize: 17 }}>{plan.goal.name}</h2>
                   <p className="row-subtitle" style={{ margin: '2px 0 0' }}>
                     {GOAL_KINDS[plan.goal.kind]}
-                    {plan.goal.targetDate ? ` · échéance ${new Date(plan.goal.targetDate).toLocaleDateString('fr-FR')}` : ''}
+                    {plan.goal.targetDate ? ` · échéance ${formatFullDay(plan.goal.targetDate)}` : ''}
                   </p>
                 </div>
                 <div className="inline">

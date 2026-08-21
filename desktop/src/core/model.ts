@@ -2,7 +2,7 @@ import { Money, type Currency } from './money';
 import type { Frequency } from './frequency';
 import type { ExpenseCategoryId, IncomeCategory } from './categories';
 import { categoryInfo } from './categories';
-import { containsDate, parseDate, type YearMonth } from './yearMonth';
+import { containsDate, endOfMonth, parseDate, startOfMonth, type YearMonth } from './yearMonth';
 import type { CategorizationRule } from './engine/categorizer';
 import type { IncomePlanningMode } from './engine/income';
 import { DEFAULT_ALERT_PREFERENCES, type AlertPreferences } from './engine/alerts';
@@ -410,12 +410,39 @@ function isActiveOn(entry: { startDate?: string; endDate?: string }, reference: 
   return true;
 }
 
+/**
+ * Une charge ou un revenu était-il en vigueur **pendant** un mois donné ?
+ *
+ * Le critère est le chevauchement, pas une date ponctuelle : un abonnement résilié le
+ * 12 mars a bien été payé en mars, et un loyer qui débute le 20 juin concerne le budget de
+ * juin. Poser la question sur un seul jour aurait fait disparaître l'un ou l'autre.
+ *
+ * C'est ce qui rend l'historique stable. Les dates de début et de fin existaient déjà,
+ * mais n'étaient évaluées qu'à la date du jour : le budget de mars dernier était calculé
+ * avec les charges d'aujourd'hui, si bien qu'une hausse de loyer repeignait tout le passé.
+ */
+function isActiveDuring(entry: { startDate?: string; endDate?: string }, period: YearMonth): boolean {
+  if (entry.startDate && parseDate(entry.startDate) > endOfMonth(period)) return false;
+  if (entry.endDate && parseDate(entry.endDate) < startOfMonth(period)) return false;
+  return true;
+}
+
 export function activeIncomes(profile: FinancialProfile, reference: Date): IncomeSource[] {
   return profile.incomes.filter((income) => income.active && isActiveOn(income, reference));
 }
 
 export function activeRecurringExpenses(profile: FinancialProfile, reference: Date): RecurringExpense[] {
   return profile.recurringExpenses.filter((expense) => expense.active && isActiveOn(expense, reference));
+}
+
+/** Les revenus en vigueur pendant `period`. À préférer dès qu'un mois est affiché. */
+export function incomesFor(profile: FinancialProfile, period: YearMonth): IncomeSource[] {
+  return profile.incomes.filter((income) => income.active && isActiveDuring(income, period));
+}
+
+/** Les charges récurrentes en vigueur pendant `period`. */
+export function recurringExpensesFor(profile: FinancialProfile, period: YearMonth): RecurringExpense[] {
+  return profile.recurringExpenses.filter((expense) => expense.active && isActiveDuring(expense, period));
 }
 
 export function activeDebts(profile: FinancialProfile): Debt[] {

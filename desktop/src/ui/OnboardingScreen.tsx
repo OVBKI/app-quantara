@@ -12,6 +12,7 @@ import { analyse } from '../core/engine/analysis';
 import { formatDate, yearMonthOf } from '../core/yearMonth';
 import { useStore } from '../state/store';
 import { Field, MoneyInput, parseAmount } from './components';
+import { formatFullDay } from './dates';
 
 interface DraftExpense {
   readonly name: string;
@@ -692,7 +693,7 @@ export function OnboardingScreen() {
                     <div className="row-main">
                       <div className="row-title">{goal.name}</div>
                       <div className="row-subtitle">
-                        {goal.targetDate ? `Échéance ${goal.targetDate}` : 'Sans échéance'} · priorité {index + 1}
+                        {goal.targetDate ? `Échéance ${formatFullDay(goal.targetDate)}` : 'Sans échéance'} · priorité {index + 1}
                       </div>
                     </div>
                     <div className="row-amount amount">{goal.target.roundedToUnit.format()}</div>

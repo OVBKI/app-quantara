@@ -1,6 +1,6 @@
 import { Money } from '../money';
 import { monthlyEquivalent } from '../frequency';
-import { activeIncomes, type FinancialProfile, type IncomeSource, type Transaction } from '../model';
+import { incomesFor, type FinancialProfile, type IncomeSource, type Transaction } from '../model';
 import { containsDate, daysInMonth, dateOf, parseDate, type YearMonth } from '../yearMonth';
 
 /**
@@ -21,11 +21,19 @@ export interface ExpectedIncome {
   readonly expected: Money;
   /** Date à laquelle il est attendu. */
   readonly date: Date;
-  /** L'écriture déjà enregistrée pour ce revenu et ce mois, s'il y en a une. */
-  readonly received: Transaction | null;
-  /** Montant réellement reçu, quand il est enregistré. */
+  /** Toutes les écritures enregistrées pour ce revenu et ce mois — un acompte puis le
+   *  solde en font deux, et les deux comptent. */
+  readonly receipts: readonly Transaction[];
+  /** Montant réellement reçu, somme de toutes les écritures. `null` si rien n'est saisi. */
   readonly amount: Money | null;
-  /** Reçu mais sans compte crédité : le solde ne bouge pas, il faut le dire. */
+  /**
+   * Ce qui manque encore pour atteindre l'attente.
+   *
+   * Zéro dès qu'elle est couverte — et zéro également lorsqu'une écriture à 0 € a été
+   * saisie : déclarer « rien reçu » est une réponse, pas un encaissement en attente.
+   */
+  readonly remaining: Money;
+  /** Au moins une écriture sans compte crédité : le solde ne bouge pas, il faut le dire. */
   readonly unassigned: boolean;
 }
 
@@ -37,31 +45,37 @@ function expectedDay(source: IncomeSource, period: YearMonth): number {
 /**
  * Ce qui est attendu ce mois-ci, et ce qui est déjà tombé.
  *
- * Un revenu est considéré comme encaissé dès qu'une écriture de revenu porte son
- * identifiant sur le mois — quel que soit son montant, y compris zéro. « Rien reçu » est
- * une réponse, pas une absence de réponse.
+ * Toutes les écritures du mois portant l'identifiant de la source sont additionnées, pas
+ * seulement la première : un acompte suivi du solde forme un encaissement complet. Ne
+ * retenir que la première écriture laissait le mois éternellement « partiellement reçu ».
  */
 export function expectedIncomes(
   profile: FinancialProfile,
   period: YearMonth,
-  reference: Date = new Date(),
+  /** Conservé par symétrie : les sources retenues dépendent du mois affiché. */
+  _reference: Date = new Date(),
 ): readonly ExpectedIncome[] {
-  return activeIncomes(profile, reference).map((source) => {
-    const received =
-      profile.transactions.find(
-        (transaction) =>
-          transaction.kind === 'income' &&
-          transaction.incomeSourceId === source.id &&
-          containsDate(period, parseDate(transaction.date)),
-      ) ?? null;
+  return incomesFor(profile, period).map((source) => {
+    const receipts = profile.transactions.filter(
+      (transaction) =>
+        transaction.kind === 'income' &&
+        transaction.incomeSourceId === source.id &&
+        containsDate(period, parseDate(transaction.date)),
+    );
+    const expected = monthlyEquivalent(source.amount, source.frequency);
+    const amount = receipts.length === 0 ? null : Money.sum(receipts.map((entry) => entry.amount), profile.currency);
+    const declaredNothing = receipts.some((entry) => entry.amount.isZero);
 
     return {
       source,
-      expected: monthlyEquivalent(source.amount, source.frequency),
+      expected,
       date: dateOf(period, expectedDay(source, period)),
-      received,
-      amount: received?.amount ?? null,
-      unassigned: received !== null && received.accountId === undefined,
+      receipts,
+      amount,
+      remaining: declaredNothing
+        ? Money.zero(profile.currency)
+        : expected.minus(amount ?? Money.zero(profile.currency)).clampedToZero,
+      unassigned: receipts.some((entry) => entry.accountId === undefined),
     };
   });
 }
@@ -118,9 +132,10 @@ export function receiptTotals(
   return {
     expected: Money.sum(entries.map((entry) => entry.expected), currency),
     received: Money.sum(
-      entries.filter((entry) => entry.amount !== null).map((entry) => entry.amount!),
+      entries.map((entry) => entry.amount ?? Money.zero(currency)),
       currency,
     ),
-    pending: entries.filter((entry) => entry.received === null).length,
+    // Un encaissement partiel reste en attente : il manque encore quelque chose.
+    pending: entries.filter((entry) => entry.remaining.isPositive).length,
   };
 }

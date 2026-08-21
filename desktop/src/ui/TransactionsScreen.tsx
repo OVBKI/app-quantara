@@ -15,6 +15,7 @@ import { useStore } from '../state/store';
 import { Card, EmptyState, Field, Modal, MoneyInput, parseAmount, useConfirm } from './components';
 import { ImportDialog, RecurrenceDialog, downloadTransactionsCsv } from './TransactionTools';
 import { categorize } from '../core/engine/categorizer';
+import { formatLongWeekday } from './dates';
 
 const KIND_LABELS: Record<TransactionKind, string> = {
   expense: 'Dépense',
@@ -232,11 +233,7 @@ export function TransactionsScreen() {
             <div key={date} style={{ marginBottom: 18 }}>
               <div className="inline" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
                 <span className="row-subtitle" style={{ textTransform: 'capitalize' }}>
-                  {parseDate(date).toLocaleDateString('fr-FR', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                  })}
+                  {formatLongWeekday(date)}
                 </span>
                 <span className="row-subtitle amount">{dayTotal(entries, profile.currency)}</span>
               </div>

@@ -9,6 +9,7 @@ import { buildMonthlyReport } from '../core/engine/monthlyReport';
 import { useStore } from '../state/store';
 import { Card, Field, MoneyInput, Tile, parseAmount } from './components';
 import { BarList, MultiTrend, foldSlices, type Slice } from './charts';
+import { formatDay } from './dates';
 
 export function ProjectionScreen() {
   return (
@@ -144,7 +145,7 @@ function ForecastCard() {
           tone={cashFlow.projectedOverdraft ? 'critical' : undefined}
           note={
             cashFlow.lowestBalanceDate
-              ? `Le ${cashFlow.lowestBalanceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`
+              ? `Le ${formatDay(cashFlow.lowestBalanceDate)}`
               : 'Aucune tension prévue'
           }
         />

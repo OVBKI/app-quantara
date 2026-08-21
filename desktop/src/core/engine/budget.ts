@@ -4,9 +4,9 @@ import { monthlyEquivalent } from '../frequency';
 import { categoryInfo, type ExpenseCategoryId } from '../categories';
 import {
   activeDebts,
-  activeRecurringExpenses,
   isEssential,
   isRecurringInstance,
+  recurringExpensesFor,
   transactionsIn,
   type FinancialProfile,
   type Transaction,
@@ -193,7 +193,6 @@ export function smoothedIncomeBaseline(
 function categoryTotals(
   profile: FinancialProfile,
   period: YearMonth,
-  reference: Date,
   totalExpenses: Money,
 ): CategoryTotal[] {
   const amounts = new Map<ExpenseCategoryId, Money>();
@@ -202,7 +201,7 @@ function categoryTotals(
     amounts.set(category, previous.plus(amount));
   };
 
-  for (const expense of activeRecurringExpenses(profile, reference)) {
+  for (const expense of recurringExpensesFor(profile, period)) {
     add(expense.category, monthlyEquivalent(expense.amount, expense.frequency));
   }
 
@@ -233,7 +232,7 @@ export function monthlySummary(
   const income = detail.planned;
   const incomeBaseline = smoothedIncomeBaseline(profile, period, detail.typical);
 
-  const recurring = activeRecurringExpenses(profile, reference);
+  const recurring = recurringExpensesFor(profile, period);
   const fixedExpenses = Money.sum(
     recurring.map((expense) => monthlyEquivalent(expense.amount, expense.frequency)),
     currency,
@@ -342,7 +341,7 @@ export function monthlySummary(
     fixedRatio: fixedExpenses.ratioTo(income),
     savingsRate: savingsContributions.ratioTo(income),
     essentialRatio: essentialExpenses.ratioTo(income),
-    categoryTotals: categoryTotals(profile, period, reference, totalExpenses),
+    categoryTotals: categoryTotals(profile, period, totalExpenses),
     daysElapsed,
     daysRemaining,
     safeToSpendPerDay,

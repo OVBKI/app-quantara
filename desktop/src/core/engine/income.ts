@@ -1,7 +1,7 @@
 import { Money } from '../money';
 import type { Currency } from '../money';
-import { monthlyEquivalent } from '../frequency';
-import { activeIncomes, transactionsIn, type FinancialProfile, type IncomeSource } from '../model';
+import { monthlyEquivalent, occurrencesPerYear, type Frequency } from '../frequency';
+import { incomesFor, transactionsIn, type FinancialProfile, type IncomeSource } from '../model';
 import { addMonths, lastMonths, yearMonthEquals, yearMonthOf, type YearMonth } from '../yearMonth';
 import { Statistics } from './statistics';
 
@@ -214,8 +214,6 @@ export function estimateSource(
 }
 
 function pick(estimate: IncomeSourceEstimate, mode: IncomePlanningMode): Money {
-  // Un montant encaissé n'est plus une hypothèse : il remplace l'estimation.
-  if (estimate.actual) return estimate.actual;
   switch (mode) {
     case 'prudent':
       return estimate.low;
@@ -226,14 +224,45 @@ function pick(estimate: IncomeSourceEstimate, mode: IncomePlanningMode): Money {
   }
 }
 
+/** Un flux dont deux versements sont séparés de plus d'un mois. */
+function spansMoreThanAMonth(frequency: Frequency): boolean {
+  const occurrences = occurrencesPerYear(frequency);
+  return occurrences !== null && occurrences < 12;
+}
+
+/**
+ * Ce que le plan retient pour une source, une fois l'encaissement connu.
+ *
+ * Un encaissement **complète** l'attente, il ne la remplace pas. Un acompte de 1 500 € sur
+ * un salaire de 3 000 € ne ramène pas le revenu du mois à 1 500 € : il annonce que 1 500 €
+ * restent à venir. La règle qui en découle est une garantie simple à énoncer — noter une
+ * rentrée d'argent ne fait jamais baisser le revenu du mois.
+ *
+ * Deux exceptions, chacune pour une raison précise :
+ *
+ * - Une source **déclarée chaque mois** n'a pas d'attente à compléter : la déclaration
+ *   *est* le montant du mois, à la hausse comme à la baisse.
+ * - Un revenu **non mensuel** est déjà lissé par son équivalent mensuel. Un trimestre de
+ *   3 000 € vaut 1 000 €/mois ; laisser l'encaissement porter son mois à 3 000 € sans rien
+ *   retirer aux deux autres faisait compter 5 000 € pour le trimestre.
+ */
+function retained(estimate: IncomeSourceEstimate, expectation: Money): Money {
+  if (estimate.declaredMonthly) return estimate.actual ?? expectation;
+  if (estimate.actual === null) return expectation;
+  if (spansMoreThanAMonth(estimate.source.frequency)) return expectation;
+  return Money.max(expectation, estimate.actual);
+}
+
 export function incomeBreakdown(
   profile: FinancialProfile,
   period: YearMonth,
-  reference: Date,
+  /** Conservé par symétrie avec les autres moteurs : les sources retenues dépendent
+   *  désormais du mois affiché, pas de la date du jour. */
+  _reference: Date,
   mode: IncomePlanningMode,
 ): IncomeBreakdown {
   const currency: Currency = profile.currency;
-  const sources = activeIncomes(profile, reference).map((source) => estimateSource(profile, source, period));
+  const sources = incomesFor(profile, period).map((source) => estimateSource(profile, source, period));
 
   // Les entrées ponctuelles non rattachées à une source déclarée : prime, remboursement,
   // vente. Elles sont certaines puisque déjà encaissées, donc comptées à l'identique
@@ -245,10 +274,10 @@ export function incomeBreakdown(
     currency,
   );
 
-  const low = Money.sum([...sources.map((entry) => entry.actual ?? entry.low), oneOff], currency);
-  const typical = Money.sum([...sources.map((entry) => entry.actual ?? entry.typical), oneOff], currency);
-  const high = Money.sum([...sources.map((entry) => entry.actual ?? entry.high), oneOff], currency);
-  const planned = Money.sum([...sources.map((entry) => pick(entry, mode)), oneOff], currency);
+  const low = Money.sum([...sources.map((entry) => retained(entry, entry.low)), oneOff], currency);
+  const typical = Money.sum([...sources.map((entry) => retained(entry, entry.typical)), oneOff], currency);
+  const high = Money.sum([...sources.map((entry) => retained(entry, entry.high)), oneOff], currency);
+  const planned = Money.sum([...sources.map((entry) => retained(entry, pick(entry, mode))), oneOff], currency);
 
   const received = Money.sum(
     [...sources.map((entry) => entry.actual ?? Money.zero(currency)), oneOff],

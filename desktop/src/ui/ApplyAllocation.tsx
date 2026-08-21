@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ALLOCATION_PART_LABELS } from '../core/model';
-import { formatYearMonth, parseDate } from '../core/yearMonth';
+import { formatYearMonth } from '../core/yearMonth';
 import {
   applicationTransactions,
   appliedAllocation,
@@ -13,6 +13,7 @@ import { useStore } from '../state/store';
 import { Field, Modal } from './components';
 import { useToast } from './Toast';
 import { ALLOCATION_PART_COLORS } from './allocationVisual';
+import { formatDay } from './dates';
 
 /**
  * « Oui » — le moment où le partage cesse d'être un tableau.
@@ -59,7 +60,7 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
             {appliedTotal(profile, period).roundedToUnit.format()} déjà mis de côté
           </div>
           <div className="tertiary">
-            {when ? `Partagé le ${parseDate(when).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}` : ''} ·
+            {when ? `Partagé le ${formatDay(when)}` : ''} ·
             retiré de votre solde disponible
           </div>
         </div>
@@ -174,7 +175,7 @@ export function ApplyAllocationButton({ compact = false }: { readonly compact?: 
           )}
 
           <p className="rationale">
-            Écriture datée du {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}, sur{' '}
+            Écriture datée du {formatDay(new Date())}, sur{' '}
             {formatYearMonth(period)}. Ce sont des écritures internes à
             Quantara : aucun virement n’est envoyé à votre banque, à vous de le faire de votre côté. Vous pourrez tout
             annuler d’un clic.
