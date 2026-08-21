@@ -1,0 +1,247 @@
+import { describe, expect, it } from 'vitest';
+import { Money } from '../money';
+import {
+  DEFAULT_ALLOCATION_TARGETS,
+  ALLOCATION_PARTS,
+  allocationTotal,
+  accountBalance,
+  netWorth,
+  rebalanceAllocation,
+  type Transaction,
+} from '../model';
+import { MARCH_2026, account, fixedExpense, income, referenceDate, savingsAccount, standardProfile } from '../testing/fixtures';
+import { analyse } from './analysis';
+import { monthlySummary } from './budget';
+import { accountMovements, summariseAccount } from './accounts';
+import { importCsv } from './csv';
+
+/**
+ * Régressions issues de l'audit.
+ *
+ * Chaque cas de ce fichier a d'abord été écrit pour **échouer** : il reproduit un défaut
+ * constaté, avec des valeurs vérifiables à la main. Le garder ici après correction est ce
+ * qui empêche le défaut de revenir — un audit dont il ne reste qu'un rapport se refait
+ * entièrement au bout de six mois.
+ */
+
+describe('Trésorerie — les charges déjà payées ne sont pas décomptées deux fois', () => {
+  it('ne rejoue pas une échéance dont la transaction est déjà enregistrée', () => {
+    /*
+     * La simulation démarre au solde d'aujourd'hui, qui contient déjà le loyer prélevé le
+     * 3. Le rejouer depuis le 1er le soustrait une seconde fois, et l'application annonce
+     * un découvert à quelqu'un dont le compte est sain — le pire faux positif possible,
+     * et il frappe précisément l'utilisateur assidu qui saisit ses dépenses.
+     */
+    const courant = account('Compte courant', 3000, 'checking', '2026-02-28');
+    const loyer = fixedExpense('Loyer', 1200, 'fixed.rent', { dayOfMonth: 3 });
+    const paid: Transaction = {
+      id: 'loyer-mars',
+      amount: Money.of(1200),
+      date: '2026-03-03',
+      kind: 'expense',
+      label: 'Loyer',
+      category: 'fixed.rent',
+      accountId: courant.id,
+      recurringExpenseId: loyer.id,
+    };
+
+    const profile = standardProfile({
+      accounts: [courant],
+      incomes: [income('Salaire', 2000)],
+      recurringExpenses: [loyer],
+      transactions: [paid],
+    });
+
+    const { cashFlow } = analyse(profile, MARCH_2026, referenceDate(20));
+
+    // 3 000 − 1 200 déjà passés = 1 800 aujourd'hui ; le loyer ne repart pas une 2ᵉ fois.
+    expect(accountBalance(profile, courant, referenceDate(20)).equals(Money.of(1800))).toBe(true);
+    expect(cashFlow.points.find((point) => point.day === 20)!.balance.equals(Money.of(1800))).toBe(true);
+    expect(cashFlow.projectedOverdraft).toBe(false);
+  });
+});
+
+describe('Budget — le variable constaté s’arrête à aujourd’hui', () => {
+  it('n’extrapole pas une dépense datée plus tard dans le mois', () => {
+    /*
+     * Une dépense saisie d'avance au 20 ne peut pas servir à mesurer le rythme des six
+     * premiers jours : multipliée par 31/6, elle transforme 500 € en 2 583 € et fait
+     * basculer le budget en déficit imaginaire.
+     */
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [],
+      transactions: [
+        {
+          id: 'passe',
+          amount: Money.of(200),
+          date: '2026-03-03',
+          kind: 'expense',
+          label: 'Courses',
+          category: 'variable.groceries',
+        },
+        {
+          id: 'futur',
+          amount: Money.of(500),
+          date: '2026-03-20',
+          kind: 'expense',
+          label: 'Achat prévu',
+          category: 'variable.clothing',
+        },
+      ],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(6));
+
+    // Constaté à date : 200 € seulement. Les 500 € du 20 ne sont pas encore dépensés.
+    expect(summary.variableSpentToDate.equals(Money.of(200))).toBe(true);
+    expect(summary.disposable.isNegative).toBe(false);
+  });
+});
+
+describe('Répartition — les parts ne dépassent jamais 100 %', () => {
+  it('ne produit aucune part négative, quel que soit le curseur déplacé', () => {
+    // Balayage exhaustif au demi-point près : c'est le seul moyen d'attraper les
+    // combinaisons où les arrondis des trois premières parts dépassent le solde.
+    const bases = [
+      DEFAULT_ALLOCATION_TARGETS,
+      { enabled: true, security: 0, savings: 0.5, investment: 0.5, free: 0 },
+      { enabled: true, security: 0.33, savings: 0.33, investment: 0.17, free: 0.17 },
+      { enabled: true, security: 1, savings: 0, investment: 0, free: 0 },
+    ];
+
+    for (const base of bases) {
+      for (const part of ALLOCATION_PARTS) {
+        for (let percent = 0; percent <= 100; percent += 1) {
+          const moved = rebalanceAllocation(base, part, percent / 100);
+          for (const key of ALLOCATION_PARTS) {
+            expect(moved[key], `${part}→${percent}% donne ${key}=${moved[key]}`).toBeGreaterThanOrEqual(0);
+          }
+          expect(allocationTotal(moved)).toBeCloseTo(1, 5);
+        }
+      }
+    }
+  });
+
+  it('n’attribue jamais plus que le disponible', () => {
+    const profile = standardProfile({
+      preferences: {
+        ...standardProfile().preferences,
+        allocationTargets: { enabled: true, security: 0, savings: 0.5, investment: 0.5, free: 0 },
+      },
+    });
+    const { allocation } = analyse(profile, MARCH_2026, referenceDate(28));
+
+    expect(allocation.allocated.greaterThan(allocation.disposable)).toBe(false);
+  });
+});
+
+describe('Relevé de compte — un seul solde par compte', () => {
+  it('accorde le relevé et la tuile quand la date de relevé tombe dans le mois affiché', () => {
+    /*
+     * C'est le cas normal après la mise en route : « saisissez le solde d'aujourd'hui »
+     * pose une date de relevé en plein mois. Le relevé repartait alors du 1er et rejouait
+     * des mouvements déjà compris dans le solde — deux chiffres différents pour le même
+     * compte, sur le même écran.
+     */
+    const courant = account('Compte courant', 1000, 'checking', '2026-03-15');
+    const profile = standardProfile({
+      accounts: [courant],
+      transactions: [
+        {
+          id: 'avant',
+          amount: Money.of(100),
+          date: '2026-03-05',
+          kind: 'expense',
+          label: 'Avant le relevé',
+          category: 'variable.groceries',
+          accountId: courant.id,
+        },
+        {
+          id: 'apres',
+          amount: Money.of(50),
+          date: '2026-03-20',
+          kind: 'expense',
+          label: 'Après le relevé',
+          category: 'variable.groceries',
+          accountId: courant.id,
+        },
+      ],
+    });
+
+    const summary = summariseAccount(profile, courant, MARCH_2026, referenceDate(28));
+    const movements = accountMovements(profile, courant, MARCH_2026);
+
+    expect(summary.balance.equals(Money.of(950))).toBe(true);
+    expect(movements.at(-1)!.balanceAfter.equals(summary.balance)).toBe(true);
+    // La dépense antérieure au relevé est déjà comprise dedans : elle n'est pas rejouée.
+    expect(movements.map((entry) => entry.transaction.id)).toEqual(['apres']);
+    expect(summary.debited.equals(Money.of(50))).toBe(true);
+  });
+});
+
+describe('Import de relevé — un débit reste un débit', () => {
+  it('ne prend pas une colonne crédit à zéro pour un revenu', () => {
+    // Beaucoup de relevés français remplissent les deux colonnes, dont l'une à « 0,00 ».
+    const csv = ['Date;Libellé;Débit;Crédit', '05/03/2026;CARREFOUR;45,00;0,00'].join('\n');
+    const result = importCsv(csv, 'EUR');
+
+    expect(result.transactions).toHaveLength(1);
+    expect(result.transactions[0]!.kind).toBe('expense');
+  });
+
+  it('reconnaît toujours un vrai crédit', () => {
+    const csv = ['Date;Libellé;Débit;Crédit', '27/03/2026;VIREMENT SALAIRE;0,00;2500,00'].join('\n');
+    const result = importCsv(csv, 'EUR');
+
+    expect(result.transactions[0]!.kind).toBe('income');
+    expect(result.transactions[0]!.amount.equals(Money.of(2500))).toBe(true);
+  });
+});
+
+describe('Patrimoine — une ligne de portefeuille ne compte qu’une fois', () => {
+  it('ne double pas un placement rattaché à un compte qui n’est pas de type placement', () => {
+    /*
+     * Le compte peut être requalifié après coup dans les Réglages. Si l'exclusion ne
+     * regarde que les comptes de type « placement », la ligne s'ajoute au solde du livret
+     * au lieu de le remplacer, et le patrimoine double.
+     */
+    const livret = savingsAccount(10000);
+    const profile = standardProfile({
+      accounts: [livret],
+      transactions: [],
+      holdings: [
+        {
+          id: 'h1',
+          name: 'ETF monde',
+          assetClass: 'etf',
+          invested: Money.of(10000),
+          currentValue: Money.of(10000),
+          valuedOn: '2026-03-02',
+          accountId: livret.id,
+        },
+      ],
+    });
+
+    expect(netWorth(profile, referenceDate(28)).equals(Money.of(10000))).toBe(true);
+  });
+});
+
+describe('Enveloppes — une catégorie fixe n’est pas comptée deux fois', () => {
+  it('ne réserve pas un plafond posé sur une charge déjà récurrente', () => {
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [fixedExpense('Loyer', 900, 'fixed.rent')],
+      transactions: [],
+      categoryBudgets: [{ category: 'fixed.rent', limit: Money.of(900) }],
+    });
+
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(15));
+
+    expect(summary.fixedExpenses.equals(Money.of(900))).toBe(true);
+    expect(summary.totalExpenses.equals(Money.of(900))).toBe(true);
+    expect(summary.disposable.equals(Money.of(2100))).toBe(true);
+  });
+});

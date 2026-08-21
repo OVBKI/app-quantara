@@ -39,7 +39,7 @@
   --border-strong: rgba(139, 92, 246, 0.34);
   --text: #f4f1fb;
   --text-secondary: #b3a6d4;
-  --text-tertiary: #8577a8;
+  --text-tertiary: #a396c8;
 
   /* Accents de l'interface : magenta et cyan, comme la référence. Décoratifs — ils ne
      portent jamais une valeur, seulement l'état de l'interface. */
@@ -49,6 +49,14 @@
   --magenta: #ec4899;
   --cyan: #22d3ee;
   --gradient: linear-gradient(90deg, var(--magenta), var(--accent), var(--cyan));
+  /*
+   * Le même dégradé, assombri, pour ce qui porte du texte.
+   *
+   * Blanc sur le cyan clair tombait à 1,8:1 : le libellé des boutons de validation —
+   « Ajouter », « Enregistrer », « Oui, mettre de côté » — s'effaçait sur leur moitié
+   * droite. Chaque arrêt de cette version passe 4,5:1 avec du blanc.
+   */
+  --gradient-ink: linear-gradient(90deg, #b32167, #6d28d9, #0e7490);
 
   /* États. Réservés : jamais réutilisés comme couleur de série. */
   --positive: #22c55e;
@@ -96,13 +104,27 @@
     --border-strong: rgba(88, 28, 190, 0.26);
     --text: #1a1128;
     --text-secondary: #574a6e;
-    --text-tertiary: #7d719b;
+    --text-tertiary: #6b6280;
 
     --accent: #7c3aed;
     --accent-strong: #6d28d9;
     --accent-soft: rgba(124, 58, 237, 0.09);
     --magenta: #db2777;
     --cyan: #0891b2;
+
+    /*
+     * Les couleurs d'état, redéclinées pour fond clair.
+     *
+     * Elles n'étaient définies que pour le thème sombre. Sur une carte blanche, l'ambre
+     * d'avertissement tombait à 1,6:1 et le vert à 2,2:1 — « Pas encore déclaré », « à
+     * réévaluer », les pastilles d'enveloppe et les six voyants de santé disparaissaient
+     * purement et simplement. Windows démarrant en thème clair, c'était l'affichage par
+     * défaut de la plupart des gens. Ces valeurs-ci passent toutes 4,5:1 sur blanc.
+     */
+    --positive: #0f7a37;
+    --warning: #8a5a00;
+    --serious: #a8410a;
+    --critical: #c2183a;
 
     --grid: rgba(88, 28, 190, 0.09);
     --axis: rgba(88, 28, 190, 0.2);
@@ -284,6 +306,13 @@ textarea {
 .amount {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
+}
+
+/* Les chiffres tabulaires servent à aligner des colonnes. Sur un montant isolé et grand,
+   ils desserrent le nombre — on repasse en proportionnel. */
+.figure-proportional {
+  font-variant-numeric: proportional-nums;
+  font-feature-settings: 'pnum';
 }
 
 .hero {
@@ -1327,6 +1356,32 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* Le graphique prend le focus clavier : sans cela, les valeurs de la courbe ne seraient
+   accessibles qu'à la souris. */
+.chart-focusable:focus {
+  outline: none;
+}
+
+.chart-focusable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-small);
+}
+
+/* Visible pour les lecteurs d'écran, absent de l'écran. `clip-path` plutôt que
+   `display: none`, qui retirerait le texte de l'arbre d'accessibilité. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Bulle de survol des courbes. Suit le point, jamais le curseur : le chiffre reste
    attaché à la donnée qu'il commente. */
 .chart-tip {
@@ -1715,15 +1770,15 @@ body {
 }
 
 .button-primary {
-  background: var(--gradient);
+  background: var(--gradient-ink);
   border-color: transparent;
   box-shadow: var(--glow);
 }
 
 .button-primary:hover {
-  background: var(--gradient);
+  background: var(--gradient-ink);
   border-color: transparent;
-  filter: brightness(1.12);
+  filter: brightness(1.15);
 }
 
 .badge {

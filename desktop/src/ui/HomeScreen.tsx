@@ -52,6 +52,16 @@ function investedThisMonth(profile: FinancialProfile, period: YearMonth): Money 
   );
 }
 
+/*
+ * Couleur des courbes miniatures des tuiles.
+ *
+ * Une seule, et une couleur de série — pas le vert « positif », qui est un statut, ni
+ * l'accent de l'interface, qui ne code jamais une donnée. Chaque courbe est seule dans
+ * sa tuile, sous son propre titre : il n'y a aucune identité à distinguer, donc une
+ * seule teinte suffit. Quatre couleurs suggéreraient quatre familles qui n'existent pas.
+ */
+const TILE_TREND = 'var(--series-1)';
+
 const SEVERITY_COLOR: Record<InsightSeverity, string> = {
   critical: 'var(--critical)',
   warning: 'var(--warning)',
@@ -243,7 +253,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             tone={awaitingIncome ? undefined : 'positive'}
             change={awaitingIncome ? null : (change?.incomeChange ?? null)}
             trend={awaitingIncome ? undefined : trends.income}
-            trendColor="var(--positive)"
+            trendColor={TILE_TREND}
             note={
               awaitingIncome
                 ? 'Montant à déclarer'
@@ -261,7 +271,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             change={change?.expenseChange ?? null}
             invertChange
             trend={trends.spent}
-            trendColor="var(--series-2)"
+            trendColor={TILE_TREND}
             note={spentShare !== null ? `${Percent.format(spentShare, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
@@ -270,7 +280,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             tone={summary.savingsContributions.isPositive ? 'positive' : undefined}
             change={change?.savingsChange ?? null}
             trend={trends.savings}
-            trendColor="var(--savings)"
+            trendColor={TILE_TREND}
             note={summary.savingsRate !== null ? `${Percent.format(summary.savingsRate, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
@@ -279,7 +289,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             tone={summary.disposable.isNegative ? 'critical' : 'positive'}
             change={disposableChange}
             trend={trends.disposable}
-            trendColor="var(--accent)"
+            trendColor={TILE_TREND}
             note={summary.disposable.isNegative ? 'Le mois est déficitaire' : 'Après toutes les charges'}
           />
         </div>
@@ -471,9 +481,9 @@ function QuickExpense() {
     <Card title="Noter une dépense">
       <div className="field-row" style={{ alignItems: 'end' }}>
         <Field label="Montant">
-          {() => (
+          {(id) => (
             <MoneyInput
-              id="quick-expense-amount"
+              id={id}
               value={amount}
               currency={currency}
               onChange={setAmount}

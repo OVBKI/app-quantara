@@ -270,20 +270,33 @@ export function rebalanceAllocation(
   const pool = 100 - moved;
   const currentTotal = others.reduce((sum, key) => sum + Math.round(targets[key] * 100), 0);
 
-  const points: Record<string, number> = { [part]: moved };
-  let distributed = 0;
-  others.forEach((key, index) => {
-    const last = index === others.length - 1;
-    // Quand les autres parts sont toutes à zéro, il n'y a pas de proportion à respecter :
-    // le reste se partage également plutôt que de disparaître.
-    const value = last
-      ? pool - distributed
-      : currentTotal > 0
-        ? Math.round((pool * Math.round(targets[key] * 100)) / currentTotal)
-        : Math.floor(pool / others.length);
-    distributed += value;
-    points[key] = value;
+  /*
+   * Répartition du reste par plus forts restes.
+   *
+   * Arrondir chaque part indépendamment puis donner le solde à la dernière produisait des
+   * parts **négatives** : si les deux premières montaient d'un point chacune, la dernière
+   * payait les deux. Une part négative traversait ensuite tout le moteur et le partage
+   * proposait de virer plus d'argent qu'il n'en existait.
+   *
+   * Ici on plancher-arrondit d'abord — donc jamais au-dessus du disponible — puis on
+   * distribue les points restants un par un, aux parts dont la décimale perdue était la
+   * plus grande. Le total est exact et rien ne peut passer sous zéro.
+   */
+  const shares = others.map((key) => {
+    const weight = currentTotal > 0 ? Math.round(targets[key] * 100) / currentTotal : 1 / others.length;
+    const exact = pool * weight;
+    return { key, floor: Math.floor(exact), remainder: exact - Math.floor(exact) };
   });
+
+  let distributed = shares.reduce((sum, share) => sum + share.floor, 0);
+  const ordered = [...shares].sort((a, b) => b.remainder - a.remainder);
+  for (let index = 0; distributed < pool; index += 1) {
+    ordered[index % ordered.length]!.floor += 1;
+    distributed += 1;
+  }
+
+  const points: Record<string, number> = { [part]: moved };
+  for (const share of shares) points[share.key] = share.floor;
 
   return {
     enabled: targets.enabled,
@@ -477,14 +490,30 @@ export function accountBalance(
   return balance;
 }
 
+/**
+ * Comptes dont la valeur est donnée par des lignes de portefeuille.
+ *
+ * Leur solde ne compte plus nulle part ailleurs : ce sont les lignes qui font foi. La
+ * règle vaut quelle que soit la **nature** du compte — un compte peut être requalifié
+ * après coup dans les Réglages, et n'exclure que les comptes de type « placement »
+ * laissait la ligne s'ajouter au solde du livret au lieu de le remplacer : le patrimoine
+ * doublait.
+ */
+function accountsValuedByHoldings(profile: FinancialProfile): Set<string> {
+  return new Set(
+    profile.holdings.map((holding) => holding.accountId).filter((id): id is string => id !== undefined),
+  );
+}
+
 function balanceOfKinds(
   profile: FinancialProfile,
   kinds: readonly AccountKind[],
   reference: Date,
 ): Money {
+  const detailed = accountsValuedByHoldings(profile);
   return Money.sum(
     profile.accounts
-      .filter((account) => !account.archived && kinds.includes(account.kind))
+      .filter((account) => !account.archived && kinds.includes(account.kind) && !detailed.has(account.id))
       .map((account) => accountBalance(profile, account, reference)),
     profile.currency,
   );
@@ -507,7 +536,7 @@ export function totalSavingsBalance(profile: FinancialProfile, reference: Date =
  * l'ancien `savingsBalance` produisait à côté des comptes d'épargne.
  */
 export function totalInvestmentsBalance(profile: FinancialProfile, reference: Date = new Date()): Money {
-  const detailed = new Set(profile.holdings.map((holding) => holding.accountId).filter(Boolean));
+  const detailed = accountsValuedByHoldings(profile);
   const fromAccounts = profile.accounts
     .filter((account) => !account.archived && account.kind === 'investment' && !detailed.has(account.id))
     .map((account) => accountBalance(profile, account, reference));

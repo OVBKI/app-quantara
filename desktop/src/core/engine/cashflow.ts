@@ -1,7 +1,7 @@
 import { Money } from '../money';
 import { approximateDayInterval, monthlyEquivalent } from '../frequency';
 import { activeDebts, activeIncomes, activeRecurringExpenses, availableBalance, type FinancialProfile } from '../model';
-import { daysInMonth, dateOf, type YearMonth } from '../yearMonth';
+import { containsDate, daysInMonth, dateOf, parseDate, startOfDay, type YearMonth } from '../yearMonth';
 import type { MonthlySummary } from './budget';
 
 export interface CashFlowPoint {
@@ -16,6 +16,8 @@ export interface CashFlowEvent {
   readonly label: string;
   readonly amount: Money;
   readonly kind: 'income' | 'expense' | 'debt';
+  /** L'écriture correspondante existe déjà : l'échéance est honorée, pas attendue. */
+  readonly settled: boolean;
 }
 
 export interface CashFlowForecast {
@@ -60,6 +62,7 @@ export function forecastCashFlow(
       for (let index = 0; index < occurrences; index += 1) {
         const day = Math.min(Math.round((index + 1) * interval), total);
         events.push({
+          settled: false,
           id: `${income.id}-${index}`,
           date: dateOf(period, day),
           label: income.name,
@@ -69,6 +72,7 @@ export function forecastCashFlow(
       }
     } else {
       events.push({
+        settled: false,
         id: income.id,
         // Le 28 par défaut : tant que la date de réception n'est pas connue, mieux vaut
         // supposer tard dans le mois — une hypothèse optimiste masquerait un découvert.
@@ -84,6 +88,7 @@ export function forecastCashFlow(
     const monthly = monthlyEquivalent(expense.amount, expense.frequency);
     if (!monthly.isPositive) continue;
     events.push({
+      settled: false,
       id: expense.id,
       date: dateOf(period, expense.dayOfMonth),
       label: expense.name,
@@ -95,6 +100,7 @@ export function forecastCashFlow(
   for (const debt of activeDebts(profile)) {
     if (!debt.monthlyPayment.isPositive) continue;
     events.push({
+      settled: false,
       id: debt.id,
       date: dateOf(period, 5),
       label: debt.name,
@@ -106,8 +112,22 @@ export function forecastCashFlow(
   // Les dépenses variables sont étalées : on ne sait pas quel jour l'utilisateur fera
   // ses courses, seulement le rythme moyen.
   const dailyVariable = summary.variableProjected.dividedBy(BigInt(total));
-  const isCurrentMonth = reference.getFullYear() === period.year && reference.getMonth() + 1 === period.month;
-  const today = isCurrentMonth ? reference.getDate() : total;
+
+  /*
+   * Jusqu'où le mois est-il écoulé ?
+   *
+   * Zéro pour un mois à venir, le jour courant pour le mois en cours, le mois entier
+   * pour un mois révolu.
+   */
+  const elapsed = reference < dateOf(period, 1) ? 0 : reference >= dateOf(period, total) ? total : reference.getDate();
+
+  // Les échéances regroupées par jour, une fois : les refiltrer dans la boucle
+  // parcourait la liste entière trente et une fois.
+  const byDay = new Map<number, CashFlowEvent[]>();
+  for (const event of events) {
+    const day = event.date.getDate();
+    byDay.set(day, [...(byDay.get(day) ?? []), event]);
+  }
 
   const points: CashFlowPoint[] = [];
   let balance = openingBalance;
@@ -115,15 +135,26 @@ export function forecastCashFlow(
   let lowestDate: Date | null = null;
 
   for (let day = 1; day <= total; day += 1) {
-    for (const event of events.filter((entry) => entry.date.getDate() === day)) {
-      balance = event.kind === 'income' ? balance.plus(event.amount) : balance.minus(event.amount);
+    const date = dateOf(period, day);
+
+    if (day <= elapsed) {
+      /*
+       * Le passé se lit, il ne se simule pas.
+       *
+       * Le solde d'un jour écoulé est celui des comptes à cette date — il contient déjà
+       * les charges prélevées et les dépenses saisies. Rejouer les échéances par-dessus
+       * les déduisait une seconde fois, et l'application annonçait un découvert à
+       * quelqu'un dont le compte était sain. Le défaut frappait précisément l'utilisateur
+       * assidu : plus il saisissait ses dépenses, plus la courbe s'enfonçait.
+       */
+      balance = availableBalance(profile, date);
+    } else {
+      for (const event of byDay.get(day) ?? []) {
+        balance = event.kind === 'income' ? balance.plus(event.amount) : balance.minus(event.amount);
+      }
+      balance = balance.minus(dailyVariable);
     }
 
-    // Avant aujourd'hui, les dépenses variables sont déjà dans le solde réel : les
-    // ajouter une seconde fois compterait double.
-    if (day > today) balance = balance.minus(dailyVariable);
-
-    const date = dateOf(period, day);
     points.push({ day, date, balance });
 
     if (balance.lessThan(lowest)) {
@@ -132,8 +163,28 @@ export function forecastCashFlow(
     }
   }
 
-  const chronological = [...events].sort((a, b) => a.date.getTime() - b.date.getTime());
-  const upcoming = chronological.filter((event) => event.date >= reference);
+  /*
+   * Une échéance dont l'écriture existe déjà est honorée.
+   *
+   * Sans ce marquage, le calendrier affichait côte à côte le salaire encaissé et le
+   * salaire attendu — deux fois le même argent le même jour.
+   */
+  const settledExpenses = new Set(
+    profile.transactions
+      .filter((transaction) => containsDate(period, parseDate(transaction.date)))
+      .map((transaction) => transaction.recurringExpenseId ?? transaction.incomeSourceId)
+      .filter((id): id is string => id !== undefined),
+  );
+
+  const chronological = [...events]
+    .map((event) => ({ ...event, settled: settledExpenses.has(event.id.split('-')[0] ?? event.id) }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Comparaison à la journée : `reference` porte l'heure courante, `date` minuit. Sans
+  // cela, un prélèvement daté d'aujourd'hui disparaît des « prochaines échéances » dès
+  // 00 h 01 — exactement le jour où il faut le voir.
+  const startOfToday = startOfDay(reference);
+  const upcoming = chronological.filter((event) => !event.settled && event.date >= startOfToday);
 
   return {
     points,

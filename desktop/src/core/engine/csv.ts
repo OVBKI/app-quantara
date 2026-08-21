@@ -228,7 +228,12 @@ export function importCsv(
       continue;
     }
 
-    const isIncome = creditColumn !== -1 ? value > 0 && parseAmountField(fields[creditColumn] ?? '') !== null : value > 0;
+    // Un crédit vaut crédit s'il porte un montant : beaucoup de relevés français
+      // remplissent les deux colonnes, dont l'une à « 0,00 ». Tester la seule présence
+      // d'un nombre faisait passer chaque débit pour un revenu — 45 € de courses
+      // devenaient 45 € encaissés, soit 90 € d'écart sur une ligne.
+      const creditValue = creditColumn !== -1 ? parseAmountField(fields[creditColumn] ?? '') : null;
+      const isIncome = creditColumn !== -1 ? value > 0 && creditValue !== null && creditValue > 0 : value > 0;
     const amount = Money.of(Math.abs(value), currency);
     const key = `${date}|${label}|${amount.micros}`;
 

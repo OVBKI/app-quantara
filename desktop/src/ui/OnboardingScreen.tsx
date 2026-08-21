@@ -151,7 +151,15 @@ export function OnboardingScreen() {
    * validé, et revenir en arrière ne laisse aucune trace à nettoyer.
    */
   const draft = useMemo<FinancialProfile>(() => {
-    const base = emptyProfile(currency);
+    /*
+     * On part du profil **existant**, pas d'un profil vide.
+     *
+     * Un fichier ancien portant des comptes et des transactions mais aucun revenu
+     * déclaré était jugé « jamais mis en route » ; terminer le questionnaire effaçait
+     * alors tout — comptes, transactions, objectifs, placements. Repartir de l'existant
+     * rend l'étape additive : au pire elle complète, jamais elle ne supprime.
+     */
+    const base = existing.accounts.length > 0 || existing.transactions.length > 0 ? existing : emptyProfile(currency);
     const savingsBalance = parseAmount(savings, currency) ?? Money.zero(currency);
     const createdAt = new Date().toISOString();
     const today = formatDate(new Date());

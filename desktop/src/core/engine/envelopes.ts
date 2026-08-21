@@ -64,8 +64,16 @@ export function buildEnvelopes(
   const monthProgress = elapsed / total;
   const daysRemaining = Math.max(total - elapsed, 0);
 
+  /*
+   * Une enveloppe ne se pose que sur une dépense **variable**.
+   *
+   * Sur une catégorie fixe, elle n'a rien à décider : le montant est déjà déterminé par
+   * la charge récurrente. Pire, elle était alors réservée en plus des charges fixes —
+   * un plafond de 900 € sur « Loyer » faisait compter le loyer deux fois et amputait le
+   * disponible de 900 €.
+   */
   const envelopes: Envelope[] = profile.categoryBudgets
-    .filter((budget) => budget.limit.isPositive)
+    .filter((budget) => budget.limit.isPositive && categoryInfo(budget.category).kind === 'variable')
     .map((budget) => {
       const spent = spentByCategory.get(budget.category) ?? Money.zero(currency);
       const remaining = budget.limit.minus(spent);

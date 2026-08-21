@@ -30,9 +30,15 @@ export function Card({ title, action, children }: { title?: string; action?: Rea
 export function AnimatedAmount({ money, className }: { money: Money; className?: string }) {
   const { value, done } = useCountUp(money.units);
   const text = done ? money.format() : Money.of(value, money.currency).roundedToUnit.format();
-  return (
-    <span className={className}>{text}</span>
-  );
+  /*
+   * Chiffres à largeur fixe **pendant** la montée seulement.
+   *
+   * Sur un grand nombre posé, les chiffres tabulaires font paraître « 121 » aéré et
+   * bancal ; on leur préfère les proportionnels. Mais pendant l'animation, chaque
+   * chiffre change et une largeur variable ferait vibrer le montant entier. On tient
+   * donc les deux : tabulaire tant que ça bouge, proportionnel dès que c'est arrivé.
+   */
+  return <span className={`${className ?? ''} ${done ? 'figure-proportional' : ''}`}>{text}</span>;
 }
 
 /** Variation par rapport au mois précédent, en pastille. */
@@ -138,16 +144,59 @@ export function ProgressBar({ value, tone }: { value: number; tone?: string }) {
   );
 }
 
+const FOCUSABLE = 'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Échap ferme la fenêtre : sans cela, une modale sans souris devient un piège.
+  /*
+   * Le focus initial se pose **une fois**, à l'ouverture.
+   *
+   * Cet effet dépendait d'`onClose`, et les dix-sept appelants passent tous une lambda
+   * fraîche : le moindre rendu du parent ramenait donc le focus de force sur le premier
+   * champ. Quelqu'un qui remplissait le troisième champ d'un formulaire se retrouvait
+   * renvoyé au premier, en pleine saisie.
+   */
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    ref.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    // À la fermeture, le focus revient d'où il venait — sinon il retombe sur le document
+    // et la navigation au clavier repart du haut de la page.
+    return () => previous?.focus?.();
+  }, []);
+
+  /*
+   * Échap ferme, Tab reste dedans.
+   *
+   * Sans piège de focus, deux tabulations suffisaient à sortir de la fenêtre et à piloter
+   * l'écran masqué derrière — invisible, mais bien actif.
+   */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !ref.current) return;
+
+      const focusable = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+
+      if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!ref.current.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
-    ref.current?.querySelector<HTMLElement>('input, select, textarea, button')?.focus();
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 

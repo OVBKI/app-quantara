@@ -37,7 +37,7 @@ import {
   yearMonthOf,
   type YearMonth,
 } from '../core/yearMonth';
-import { clearProfile, loadStored, saveProfile, unlockStored } from '../storage/persistence';
+import { clearProfile, loadStored, saveProfile, unlockStored, withCurrency } from '../storage/persistence';
 
 interface StoreValue {
   readonly profile: FinancialProfile;
@@ -126,6 +126,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Le mot de passe ne vit qu'en mémoire, et jamais dans l'état React : il n'a aucune
   // raison de déclencher un rendu, ni de se retrouver dans un instantané de débogage.
   const password = useRef<string | null>(null);
+  // Le chargement initial a échoué : le fichier existant est intact et le restera.
+  const loadFailed = useRef(false);
   // Historique d'annulation. Borné : garder tout un profil par frappe finirait par peser,
   // et personne ne revient vingt modifications en arrière.
   const history = useRef<FinancialProfile[]>([]);
@@ -145,7 +147,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+        if (cancelled) return;
+        /*
+         * Un fichier illisible ne doit **jamais** être écrasé.
+         *
+         * Sans ce drapeau, l'échec de lecture laissait le profil vide en mémoire, `ready`
+         * passait quand même à `true`, et l'effet d'enregistrement réécrivait aussitôt un
+         * profil vide par-dessus les données de l'utilisateur — y compris quand le fichier
+         * d'origine était chiffré, remplacé alors par un fichier en clair. Le message
+         * d'erreur s'affichait après la destruction, et jamais dans l'écran de mise en
+         * route qui prenait la main.
+         */
+        loadFailed.current = true;
+        setError(cause instanceof Error ? cause.message : String(cause));
       })
       .finally(() => {
         if (!cancelled) setReady(true);
@@ -158,7 +172,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Tant que le profil est verrouillé, il est vide en mémoire : l'enregistrer
     // écraserait le fichier chiffré par un profil sans données.
-    if (!ready || locked) return;
+    if (!ready || locked || loadFailed.current) return;
     saveProfile(profile, password.current).catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : String(cause));
     });
@@ -205,6 +219,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       lock: () => {
         if (!encrypted) return;
+        // L'historique contient le profil déchiffré en entier : le garder rendrait le
+        // verrouillage décoratif, un Ctrl+Z suffisant à tout ramener en mémoire.
+        history.current = [];
+        setHistoryDepth(0);
         password.current = null;
         setProfile(emptyProfile('EUR'));
         setLocked(true);
@@ -348,7 +366,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updatePreferences: (preferences) =>
         update((p) => ({ ...p, preferences: { ...p.preferences, ...preferences } })),
 
-      setCurrency: (currency) => update((p) => ({ ...p, currency })),
+      /*
+       * Changer de devise renomme l'unité de tous les montants.
+       *
+       * L'application ne connaît aucun taux de change : elle ne peut pas convertir. Elle
+       * ne peut pas non plus se contenter de changer l'étiquette du profil, ce qu'elle
+       * faisait — les montants gardaient leur devise d'origine et le premier calcul
+       * levait « Opération entre devises différentes », pendant le rendu, écran blanc,
+       * sur un profil déjà réenregistré dans cet état.
+       */
+      setCurrency: (currency) => update((p) => withCurrency(p, currency)),
 
       declareIncome: (sourceId, target, amount) =>
         update((p) => {
@@ -448,10 +475,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       canUndo: historyDepth > 0,
 
-      replaceProfile: (next) => setProfile(next),
+      // Passe par `update` : un import qui écrase tout doit pouvoir se défaire comme
+      // n'importe quelle autre action.
+      replaceProfile: (next) => update(() => next),
 
       reset: async () => {
         await clearProfile();
+        /*
+         * « Cette action est définitive » doit l'être.
+         *
+         * L'historique survivait à l'effacement : un Ctrl+Z ramenait tout, et l'effet
+         * d'enregistrement réécrivait le fichier — **en clair**, `password` ayant été
+         * remis à zéro. Quelqu'un qui efface ses données avant de rendre son poste
+         * repartait en croyant le fichier supprimé.
+         */
+        history.current = [];
+        setHistoryDepth(0);
+        loadFailed.current = false;
         password.current = null;
         setEncrypted(false);
         setLocked(false);

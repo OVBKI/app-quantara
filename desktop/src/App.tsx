@@ -80,6 +80,10 @@ const SECONDARY: { id: Screen; label: string; icon: string }[] = [
   { id: 'settings', label: 'Réglages', icon: '⚙' },
 ];
 
+/** Hissé hors du rendu : recréé à chaque fois, ce tableau invalidait la mémoïsation de
+ *  l'index de recherche, reconstruit alors à chaque frappe. */
+const ALL_SCREENS = [...PRIMARY, ...SECONDARY];
+
 const SCREENS: Screen[] = [...PRIMARY, ...SECONDARY].map((entry) => entry.id);
 
 export function App() {
@@ -274,7 +278,7 @@ export function App() {
         </div>
 
         <TopBar
-          screens={[...PRIMARY, ...SECONDARY]}
+          screens={ALL_SCREENS}
           onNavigate={(target) => setScreen(target as Screen)}
           pendingCount={pending.length}
           onOpenDeclaration={() => setAskDeclaration(true)}

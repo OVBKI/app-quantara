@@ -61,9 +61,19 @@ export function accountMovements(
   dayBefore.setDate(dayBefore.getDate() - 1);
   let balance = accountBalance(profile, account, dayBefore);
 
+  /*
+   * Même borne que le solde : ce qui précède la date de relevé y est **déjà compris**.
+   *
+   * Le relevé repartait du 1er du mois et rejouait tout, y compris les mouvements
+   * antérieurs à la date de relevé. Quand celle-ci tombe en plein mois — le cas normal
+   * après la mise en route, qui demande « le solde d'aujourd'hui » — la même carte
+   * affichait deux soldes différents pour le même compte.
+   */
+  const statementDate = parseDate(account.balanceDate);
+
   const inPeriod = profile.transactions
     .map((transaction) => ({ transaction, date: parseDate(transaction.date) }))
-    .filter((entry) => containsDate(period, entry.date))
+    .filter((entry) => containsDate(period, entry.date) && entry.date > statementDate)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const movements: AccountMovement[] = [];

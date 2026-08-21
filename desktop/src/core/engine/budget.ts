@@ -11,16 +11,7 @@ import {
   type FinancialProfile,
   type Transaction,
 } from '../model';
-import {
-  addMonths,
-  containsDate,
-  daysInMonth,
-  lastMonths,
-  startOfDay,
-  yearMonthEquals,
-  yearMonthOf,
-  type YearMonth,
-} from '../yearMonth';
+import { addMonths, containsDate, daysInMonth, lastMonths, parseDate, startOfDay, type YearMonth, yearMonthEquals, yearMonthOf } from '../yearMonth';
 import { Statistics } from './statistics';
 import { incomeBreakdown, type IncomeBreakdown } from './income';
 import { buildEnvelopes, type EnvelopeSummary } from './envelopes';
@@ -94,10 +85,27 @@ export function monthlyIncome(profile: FinancialProfile, period: YearMonth, refe
   return incomeBreakdown(profile, period, reference, profile.preferences.incomePlanning).planned;
 }
 
-/** Dépenses variables réellement constatées sur un mois. */
-export function realizedVariableSpending(profile: FinancialProfile, period: YearMonth): Money {
+/**
+ * Dépenses variables réellement constatées sur un mois, **à la date de référence**.
+ *
+ * Une dépense saisie d'avance — un achat prévu le 20, noté le 3 — n'est pas encore
+ * constatée. La compter parmi le réalisé la ferait entrer dans l'extrapolation du rythme :
+ * multipliée par 31/6, une dépense de 500 € en devenait 2 583 € et faisait basculer le
+ * budget dans un déficit imaginaire.
+ */
+export function realizedVariableSpending(
+  profile: FinancialProfile,
+  period: YearMonth,
+  reference: Date = new Date(),
+): Money {
+  const until = startOfDay(reference);
   const spent = transactionsIn(profile, period)
-    .filter((transaction) => isExpenseTransaction(transaction) && !isRecurringInstance(transaction))
+    .filter(
+      (transaction) =>
+        isExpenseTransaction(transaction) &&
+        !isRecurringInstance(transaction) &&
+        parseDate(transaction.date) <= until,
+    )
     .map((transaction) => transaction.amount);
   return Money.sum(spent, profile.currency);
 }
@@ -128,7 +136,7 @@ export function projectedVariableSpending(
   period: YearMonth,
   reference: Date,
 ): { amount: Money; method: VariableProjectionMethod } {
-  const spent = realizedVariableSpending(profile, period);
+  const spent = realizedVariableSpending(profile, period, reference);
   const currentPeriod = yearMonthOf(reference);
 
   if (!yearMonthEquals(period, currentPeriod)) {
@@ -143,7 +151,7 @@ export function projectedVariableSpending(
   }
 
   const history = lastMonths(addMonths(period, -1), HISTORY_MONTHS)
-    .map((month) => realizedVariableSpending(profile, month))
+    .map((month) => realizedVariableSpending(profile, month, reference))
     .filter((amount) => amount.isPositive);
 
   if (history.length === 0) return { amount: spent, method: 'actual' };
@@ -237,7 +245,7 @@ export function monthlySummary(
     currency,
   );
 
-  const variableSpentToDate = realizedVariableSpending(profile, period);
+  const variableSpentToDate = realizedVariableSpending(profile, period, reference);
   const projection = projectedVariableSpending(profile, period, reference);
 
   const debtPayments = Money.sum(

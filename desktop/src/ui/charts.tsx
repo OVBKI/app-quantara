@@ -351,8 +351,45 @@ export function TrendChart({
   const active = hovered !== null ? coordinates[hovered] : undefined;
   const activePoint = hovered !== null ? points[hovered] : undefined;
 
+  /*
+   * Le repère est accessible au clavier, pas seulement à la souris.
+   *
+   * Une valeur qui n'existe que dans une bulle de survol est une valeur que la moitié
+   * des gens ne lira jamais. Les flèches parcourent les points, Origine et Fin sautent
+   * aux extrémités, Échap referme — et le point courant est annoncé à voix haute.
+   */
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const last = points.length - 1;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      setHovered((current) => {
+        const next = current === null ? (step > 0 ? 0 : last) : current + step;
+        return Math.min(Math.max(next, 0), last);
+      });
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setHovered(0);
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      setHovered(last);
+    }
+    if (event.key === 'Escape') setHovered(null);
+  }
+
   return (
-    <div ref={ref} style={{ width: '100%', position: 'relative' }}>
+    <div
+      ref={ref}
+      style={{ width: '100%', position: 'relative' }}
+      tabIndex={0}
+      role="group"
+      aria-label="Évolution — parcourez les points avec les flèches"
+      onKeyDown={onKeyDown}
+      onBlur={() => setHovered(null)}
+      className="chart-focusable"
+    >
       <svg
         width={width}
         height={height}
@@ -435,6 +472,12 @@ export function TrendChart({
         />
       ))}
       </svg>
+
+      {/* Le même texte que la bulle, annoncé au lecteur d'écran. `polite` : il attend la
+          fin de la phrase en cours plutôt que de couper la lecture à chaque flèche. */}
+      <span className="sr-only" aria-live="polite">
+        {activePoint ? `${activePoint.label} : ${activePoint.formatted}` : ''}
+      </span>
 
       {active && activePoint && (
         <div

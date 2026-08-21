@@ -552,8 +552,24 @@ function DeclaredIncomeCard() {
   const { profile, declareIncome } = useStore();
   const [editing, setEditing] = useState<{ sourceId: string; period: YearMonth; label: string } | null>(null);
 
-  const sources = profile.incomes.filter((source) => source.declaredMonthly && source.active);
+  const sources = useMemo(
+    () => profile.incomes.filter((source) => source.declaredMonthly && source.active),
+    [profile],
+  );
   const pending = useMemo(() => pendingDeclarations(profile), [profile]);
+
+  /*
+   * Les historiques, calculés une fois pour toutes les sources.
+   *
+   * `declarationHistory` remonte douze mois, et chaque mois refiltre l'intégralité des
+   * transactions. Appelé dans le corps du `.map()` de rendu, il rejouait ce parcours à
+   * chaque frappe dans un champ de l'écran — des dizaines de milliers d'analyses de date
+   * pour afficher une liste qui n'avait pas changé.
+   */
+  const histories = useMemo(
+    () => new Map(sources.map((source) => [source.id, declarationHistory(profile, source)])),
+    [profile, sources],
+  );
 
   if (sources.length === 0) return null;
 
@@ -562,7 +578,7 @@ function DeclaredIncomeCard() {
       <p className="section-note">Seul compte le montant que vous saisissez.</p>
 
       {sources.map((source) => {
-        const history = declarationHistory(profile, source);
+        const history = histories.get(source.id) ?? [];
         const missing = pending.filter((entry) => entry.source.id === source.id);
 
         return (
