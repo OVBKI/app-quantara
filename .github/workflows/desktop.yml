@@ -17,6 +17,12 @@ on:
 permissions:
   contents: read
 
+# Les actions tierces sont épinglées à une empreinte de commit, pas à une étiquette.
+# Une étiquette se redéplace : `@v4` désigne aujourd'hui un commit, demain un autre, et
+# c'est du code exécuté sur la machine qui produit votre installateur. Le commentaire à
+# côté de chaque empreinte dit à quelle version elle correspond, pour que la mise à jour
+# reste un geste lisible.
+
 defaults:
   run:
     working-directory: desktop
@@ -26,9 +32,9 @@ jobs:
     name: Cœur métier (tests unitaires)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -49,19 +55,19 @@ jobs:
     runs-on: windows-latest
     needs: core
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # branche stable
 
       # La compilation Rust est longue et surtout répétitive : sans ce cache, chaque
       # exécution recompile l'intégralité des dépendances de Tauri.
-      - uses: swatinem/rust-cache@v2
+      - uses: swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
         with:
           workspaces: desktop/src-tauri
 
@@ -71,7 +77,7 @@ jobs:
         run: npm run tauri build
 
       - name: Publication de l'installateur
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Quantara-windows
           path: |

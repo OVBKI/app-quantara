@@ -178,8 +178,8 @@ export function AccountsScreen() {
           <Card title="Écritures sans compte">
             <p className="rationale" style={{ marginTop: 0 }}>
               Ces {overview.unassigned.length} écritures comptent dans votre budget mais ne modifient aucun solde :
-              elles ne disent pas d’où l’argent est parti. Ouvrez-les depuis les Transactions pour leur affecter un
-              compte.
+              elles ne disent pas d’où l’argent est parti — soit aucun compte n’a été précisé, soit celui qu’elles
+              désignent a été supprimé depuis. Ouvrez-les depuis les Transactions pour leur affecter un compte.
             </p>
             {overview.unassigned.slice(0, 6).map((transaction) => (
               <div className="row" key={transaction.id}>

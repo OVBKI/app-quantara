@@ -203,10 +203,20 @@ export function SettingsScreen() {
                   type="button"
                   className="button button-ghost"
                   aria-label={`Supprimer ${account.name}`}
-                  onClick={() => confirm(
-                        `Supprimer le compte « ${account.name} » ? Ses écritures ne seront pas supprimées, ` +
-                          'mais elles ne compteront plus dans aucun solde : elles apparaîtront dans ' +
-                          '« Écritures sans compte », sur l’écran Comptes.', () => removeAccount(account.id))}
+                  onClick={() => {
+                    const attached = profile.transactions.filter(
+                      (entry) => entry.accountId === account.id || entry.toAccountId === account.id,
+                    ).length;
+                    confirm(
+                      `Supprimer le compte « ${account.name} » ? ` +
+                        (attached > 0
+                          ? `Ses ${attached} écriture${attached > 1 ? 's' : ''} ne ser${attached > 1 ? 'ont' : 'a'} pas supprimée${attached > 1 ? 's' : ''}, `
+                          : 'Ses écritures ne seront pas supprimées, ') +
+                        'mais elles ne compteront plus dans aucun solde : elles apparaîtront dans ' +
+                        '« Écritures sans compte », sur l’écran Comptes.',
+                      () => removeAccount(account.id),
+                    );
+                  }}
                 >
                   ✕
                 </button>

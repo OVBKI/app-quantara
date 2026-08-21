@@ -5,6 +5,7 @@ import {
   ALLOCATION_PARTS,
   allocationTotal,
   accountBalance,
+  detachAccount,
   netWorth,
   rebalanceAllocation,
   type Transaction,
@@ -22,7 +23,7 @@ import {
 } from '../testing/fixtures';
 import { analyse } from './analysis';
 import { monthlySummary } from './budget';
-import { accountMovements, summariseAccount } from './accounts';
+import { accountMovements, overviewAccounts, summariseAccount } from './accounts';
 import { importCsv } from './csv';
 import { canIAfford } from './affordability';
 import { compareSpending } from './comparison';
@@ -239,6 +240,76 @@ describe('Patrimoine — une ligne de portefeuille ne compte qu’une fois', () 
     });
 
     expect(netWorth(profile, referenceDate(28)).equals(Money.of(10000))).toBe(true);
+  });
+});
+
+describe('Suppression d’un compte — aucune écriture ne devient invisible', () => {
+  it('détache tout ce qui pointait vers le compte supprimé', () => {
+    /*
+     * Supprimer un compte laissait derrière lui des écritures pointant vers un
+     * identifiant mort : plus comptées dans aucun solde, et pas davantage listées dans
+     * « Écritures sans compte », qui ne détectait que l'absence totale de compte. L'argent
+     * disparaissait du suivi sans un mot.
+     */
+    const courant = account('Compte courant', 1000);
+    const livret = savingsAccount(5000);
+    const salaire = { ...income('Salaire', 2000), accountId: courant.id };
+
+    const profile = standardProfile({
+      accounts: [courant, livret],
+      incomes: [salaire],
+      recurringExpenses: [],
+      transactions: [
+        { ...expense(100, 'variable.groceries', 5), id: 'depense', accountId: courant.id },
+        {
+          id: 'virement',
+          amount: Money.of(200),
+          date: '2026-03-10',
+          kind: 'transfer',
+          label: 'Vers le livret',
+          accountId: courant.id,
+          toAccountId: livret.id,
+        },
+      ],
+      holdings: [
+        {
+          id: 'h1',
+          name: 'ETF',
+          assetClass: 'etf',
+          invested: Money.of(100),
+          currentValue: Money.of(100),
+          valuedOn: '2026-03-02',
+          accountId: courant.id,
+        },
+      ],
+      preferences: { ...standardProfile().preferences, allocationAccounts: { savings: courant.id } },
+    });
+
+    const after = detachAccount(profile, courant.id);
+
+    expect(after.accounts.map((entry) => entry.id)).toEqual([livret.id]);
+    expect(after.transactions.every((entry) => entry.accountId !== courant.id)).toBe(true);
+    expect(after.transactions.every((entry) => entry.toAccountId !== courant.id)).toBe(true);
+    expect(after.incomes[0]!.accountId).toBeUndefined();
+    expect(after.holdings[0]!.accountId).toBeUndefined();
+    expect(after.preferences.allocationAccounts.savings).toBeUndefined();
+
+    // Le virement garde sa destination : seul le côté supprimé est détaché.
+    expect(after.transactions.find((entry) => entry.id === 'virement')!.toAccountId).toBe(livret.id);
+  });
+
+  it('signale une écriture pointant vers un compte qui n’existe plus', () => {
+    // Pour les profils déjà dans cet état : la détection ne peut pas se contenter de
+    // l'absence de compte, elle doit vérifier que le compte désigné existe.
+    const livret = savingsAccount(5000);
+    const profile = standardProfile({
+      accounts: [livret],
+      recurringExpenses: [],
+      transactions: [{ ...expense(100, 'variable.groceries', 5), id: 'orpheline', accountId: 'compte-supprimé' }],
+    });
+
+    const overview = overviewAccounts(profile, MARCH_2026, referenceDate(28));
+    expect(overview.unassigned.map((entry) => entry.id)).toContain('orpheline');
   });
 });
 

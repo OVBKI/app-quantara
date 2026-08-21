@@ -21,6 +21,7 @@ import {
   type IncomeSource,
   type RecurringExpense,
   type Transaction,
+  detachAccount,
   type CategoryBudget,
   type Account,
 } from '../core/model';
@@ -349,8 +350,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addAccount: (account) => update((p) => ({ ...p, accounts: [...p.accounts, { ...account, id: id() }] })),
       updateAccount: (account) =>
         update((p) => ({ ...p, accounts: p.accounts.map((entry) => (entry.id === account.id ? account : entry)) })),
-      removeAccount: (target) =>
-        update((p) => ({ ...p, accounts: p.accounts.filter((entry) => entry.id !== target) })),
+      // Détache aussi tout ce qui désignait le compte : sans cela les écritures gardent
+      // un identifiant mort et sortent du suivi sans un mot.
+      removeAccount: (target) => update((p) => detachAccount(p, target)),
 
       setCategoryBudget: (budget) =>
         update((p) => ({

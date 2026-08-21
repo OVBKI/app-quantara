@@ -202,12 +202,20 @@ export function overviewAccounts(
     .filter((account) => !account.archived)
     .map((account) => summariseAccount(profile, account, period, reference));
 
-  const unassigned = profile.transactions.filter(
-    (transaction) =>
-      containsDate(period, parseDate(transaction.date)) &&
-      transaction.accountId === undefined &&
-      transaction.toAccountId === undefined,
-  );
+  /*
+   * Sans compte — ou pointant vers un compte qui n'existe plus. Le second cas naissait
+   * d'une suppression de compte : l'écriture gardait un identifiant mort, n'entrait dans
+   * aucun solde, et échappait à cette liste parce qu'elle n'y cherchait que l'absence
+   * totale de compte. La détection vaut aussi pour les profils déjà dans cet état.
+   */
+  const known = new Set(profile.accounts.map((entry) => entry.id));
+  const dangling = (id: string | undefined): boolean => id !== undefined && !known.has(id);
+
+  const unassigned = profile.transactions.filter((transaction) => {
+    if (!containsDate(period, parseDate(transaction.date))) return false;
+    if (dangling(transaction.accountId) || dangling(transaction.toAccountId)) return true;
+    return transaction.accountId === undefined && transaction.toAccountId === undefined;
+  });
 
   return {
     accounts,

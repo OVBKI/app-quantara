@@ -457,6 +457,50 @@ export function transactionsIn(profile: FinancialProfile, period: YearMonth): Tr
   return profile.transactions.filter((transaction) => containsDate(period, parseDate(transaction.date)));
 }
 
+/** Retire une clé d'un objet sans écrire `undefined` : le champ disparaît vraiment, y
+ *  compris à l'enregistrement. */
+function without<T extends object, K extends keyof T>(value: T, key: K): T {
+  if (!(key in value)) return value;
+  const { [key]: _removed, ...rest } = value;
+  return rest as T;
+}
+
+/**
+ * Suppression d'un compte, avec tout ce qui le désigne.
+ *
+ * Retirer la ligne du tableau des comptes ne suffit pas : les écritures continuaient de
+ * porter son identifiant. Elles n'entraient plus dans aucun solde — le compte n'existe
+ * plus — et échappaient aussi à « Écritures sans compte », qui ne cherchait que l'absence
+ * totale de compte. L'argent quittait le suivi sans un mot.
+ *
+ * Tout est détaché en un seul endroit : écritures, source de revenu à créditer, ligne de
+ * portefeuille, et compte de destination d'une part de la répartition. Un appelant ne peut
+ * pas en oublier un.
+ */
+export function detachAccount(profile: FinancialProfile, accountId: string): FinancialProfile {
+  const allocationAccounts = Object.fromEntries(
+    Object.entries(profile.preferences.allocationAccounts).filter(([, id]) => id !== accountId),
+  ) as AllocationAccounts;
+
+  return {
+    ...profile,
+    accounts: profile.accounts.filter((entry) => entry.id !== accountId),
+    transactions: profile.transactions.map((transaction) => {
+      let updated = transaction;
+      if (updated.accountId === accountId) updated = without(updated, 'accountId');
+      if (updated.toAccountId === accountId) updated = without(updated, 'toAccountId');
+      return updated;
+    }),
+    incomes: profile.incomes.map((income) =>
+      income.accountId === accountId ? without(income, 'accountId') : income,
+    ),
+    holdings: profile.holdings.map((holding) =>
+      holding.accountId === accountId ? without(holding, 'accountId') : holding,
+    ),
+    preferences: { ...profile.preferences, allocationAccounts },
+  };
+}
+
 /** Une transaction rattachée à une charge récurrente ou à une source de revenu déjà
  *  déclarée est une matérialisation, pas un flux supplémentaire. */
 export function isRecurringInstance(transaction: Transaction): boolean {

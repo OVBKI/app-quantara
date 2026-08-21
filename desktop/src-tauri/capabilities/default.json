@@ -12,6 +12,7 @@
     "fs:allow-mkdir",
     "fs:allow-exists",
     "fs:allow-remove",
+    "fs:allow-rename",
     "fs:allow-appdata-read-recursive",
     "fs:allow-appdata-write-recursive",
     "fs:allow-appdata-meta-recursive"

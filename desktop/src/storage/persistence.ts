@@ -9,6 +9,9 @@ import {
 import { decrypt, encrypt, isEncryptedEnvelope } from '../security/vault';
 
 const FILE_NAME = 'quantara-profile.json';
+/** Fichier d'écriture, renommé sur le définitif une fois complet. Toujours une constante :
+ *  aucun chemin issu des données de l'utilisateur n'atteint le disque. */
+const TEMP_FILE_NAME = 'quantara-profile.json.tmp';
 const LOCAL_STORAGE_KEY = 'quantara.profile';
 const FORMAT_VERSION = 1;
 
@@ -394,12 +397,21 @@ export type LoadResult =
   /** Le fichier existe mais est chiffré : il faut le mot de passe pour aller plus loin. */
   | { kind: 'encrypted' };
 
+/** Lecture d'un fichier stocké : un contenu tronqué doit donner un message, pas une
+ *  erreur brute de l'analyseur JSON remontée jusqu'à l'écran. */
+function parseStored(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('Fichier de sauvegarde illisible : structure inattendue.');
+  }
+}
+
 export async function loadStored(): Promise<LoadResult> {
   const raw = await readRaw();
   if (!raw) return { kind: 'empty' };
 
-  const parsed: unknown = JSON.parse(raw);
-  if (isEncryptedEnvelope(parsed)) return { kind: 'encrypted' };
+  if (isEncryptedEnvelope(parseStored(raw))) return { kind: 'encrypted' };
 
   return { kind: 'profile', profile: deserializeProfile(raw) };
 }
@@ -408,21 +420,37 @@ export async function unlockStored(password: string): Promise<FinancialProfile> 
   const raw = await readRaw();
   if (!raw) throw new Error('Aucun profil enregistré.');
 
-  const parsed: unknown = JSON.parse(raw);
+  const parsed: unknown = parseStored(raw);
   if (!isEncryptedEnvelope(parsed)) return deserializeProfile(raw);
 
   return deserializeProfile(await decrypt(parsed, password));
 }
 
+/**
+ * Enregistrement du profil.
+ *
+ * L'écriture passe par un fichier temporaire, renommé une fois complète. C'est le seul
+ * endroit de l'application où une erreur ne se corrige pas : un calcul faux s'affiche et
+ * se répare, un fichier écrasé est perdu. Écrire directement dans le fichier définitif
+ * signifie qu'une coupure de courant, une mise en veille brutale ou un disque plein en
+ * plein milieu laissent un JSON tronqué — et il ne reste rien.
+ *
+ * Le renommage est atomique au niveau du système de fichiers : à tout instant, le fichier
+ * définitif est soit l'ancien contenu entier, soit le nouveau. Jamais un mélange.
+ */
 export async function saveProfile(profile: FinancialProfile, password: string | null = null): Promise<void> {
   const clear = serializeProfile(profile);
   const payload = password ? JSON.stringify(await encrypt(clear, password), null, 2) : clear;
   if (runningInTauri()) {
-    const { writeTextFile, mkdir, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+    const { writeTextFile, mkdir, exists, rename, BaseDirectory } = await import('@tauri-apps/plugin-fs');
     if (!(await exists('', { baseDir: BaseDirectory.AppData }))) {
       await mkdir('', { baseDir: BaseDirectory.AppData, recursive: true });
     }
-    await writeTextFile(FILE_NAME, payload, { baseDir: BaseDirectory.AppData });
+    await writeTextFile(TEMP_FILE_NAME, payload, { baseDir: BaseDirectory.AppData });
+    await rename(TEMP_FILE_NAME, FILE_NAME, {
+      oldPathBaseDir: BaseDirectory.AppData,
+      newPathBaseDir: BaseDirectory.AppData,
+    });
     return;
   }
   window.localStorage.setItem(LOCAL_STORAGE_KEY, payload);
