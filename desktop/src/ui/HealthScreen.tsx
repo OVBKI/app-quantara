@@ -186,8 +186,10 @@ export function HealthScreen() {
                 ))}
 
               <p className="rationale" style={{ marginTop: 12 }}>
-                Moyenne sur {comparison.monthsObserved} mois saisi{comparison.monthsObserved > 1 ? 's' : ''}.
-                Les mois vides sont écartés.
+                {comparison.label}
+                {comparison.monthsObserved < comparison.windowMonths &&
+                  ` — vous en avez demandé ${comparison.windowMonths}, les mois sans dépense saisie sont écartés.`}{' '}
+                Les charges récurrentes comptent pour leur équivalent mensuel, comme partout ailleurs.
               </p>
             </>
           )}

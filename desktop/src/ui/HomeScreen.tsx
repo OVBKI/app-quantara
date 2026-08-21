@@ -193,7 +193,7 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
 
       <div className="stack">
         <section className="hero">
-          <div className="hero-label">Disponible sur vos comptes</div>
+          <div className="hero-label">Solde de vos comptes</div>
           <AnimatedAmount
             money={available.roundedToUnit}
             className={`hero-value amount ${available.isNegative ? 'critical' : ''}`}
@@ -284,13 +284,13 @@ export function HomeScreen({ onNavigate }: { onNavigate?: (screen: HomeTarget) =
             note={summary.savingsRate !== null ? `${Percent.format(summary.savingsRate, 'fr-FR', 0)} du revenu` : undefined}
           />
           <Tile
-            label="Reste à répartir"
+            label="Reste après charges"
             value={summary.disposable.roundedToUnit.format()}
             tone={summary.disposable.isNegative ? 'critical' : 'positive'}
             change={disposableChange}
             trend={trends.disposable}
             trendColor={TILE_TREND}
-            note={summary.disposable.isNegative ? 'Le mois est déficitaire' : 'Après toutes les charges'}
+            note={summary.disposable.isNegative ? 'Le mois est déficitaire' : 'Ce qui se partage'}
           />
         </div>
 

@@ -11,9 +11,9 @@ export interface AffordabilityAnswer {
   readonly verdict: Verdict;
   readonly headline: string;
   readonly reasons: readonly string[];
-  /** Ce qui reste disponible après l'achat, ce mois-ci. */
+  /** Le libre après épargne, une fois l'achat déduit. */
   readonly remainingAfter: Money;
-  /** Nombre de mois d'épargne nécessaires pour l'acheter sans toucher au disponible. */
+  /** Nombre de mois d'épargne nécessaires pour l'acheter sans toucher au budget courant. */
   readonly monthsToSaveFor: number | null;
   readonly wouldCauseOverdraft: boolean;
   readonly wouldBreakEmergencyFund: boolean;
@@ -35,13 +35,13 @@ export function canIAfford(
 ): AffordabilityAnswer {
   const reasons: string[] = [];
 
-  // Ce qui reste vraiment disponible d'ici la fin du mois.
-  const available = summary.income
-    .minus(summary.fixedExpenses)
-    .minus(summary.debtPayments)
-    .minus(summary.variableProjected)
-    .minus(summary.savingsContributions)
-    .clampedToZero;
+  /*
+   * Le montant qui répond à cette question précise : ce qui restera une fois le mois
+   * vécu *et* l'épargne mise de côté. Il vient du budget, il n'est plus recalculé ici —
+   * refaire l'arithmétique dans son coin donnait 1 380 € là où le Budget en annonçait
+   * 1 700, et ignorait au passage les enveloppes déclarées par l'utilisateur.
+   */
+  const available = summary.discretionaryLeft;
 
   const remainingAfter = available.minus(amount);
   const lowestAfter = cashFlow.lowestBalance.minus(amount);
@@ -59,15 +59,15 @@ export function canIAfford(
       verdict = 'yesButTight';
       headline = 'Oui, mais il ne restera pas grand-chose';
       reasons.push(
-        `Cet achat représente ${Math.round(share * 100)} % de ce qu’il vous reste pour le mois. ` +
-          `Après, il resterait ${remainingAfter.roundedToUnit.format()} jusqu’à la fin du mois.`,
+        `Cet achat représente ${Math.round(share * 100)} % de votre libre après épargne. ` +
+          `Après, il en resterait ${remainingAfter.roundedToUnit.format()}.`,
       );
     } else {
       verdict = 'yes';
       headline = 'Oui, sans conséquence sur votre mois';
       reasons.push(
-        `Il vous reste ${available.roundedToUnit.format()} disponibles ce mois-ci ; ` +
-          `après cet achat, ${remainingAfter.roundedToUnit.format()}.`,
+        `Une fois le mois vécu et votre épargne mise de côté, il vous reste ` +
+          `${available.roundedToUnit.format()} ; après cet achat, ${remainingAfter.roundedToUnit.format()}.`,
       );
     }
   } else if (wouldCauseOverdraft) {
@@ -81,7 +81,7 @@ export function canIAfford(
     verdict = 'notNow';
     headline = 'Pas ce mois-ci';
     reasons.push(
-      `Il vous reste ${available.roundedToUnit.format()} disponibles, soit ` +
+      `Votre libre après épargne est de ${available.roundedToUnit.format()}, soit ` +
         `${amount.minus(available).roundedToUnit.format()} de moins que le prix.`,
     );
   }

@@ -130,7 +130,8 @@ describe('« Puis-je me le permettre ? »', () => {
   it('accepte une dépense modeste', () => {
     const answer = canIAfford(Money.of(100), analysis.summary, analysis.emergencyFund, analysis.cashFlow, analysis.capacity);
     expect(answer.verdict).toBe('yes');
-    expect(answer.reasons[0]).toContain('disponibles');
+    // La réponse chiffre le libre après épargne, pas seulement un verdict.
+    expect(answer.reasons[0]).toContain(analysis.summary.discretionaryLeft.roundedToUnit.format());
   });
 
   it('prévient quand l’achat mange presque tout le disponible', () => {

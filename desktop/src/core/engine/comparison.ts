@@ -1,7 +1,8 @@
 import { Money, type Currency } from '../money';
+import { monthlyEquivalent } from '../frequency';
 import { categoryInfo, type ExpenseCategoryId } from '../categories';
 import { containsDate, parseDate, addMonths, type YearMonth } from '../yearMonth';
-import type { FinancialProfile } from '../model';
+import { isRecurringInstance, recurringExpensesFor, type FinancialProfile } from '../model';
 
 /**
  * Comparaison des dépenses dans le temps.
@@ -43,7 +44,10 @@ export interface CategoryComparison {
 
 export interface SpendingComparison {
   readonly window: ComparisonWindow;
+  /** Ce que la référence est vraiment, une fois les mois vides écartés. */
   readonly label: string;
+  /** Mois demandés par la fenêtre choisie. */
+  readonly windowMonths: number;
   /** Mois effectivement observés. Zéro : aucune comparaison possible. */
   readonly monthsObserved: number;
   readonly currentTotal: Money;
@@ -53,21 +57,48 @@ export interface SpendingComparison {
   readonly categories: readonly CategoryComparison[];
 }
 
+/**
+ * Total par catégorie pour un mois, dans la comptabilité du reste de l'application.
+ *
+ * Les charges récurrentes comptent pour leur équivalent mensuel, et leurs matérialisations
+ * sont écartées — sans quoi le résultat dépendait de la diligence avec laquelle
+ * l'utilisateur a pointé son loyer. Un loyer pointé en mars et oublié en février
+ * produisait « Loyer : +800 € », un dérapage causé par un pointage et non par une dépense,
+ * et le total du mois s'écartait de celui qu'affichait le Budget sur le même écran.
+ */
 function monthTotals(profile: FinancialProfile, period: YearMonth): Map<ExpenseCategoryId, Money> {
   const totals = new Map<ExpenseCategoryId, Money>();
-  for (const transaction of profile.transactions) {
-    if (transaction.kind !== 'expense') continue;
-    if (!containsDate(period, parseDate(transaction.date))) continue;
-    const category = transaction.category ?? 'variable.otherVariable';
-    const previous = totals.get(category) ?? Money.zero(profile.currency);
-    totals.set(category, previous.plus(transaction.amount));
+  const add = (category: ExpenseCategoryId, amount: Money): void => {
+    totals.set(category, (totals.get(category) ?? Money.zero(profile.currency)).plus(amount));
+  };
+
+  for (const expense of recurringExpensesFor(profile, period)) {
+    add(expense.category, monthlyEquivalent(expense.amount, expense.frequency));
   }
+
+  for (const transaction of profile.transactions) {
+    if (transaction.kind !== 'expense' || isRecurringInstance(transaction)) continue;
+    if (!containsDate(period, parseDate(transaction.date))) continue;
+    add(transaction.category ?? 'variable.otherVariable', transaction.amount);
+  }
+
   return totals;
 }
 
+/**
+ * Un mois compte-t-il comme observé ?
+ *
+ * Le critère reste la présence d'au moins une dépense ponctuelle saisie. Les charges
+ * récurrentes ne suffisent pas : elles existent dans tous les mois, y compris ceux où
+ * l'utilisateur n'a rien enregistré. Les inclure ferait passer un mois non saisi pour un
+ * mois sobre et tirerait la moyenne vers le bas.
+ */
 function hasActivity(profile: FinancialProfile, period: YearMonth): boolean {
   return profile.transactions.some(
-    (transaction) => transaction.kind === 'expense' && containsDate(period, parseDate(transaction.date)),
+    (transaction) =>
+      transaction.kind === 'expense' &&
+      !isRecurringInstance(transaction) &&
+      containsDate(period, parseDate(transaction.date)),
   );
 }
 
@@ -130,7 +161,15 @@ export function compareSpending(
 
   return {
     window,
-    label: COMPARISON_LABELS[window],
+    // Annoncer « Moyenne 3 mois » quand un seul mois est saisi serait faux. Le libellé
+    // décrit ce sur quoi la référence porte réellement.
+    label:
+      observed.length === months
+        ? COMPARISON_LABELS[window]
+        : observed.length === 0
+          ? 'Aucun mois de référence'
+          : `Moyenne sur ${observed.length} mois saisi${observed.length > 1 ? 's' : ''}`,
+    windowMonths: months,
     monthsObserved: observed.length,
     currentTotal,
     referenceTotal,

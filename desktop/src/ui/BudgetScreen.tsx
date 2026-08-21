@@ -194,10 +194,10 @@ export function BudgetScreen() {
         <EnvelopesCard />
 
         {!profile.preferences.allocationTargets.enabled && (
-        <Card title="Où va le disponible">
+        <Card title="Où va ce qui reste">
           {allocation.lines.length === 0 ? (
             <p className="muted">
-              Aucun disponible à répartir ce mois-ci{summary.disposable.isNegative ? ' : le budget est déficitaire.' : '.'}
+              Rien à répartir ce mois-ci{summary.disposable.isNegative ? ' : le budget est déficitaire.' : '.'}
             </p>
           ) : (
             <>
@@ -328,7 +328,7 @@ function AutoSplitCard() {
 
       {!targets.enabled ? (
         <p className="rationale" style={{ marginTop: 12 }}>
-          Le partage automatique est désactivé : le disponible est réparti par ordre de priorité (sécurité,
+          Le partage automatique est désactivé : le reste après charges est réparti par ordre de priorité (sécurité,
           dettes coûteuses, objectifs, puis investissement). Activez-le pour fixer vos propres parts.
         </p>
       ) : (

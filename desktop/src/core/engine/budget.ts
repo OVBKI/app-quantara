@@ -52,9 +52,37 @@ export interface MonthlySummary {
   readonly savingsContributions: Money;
 
   readonly totalExpenses: Money;
-  /** Ce qui reste une fois toutes les charges du mois honorées. */
+
+  /*
+   * Trois « restes », trois questions différentes, et un nom chacun.
+   *
+   * Le mot « disponible » a longtemps désigné les trois. Deux écrans annonçaient « ce
+   * qu'il vous reste » sous le même libellé et deux montants différents — 1 700 € ici,
+   * 1 380 € là — parce que chacun refaisait le calcul dans son coin. Rien n'est plus
+   * recalculé ailleurs : ces trois lignes sont la seule définition.
+   */
+
+  /** **Reste après charges** : le revenu, moins tout ce que le mois doit honorer. */
   readonly disposable: Money;
+  /** **Libre après épargne** : ce qui reste une fois le mois vécu *et* l'épargne mise de
+   *  côté. C'est ce montant qui répond à « puis-je me le permettre ? ». */
+  readonly discretionaryLeft: Money;
+  /** **Reste à vivre** : ce qu'il est encore possible de dépenser d'ici la fin du mois —
+   *  le revenu, moins ce qui est engagé, moins ce qui est *déjà sorti*. Divisé par les
+   *  jours restants, il donne le montant journalier sans risque. */
+  readonly remainingToSpend: Money;
+  /** Dépenses essentielles **constatées à date** : ce qui est déjà sorti. */
   readonly essentialExpenses: Money;
+  /**
+   * Ce que coûtent les essentiels sur un **mois complet**.
+   *
+   * Distinct du constaté, et pour une raison précise : c'est la base du fonds d'urgence.
+   * Calculée sur le constaté, la cible grandissait au fil des courses saisies — de 8 700 €
+   * en début de mois à 10 500 € à la fin — et faisait basculer le voyant de santé sans
+   * qu'aucune décision financière n'ait été prise. Un objectif qui bouge chaque jour n'est
+   * pas un objectif.
+   */
+  readonly essentialMonthlyNeed: Money;
 
   readonly fixedRatio: number | null;
   readonly savingsRate: number | null;
@@ -158,6 +186,45 @@ export function projectedVariableSpending(
 
   const median = Statistics.median(history, profile.currency);
   return { amount: Money.max(median, spent), method: 'history' };
+}
+
+/** Dépenses essentielles ponctuelles d'un mois : courses, carburant, santé, transports. */
+function essentialVariableIn(profile: FinancialProfile, period: YearMonth): Money {
+  return Money.sum(
+    transactionsIn(profile, period)
+      .filter(
+        (transaction) =>
+          isExpenseTransaction(transaction) &&
+          !isRecurringInstance(transaction) &&
+          transaction.category !== undefined &&
+          categoryInfo(transaction.category).essential,
+      )
+      .map((transaction) => transaction.amount),
+    profile.currency,
+  );
+}
+
+/**
+ * Ce que coûtent les essentiels variables sur un **mois complet**.
+ *
+ * Trois régimes, du plus fiable au moins fiable — les mêmes que pour la projection du
+ * variable, et pour la même raison : un chiffre qui grandit au fil de la saisie ne peut
+ * pas servir de cible d'épargne.
+ *
+ * 1. médiane des mois complets passés — ne bouge pas d'un jour à l'autre ;
+ * 2. rythme observé extrapolé — dépend de la saisie, mais normalisé par les jours écoulés ;
+ * 3. le constaté, faute de mieux, au tout début d'un premier mois.
+ */
+function essentialVariableNeed(profile: FinancialProfile, period: YearMonth, reference: Date): Money {
+  const history = lastMonths(addMonths(period, -1), HISTORY_MONTHS)
+    .map((month) => essentialVariableIn(profile, month))
+    .filter((amount) => amount.isPositive);
+
+  if (history.length >= MINIMUM_MONTHS_FOR_SMOOTHING) return Statistics.median(history, profile.currency);
+
+  const spent = essentialVariableIn(profile, period);
+  const factor = runRateFactor(period, reference);
+  return factor ? spent.timesFraction(factor.total, factor.elapsed) : spent;
 }
 
 /**
@@ -285,6 +352,7 @@ export function monthlySummary(
 
   const totalExpenses = Money.sum([fixedExpenses, variableReserved, debtPayments], currency);
   const disposable = income.minus(totalExpenses);
+  const discretionaryLeft = disposable.minus(savingsContributions).clampedToZero;
 
   const essentialFixed = Money.sum(
     recurring.filter(isEssential).map((expense) => monthlyEquivalent(expense.amount, expense.frequency)),
@@ -303,21 +371,24 @@ export function monthlySummary(
     currency,
   );
   const essentialExpenses = essentialFixed.plus(essentialVariable);
+  const essentialMonthlyNeed = essentialFixed.plus(essentialVariableNeed(profile, period, reference));
 
   const total = daysInMonth(period);
   const isCurrentMonth = containsDate(period, reference);
   const daysElapsed = isCurrentMonth ? Math.min(reference.getDate(), total) : total;
   const daysRemaining = Math.max(total - daysElapsed, 0);
 
-  // Ce qui reste réellement disponible d'ici la fin du mois : le revenu, moins tout ce
-  // qui est déjà engagé, moins ce qui a déjà été dépensé.
-  const remaining = income
+  // Ce qu'il est encore possible de dépenser d'ici la fin du mois : le revenu, moins tout
+  // ce qui est déjà engagé, moins ce qui est déjà sorti. À ne pas confondre avec
+  // `discretionaryLeft`, qui retranche le mois entier — voir l'interface.
+  const remainingToSpend = income
     .minus(fixedExpenses)
     .minus(debtPayments)
     .minus(savingsContributions)
     .minus(Money.max(variableSpentToDate, envelopes.totalSpent))
     .clampedToZero;
-  const safeToSpendPerDay = daysRemaining > 0 ? remaining.dividedBy(BigInt(daysRemaining)) : remaining;
+  const safeToSpendPerDay =
+    daysRemaining > 0 ? remainingToSpend.dividedBy(BigInt(daysRemaining)) : remainingToSpend;
 
   return {
     period,
@@ -337,7 +408,10 @@ export function monthlySummary(
     savingsContributions,
     totalExpenses,
     disposable,
+    discretionaryLeft,
+    remainingToSpend,
     essentialExpenses,
+    essentialMonthlyNeed,
     fixedRatio: fixedExpenses.ratioTo(income),
     savingsRate: savingsContributions.ratioTo(income),
     essentialRatio: essentialExpenses.ratioTo(income),

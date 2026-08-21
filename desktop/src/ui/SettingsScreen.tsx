@@ -132,7 +132,7 @@ export function SettingsScreen() {
                 >
                   {[0.05, 0.1, 0.15, 0.2].map((share) => (
                     <option key={share} value={share}>
-                      {Math.round(share * 100)} % du disponible
+                      {Math.round(share * 100)} % du reste après charges
                     </option>
                   ))}
                 </select>

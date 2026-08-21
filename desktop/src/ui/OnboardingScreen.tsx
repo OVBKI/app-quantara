@@ -628,7 +628,7 @@ export function OnboardingScreen() {
               Combien avez-vous de côté aujourd’hui ? Ce montant détermine votre fonds d’urgence — la première
               priorité du plan, avant tout placement.
             </p>
-            <Field label="Épargne disponible">
+            <Field label="Épargne actuelle">
               {(fieldId) => (
                 <MoneyInput id={fieldId} value={savings} currency={currency} onChange={setSavings} autoFocus />
               )}
@@ -758,7 +758,7 @@ export function OnboardingScreen() {
             ) : (
               <>
                 <p className="hero-label" style={{ marginTop: 4 }}>
-                  Disponible chaque mois
+                  Reste après charges, chaque mois
                 </p>
                 <p className="hero-value amount" style={{ fontSize: 34 }}>
                   {plan.summary.disposable.roundedToUnit.format()}

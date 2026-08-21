@@ -24,6 +24,8 @@ import { analyse } from './analysis';
 import { monthlySummary } from './budget';
 import { accountMovements, summariseAccount } from './accounts';
 import { importCsv } from './csv';
+import { canIAfford } from './affordability';
+import { compareSpending } from './comparison';
 import { optimize } from './optimization';
 import { expectedIncomes, receiptTotals } from './receipts';
 
@@ -237,6 +239,140 @@ describe('Patrimoine — une ligne de portefeuille ne compte qu’une fois', () 
     });
 
     expect(netWorth(profile, referenceDate(28)).equals(Money.of(10000))).toBe(true);
+  });
+});
+
+describe('« Ce qui reste » — une seule définition par question posée', () => {
+  it('répond « puis-je me le permettre » avec l’arithmétique du budget, enveloppes comprises', () => {
+    /*
+     * Deux écrans annonçaient « ce qu'il vous reste » sous le même libellé, et deux
+     * montants différents : l'un retranchait ce qui était déjà dépensé, l'autre une
+     * extrapolation du mois entier. Écart mesuré : 1 700 € contre 1 380 €.
+     *
+     * Les deux questions sont légitimes et distinctes — « combien puis-je encore dépenser
+     * aujourd'hui » n'est pas « que restera-t-il une fois le mois vécu ». Ce qui ne l'est
+     * pas, c'est de les calculer chacune dans son coin, et de les nommer pareil. Chacune a
+     * désormais son nom et une définition unique, portée par le budget.
+     */
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [fixedExpense('Loyer', 1000, 'fixed.rent')],
+      transactions: [expense(200, 'variable.groceries', 3)],
+      categoryBudgets: [{ category: 'variable.groceries', limit: Money.of(600) }],
+    });
+
+    const { summary, emergencyFund, cashFlow } = analyse(profile, MARCH_2026, referenceDate(10));
+    const answer = canIAfford(Money.zero('EUR'), summary, emergencyFund, cashFlow, Money.zero('EUR'));
+
+    // L'enveloppe déclarée fait foi : 600 € réservés pour les courses, pas 620 € extrapolés.
+    expect(summary.discretionaryLeft.equals(Money.of(1400))).toBe(true);
+    expect(answer.remainingAfter.equals(summary.discretionaryLeft)).toBe(true);
+
+    // Et « reste à vivre » répond à l'autre question : 3 000 − 1 000 − 200 déjà dépensés.
+    expect(summary.remainingToSpend.equals(Money.of(1800))).toBe(true);
+  });
+});
+
+describe('Fonds d’urgence — une cible qui ne bouge pas avec la saisie', () => {
+  it('annonce le même objectif au 5 et au 25 du mois', () => {
+    /*
+     * La cible se calculait sur les dépenses essentielles **constatées à date**. Elle
+     * grandissait donc au fil des courses saisies : de 8 700 € en début de mois à
+     * 10 500 € à la fin, assez pour faire basculer le voyant de santé du vert à l'orange
+     * sans qu'aucune décision financière n'ait été prise. Un objectif d'épargne qui bouge
+     * chaque jour n'est pas un objectif.
+     */
+    const history = lastMonths(addMonths(MARCH_2026, -1), 3).map((month, index) => ({
+      ...expense(400, 'variable.groceries', 10, month),
+      id: `courses-${index}`,
+    }));
+    const base = standardProfile({
+      accounts: [account('Compte courant', 3000), savingsAccount(2000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [fixedExpense('Loyer', 1000, 'fixed.rent')],
+      transactions: history,
+    });
+
+    const early = analyse(
+      { ...base, transactions: [...history, expense(100, 'variable.groceries', 3)] },
+      MARCH_2026,
+      referenceDate(5),
+    ).emergencyFund;
+    const late = analyse(
+      { ...base, transactions: [...history, expense(400, 'variable.groceries', 3)] },
+      MARCH_2026,
+      referenceDate(25),
+    ).emergencyFund;
+
+    // 1 000 € de loyer + 400 € de courses en médiane sur trois mois complets.
+    expect(early.monthlyNeed.equals(Money.of(1400))).toBe(true);
+    expect(late.monthlyNeed.equals(early.monthlyNeed)).toBe(true);
+    expect(late.target.equals(early.target)).toBe(true);
+  });
+});
+
+describe('Comparaison — la même comptabilité que le reste de l’application', () => {
+  it('ne dépend pas de la diligence avec laquelle les charges ont été pointées', () => {
+    /*
+     * L'écran Comparaison était le seul à additionner les matérialisations de charges
+     * récurrentes. Un loyer pointé en mars et oublié en février produisait « Loyer :
+     * +800 € » — un dérapage qui n'existe pas, causé par un pointage, pas par une
+     * dépense. Et le total du mois s'écartait de celui du Budget sur le même écran.
+     */
+    const loyer = fixedExpense('Loyer', 800, 'fixed.rent', { dayOfMonth: 3 });
+    const pointed: Transaction = {
+      id: 'loyer-mars',
+      amount: Money.of(800),
+      date: '2026-03-03',
+      kind: 'expense',
+      label: 'Loyer',
+      category: 'fixed.rent',
+      recurringExpenseId: loyer.id,
+    };
+
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      incomes: [income('Salaire', 3000)],
+      recurringExpenses: [loyer],
+      transactions: [
+        pointed,
+        expense(300, 'variable.groceries', 10),
+        // Février : des courses saisies, mais le loyer non pointé.
+        { ...expense(300, 'variable.groceries', 10, addMonths(MARCH_2026, -1)), id: 'courses-fevrier' },
+      ],
+    });
+
+    const comparison = compareSpending(profile, MARCH_2026, 'previousMonth');
+    const rent = comparison.categories.find((entry) => entry.category === 'fixed.rent');
+
+    expect(rent?.current.equals(Money.of(800))).toBe(true);
+    expect(rent?.reference.equals(Money.of(800))).toBe(true);
+    expect(rent?.delta.isZero).toBe(true);
+
+    // Et le total s'accorde avec celui que le Budget affiche pour le même mois.
+    const summary = monthlySummary(profile, MARCH_2026, referenceDate(28));
+    const budgeted = Money.sum(summary.categoryTotals.map((entry) => entry.amount), 'EUR');
+    expect(comparison.currentTotal.equals(budgeted)).toBe(true);
+  });
+
+  it('dit sur combien de mois la moyenne porte réellement', () => {
+    const profile = standardProfile({
+      accounts: [account('Compte courant', 3000)],
+      recurringExpenses: [],
+      transactions: [
+        expense(300, 'variable.groceries', 10),
+        { ...expense(200, 'variable.groceries', 10, addMonths(MARCH_2026, -1)), id: 'un-seul-mois' },
+      ],
+    });
+
+    const comparison = compareSpending(profile, MARCH_2026, 'threeMonths');
+
+    expect(comparison.monthsObserved).toBe(1);
+    expect(comparison.windowMonths).toBe(3);
+    // Annoncer « Moyenne 3 mois » sur un seul mois saisi serait faux.
+    expect(comparison.label).not.toBe('Moyenne 3 mois');
+    expect(comparison.label).toContain('1 mois');
   });
 });
 

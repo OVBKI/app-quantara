@@ -37,8 +37,11 @@ export function emergencyFundStatus(
   targetMonths: number,
   monthlyCapacity: Money,
 ): EmergencyFundStatus {
-  const monthlyNeed = summary.essentialExpenses.isPositive
-    ? summary.essentialExpenses
+  // Le besoin d'un mois complet, jamais le constaté à date : une cible qui grandit au fil
+  // des courses saisies fait basculer le voyant de santé sans qu'aucune décision
+  // financière n'ait été prise.
+  const monthlyNeed = summary.essentialMonthlyNeed.isPositive
+    ? summary.essentialMonthlyNeed
     : summary.fixedExpenses;
 
   const target = monthlyNeed.times(BigInt(Math.max(targetMonths, 1)));

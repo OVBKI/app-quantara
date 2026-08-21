@@ -126,7 +126,7 @@ function ForecastCard() {
       ))}
 
       <div className="row" style={{ borderTop: '1px solid var(--border)', fontWeight: 600 }}>
-        <div className="row-main">Reste libre</div>
+        <div className="row-main">Part libre</div>
         <div className={`row-amount amount ${free.isPositive ? 'positive' : ''}`}>
           {free.roundedToUnit.format()}
         </div>
