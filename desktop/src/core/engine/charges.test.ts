@@ -52,7 +52,7 @@ describe('Ce qui est à payer ce mois-ci', () => {
     });
 
     const [entry] = dueCharges(profile, MARCH_2026, referenceDate(10));
-    const draft = chargeTransaction(entry!, MARCH_2026, entry!.due, undefined, referenceDate(10));
+    const draft = chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(10));
     const after = { ...profile, transactions: [{ ...draft, id: 'pointé' }] };
 
     expect(accountBalance(after, courant, referenceDate(10)).equals(Money.of(1200))).toBe(true);
@@ -76,9 +76,9 @@ describe('Ce qui est à payer ce mois-ci', () => {
 
     // Prélèvement habituel le 25, mais on coche le 10 : dater du 25 sortirait l'écriture
     // du solde d'aujourd'hui, qui ne verrait rien bouger.
-    expect(chargeTransaction(entry!, MARCH_2026, entry!.due, courant.id, referenceDate(10)).date).toBe('2026-03-10');
+    expect(chargeTransaction(profile, entry!, MARCH_2026, entry!.due, courant.id, referenceDate(10)).date).toBe('2026-03-10');
     // Le 28, l'échéance est passée : c'est bien le 25 qui compte.
-    expect(chargeTransaction(entry!, MARCH_2026, entry!.due, courant.id, referenceDate(28)).date).toBe('2026-03-25');
+    expect(chargeTransaction(profile, entry!, MARCH_2026, entry!.due, courant.id, referenceDate(28)).date).toBe('2026-03-25');
   });
 
   it('se remet à zéro le mois suivant, sans rien à réinitialiser', () => {
@@ -126,7 +126,7 @@ describe('Ce qui est à payer ce mois-ci', () => {
     });
 
     const [entry] = dueCharges(profile, MARCH_2026, referenceDate(10));
-    const floating = { ...chargeTransaction(entry!, MARCH_2026, entry!.due, undefined, referenceDate(10)), id: 'flottant' };
+    const floating = { ...chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(10)), id: 'flottant' };
     const after = { ...profile, transactions: [floating] };
 
     expect(dueCharges(after, MARCH_2026, referenceDate(10))[0]!.unassigned).toBe(true);
@@ -142,7 +142,7 @@ describe('Ce qui est à payer ce mois-ci', () => {
     });
 
     const [entry] = dueCharges(profile, MARCH_2026, referenceDate(10));
-    const draft = chargeTransaction(entry!, MARCH_2026, Money.of(117.4), courant.id, referenceDate(10));
+    const draft = chargeTransaction(profile, entry!, MARCH_2026, Money.of(117.4), courant.id, referenceDate(10));
     const after = { ...profile, transactions: [{ ...draft, id: 'réel' }] };
 
     const [checked] = dueCharges(after, MARCH_2026, referenceDate(10));
@@ -176,7 +176,7 @@ describe('Pointer ne change rien au budget', () => {
     const [entry] = dueCharges(profile, MARCH_2026, referenceDate(20));
     const after = {
       ...profile,
-      transactions: [{ ...chargeTransaction(entry!, MARCH_2026, entry!.due, undefined, referenceDate(20)), id: 'pointé' }],
+      transactions: [{ ...chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(20)), id: 'pointé' }],
     };
     const summary = analyse(after, MARCH_2026, referenceDate(20));
 
@@ -191,6 +191,70 @@ describe('Pointer ne change rien au budget', () => {
     // Et la trésorerie ne resoustrait pas l'échéance du 3, déjà passée sur le compte.
     expect(summary.cashFlow.points.find((point) => point.day === 20)!.balance.equals(Money.of(2200))).toBe(true);
     expect(summary.cashFlow.projectedOverdraft).toBe(false);
+  });
+});
+
+describe('Cocher fait toujours partir l’argent', () => {
+  it('date le pointage du jour quand l’échéance est couverte par le relevé', () => {
+    /*
+     * Le cas signalé. Le relevé du compte date du 20, les charges tombent le 5 : datées du
+     * 5, elles étaient réputées déjà comprises dans le solde saisi, et cocher ne faisait
+     * rien bouger. La date configurée sur la charge dit quand elle **tombe d'habitude** —
+     * elle ne doit pas empêcher le geste de produire son effet.
+     *
+     * Le pointage est donc daté du jour où on coche dès que la date habituelle serait
+     * absorbée par le relevé. Dans le cas courant — un relevé antérieur au mois — rien ne
+     * change : c'est bien la date d'échéance qui est retenue, plus fidèle à la réalité.
+     */
+    const courant = account('Compte courant', 3447, 'checking', '2026-03-20');
+    const loyer = { ...fixedExpense('Loyer', 1088, 'fixed.rent', { dayOfMonth: 5 }), accountId: courant.id };
+    const profile = standardProfile({
+      accounts: [courant],
+      recurringExpenses: [loyer],
+      transactions: [],
+    });
+
+    const [entry] = dueCharges(profile, MARCH_2026, referenceDate(28));
+    const draft = chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(28));
+
+    expect(draft.date).toBe('2026-03-28');
+
+    const after = { ...profile, transactions: [{ ...draft, id: 'pointé' }] };
+    expect(accountBalance(after, courant, referenceDate(28)).equals(Money.of(2359))).toBe(true);
+    expect(dueCharges(after, MARCH_2026, referenceDate(28))[0]!.alreadyInStatement).toBe(false);
+  });
+
+  it('garde la date d’échéance quand elle produit déjà son effet', () => {
+    // Relevé antérieur au mois : la date réelle du prélèvement est plus fidèle, et elle
+    // fait bien baisser le solde. Aucune raison de la remplacer.
+    const courant = account('Compte courant', 3447, 'checking', '2026-02-28');
+    const loyer = { ...fixedExpense('Loyer', 1088, 'fixed.rent', { dayOfMonth: 5 }), accountId: courant.id };
+    const profile = standardProfile({
+      accounts: [courant],
+      recurringExpenses: [loyer],
+      transactions: [],
+    });
+
+    const [entry] = dueCharges(profile, MARCH_2026, referenceDate(28));
+    const draft = chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(28));
+
+    expect(draft.date).toBe('2026-03-05');
+    const after = { ...profile, transactions: [{ ...draft, id: 'pointé' }] };
+    expect(accountBalance(after, courant, referenceDate(28)).equals(Money.of(2359))).toBe(true);
+  });
+
+  it('suit le compte de repli quand la charge n’en désigne aucun', () => {
+    const courant = account('Compte courant', 3447, 'checking', '2026-03-20');
+    const profile = standardProfile({
+      accounts: [courant],
+      recurringExpenses: [fixedExpense('Loyer', 1088, 'fixed.rent', { dayOfMonth: 5 })],
+      transactions: [],
+    });
+
+    const [entry] = dueCharges(profile, MARCH_2026, referenceDate(28));
+    expect(chargeTransaction(profile, entry!, MARCH_2026, entry!.due, courant.id, referenceDate(28)).date).toBe(
+      '2026-03-28',
+    );
   });
 });
 
@@ -315,7 +379,7 @@ describe('Charges non mensuelles', () => {
 
     const after = {
       ...profile,
-      transactions: [{ ...chargeTransaction(entry!, MARCH_2026, entry!.due, undefined, referenceDate(15)), id: 'assur' }],
+      transactions: [{ ...chargeTransaction(profile, entry!, MARCH_2026, entry!.due, undefined, referenceDate(15)), id: 'assur' }],
     };
     expect(accountBalance(after, courant, referenceDate(15)).equals(Money.of(3800))).toBe(true);
   });

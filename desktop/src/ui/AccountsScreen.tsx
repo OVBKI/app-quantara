@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { categoryLabel } from '../core/categories';
 import { type AccountKind } from '../core/model';
-import { formatYearMonth, parseDate } from '../core/yearMonth';
+import { formatYearMonth, parseDate, startOfDay } from '../core/yearMonth';
 import { accountMovements, overviewAccounts, type AccountSummary } from '../core/engine/accounts';
 import { expectedIncomes, receiptTotals, receiptTransaction } from '../core/engine/receipts';
 import { chargeTotals, chargeTransaction, dueCharges, type DueCharge } from '../core/engine/charges';
@@ -59,20 +59,23 @@ export function AccountsScreen() {
   const fallbackAccount = defaultSourceAccount(profile, analysis.reference);
 
   /*
-   * Le relevé de tous les comptes est-il postérieur aux échéances du mois ?
+   * Reste-t-il un cas où cocher ne peut rien faire ?
    *
-   * C'est la situation de la mise en route : on installe l'application le 31, on saisit
-   * le solde du jour, et les charges du 5 sont déjà dedans. Cocher ne fera alors rien
-   * bouger — et il vaut mieux l'annoncer avant que le constater.
+   * Le pointage est daté du jour dès que la date d'échéance serait absorbée par le relevé,
+   * ce qui suffit presque toujours. Presque : si le relevé du compte porte la date
+   * d'aujourd'hui, **aucune** écriture du jour ne peut faire bouger le solde du jour — le
+   * montant saisi est réputé les contenir toutes. Là, il n'y a rien à bricoler dans le
+   * moteur : il faut reculer la date du relevé, et le dire franchement.
    */
-  const statementCovers =
-    charges.length > 0 &&
-    charges.every((entry) => {
-      const account = profile.accounts.find(
-        (candidate) => candidate.id === (entry.expense.accountId ?? fallbackAccount?.id),
-      );
-      return account !== undefined && parseDate(account.balanceDate) >= entry.date;
-    });
+  const blockedAccounts = useMemo(() => {
+    const today = startOfDay(analysis.reference);
+    const targets = new Set(
+      charges.map((entry) => entry.expense.accountId ?? fallbackAccount?.id).filter((id): id is string => Boolean(id)),
+    );
+    return profile.accounts.filter(
+      (candidate) => targets.has(candidate.id) && parseDate(candidate.balanceDate) >= today,
+    );
+  }, [charges, profile.accounts, fallbackAccount?.id, analysis.reference]);
 
   if (profile.accounts.length === 0) {
     return (
@@ -193,18 +196,20 @@ export function AccountsScreen() {
             }
           >
             <p className="rationale" style={{ marginTop: 0 }}>
-              Cochez une charge quand elle est partie de votre compte. La liste se vide d’elle-même au changement de
-              mois — elle se lit dans vos écritures, elle n’est stockée nulle part.
-              {statementCovers ? (
-                <>
-                  {' '}
-                  Le solde de vos comptes, lui, ne bougera pas pour les prélèvements antérieurs à la date du relevé
-                  que vous avez saisie : votre banque les avait déjà retirés à ce moment-là.
-                </>
-              ) : (
-                ' Le solde du compte baisse d’autant, tout de suite.'
-              )}
+              Cochez une charge quand elle est partie de votre compte : le solde baisse d’autant, tout de suite. La
+              liste se vide d’elle-même au changement de mois — elle se lit dans vos écritures, elle n’est stockée
+              nulle part.
             </p>
+
+            {blockedAccounts.length > 0 && (
+              <p className="rationale warning" style={{ marginTop: 0 }}>
+                Un point à régler d’abord : le relevé de{' '}
+                {blockedAccounts.map((entry) => entry.name).join(', ')} porte la date d’aujourd’hui. Le solde que vous
+                avez saisi est donc réputé contenir déjà tout ce qui est parti — cocher ne le fera pas baisser. Dans{' '}
+                <a href="#/settings">Réglages</a>, indiquez plutôt le solde que vous aviez <strong>avant</strong> les
+                prélèvements du mois, à la date correspondante.
+              </p>
+            )}
 
             <div
               className="progress"
@@ -456,7 +461,7 @@ function ChargeRow({
   const amountToPost = adjusted ?? entry.due;
 
   const check = (): void => {
-    const draftTransaction = chargeTransaction(entry, period, amountToPost, fallbackAccountId, analysis.reference);
+    const draftTransaction = chargeTransaction(profile, entry, period, amountToPost, fallbackAccountId, analysis.reference);
     const created = addTransaction(draftTransaction);
     setEditing(false);
     setDraft('');
@@ -499,7 +504,9 @@ function ChargeRow({
       <div className="row-main">
         <div className="row-title">{entry.expense.name}</div>
         <div className="row-subtitle">
-          {entry.paid ? 'Prélevé' : 'Prévu'} le {formatDay(entry.date)}
+          {/* Une fois pointée, c'est la date de l'écriture qui fait foi — pas l'échéance
+              théorique. Elles diffèrent dès que le pointage a dû être daté du jour. */}
+          {entry.paid ? `Pointé le ${formatDay(entry.payments[0]!.date)}` : `Prévu le ${formatDay(entry.date)}`}
           {/*
             Le compte n'est nommé que s'il y a un choix à faire. Avec un seul compte
             courant, « sur Compte courant » se répétait sur chaque ligne sans rien

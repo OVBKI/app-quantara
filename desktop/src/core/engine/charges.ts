@@ -157,15 +157,40 @@ export function dueCharges(
 /**
  * Date du pointage.
  *
- * Le jour de prélèvement habituel, mais jamais dans le futur : cocher le 10 une charge
- * attendue le 25 daterait l'écriture de deux semaines plus tard, et le solde d'aujourd'hui
- * n'en verrait rien. On retient le plus tôt des deux — l'argent est parti, il doit compter
- * maintenant. Sur un mois révolu la question ne se pose pas : c'est le jour d'échéance.
+ * Deux règles, dans cet ordre.
+ *
+ * **Jamais dans le futur.** Cocher le 10 une charge attendue le 25 daterait l'écriture de
+ * deux semaines plus tard, et le solde d'aujourd'hui n'en verrait rien. On retient le plus
+ * tôt des deux. Sur un mois révolu la question ne se pose pas : c'est le jour d'échéance.
+ *
+ * **Jamais absorbée par le relevé du compte.** La date portée par une charge dit quand
+ * elle *tombe d'habitude* ; elle n'a pas à empêcher le geste de produire son effet. Si
+ * cette date précède le relevé du compte débité, l'écriture serait réputée déjà comprise
+ * dans le solde saisi et cocher ne ferait rien bouger — le cas signalé, avec un relevé du
+ * 20 et des prélèvements le 5. On date alors du jour où l'on coche : c'est ce que
+ * l'utilisateur affirme en cochant.
+ *
+ * Dans le cas courant — un relevé antérieur au mois affiché — la première règle suffit, et
+ * c'est bien la date d'échéance qui est retenue, plus fidèle à la réalité du prélèvement.
  */
-function paymentDay(entry: DueCharge, period: YearMonth, reference: Date): number {
+function paymentDay(
+  profile: FinancialProfile,
+  entry: DueCharge,
+  period: YearMonth,
+  reference: Date,
+  accountId?: string,
+): number {
   const usual = dueDay(entry.expense, period);
   if (!containsDate(period, reference)) return usual;
-  return Math.min(usual, reference.getDate());
+
+  const today = Math.min(reference.getDate(), daysInMonth(period));
+  const chosen = Math.min(usual, today);
+
+  const account = profile.accounts.find((candidate) => candidate.id === accountId);
+  if (!account) return chosen;
+
+  const statement = parseDate(account.balanceDate);
+  return dateOf(period, chosen) <= statement ? today : chosen;
 }
 
 /**
@@ -180,6 +205,7 @@ function paymentDay(entry: DueCharge, period: YearMonth, reference: Date): numbe
  * compterait deux fois.
  */
 export function chargeTransaction(
+  profile: FinancialProfile,
   entry: DueCharge,
   period: YearMonth,
   amount: Money,
@@ -187,7 +213,7 @@ export function chargeTransaction(
   reference: Date = new Date(),
 ): Omit<Transaction, 'id'> {
   const accountId = entry.expense.accountId ?? fallbackAccountId;
-  const day = paymentDay(entry, period, reference);
+  const day = paymentDay(profile, entry, period, reference, accountId);
   return {
     amount,
     date: `${period.year}-${String(period.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
