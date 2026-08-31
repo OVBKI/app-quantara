@@ -4,9 +4,10 @@ import { type AccountKind } from '../core/model';
 import { formatYearMonth, parseDate } from '../core/yearMonth';
 import { accountMovements, overviewAccounts, type AccountSummary } from '../core/engine/accounts';
 import { expectedIncomes, receiptTotals, receiptTransaction } from '../core/engine/receipts';
-import { defaultSourceAccount } from '../core/engine/applyAllocation';
+import { chargeTotals, chargeTransaction, dueCharges, type DueCharge } from '../core/engine/charges';
+import { defaultSourceAccount, spendingAccounts } from '../core/engine/applyAllocation';
 import { useStore } from '../state/store';
-import { AnimatedAmount, Card, EmptyState } from './components';
+import { AnimatedAmount, Card, EmptyState, MoneyInput, parseAmount } from './components';
 import { Sparkline } from './charts';
 import { useToast } from './Toast';
 import { formatDay, formatFullDay, formatWeekday } from './dates';
@@ -50,6 +51,11 @@ export function AccountsScreen() {
     [profile, period, analysis.reference],
   );
   const totals = receiptTotals(incomes, profile.currency);
+  const charges = useMemo(
+    () => dueCharges(profile, period, analysis.reference),
+    [profile, period, analysis.reference],
+  );
+  const chargeSummary = chargeTotals(charges, profile.currency);
   const fallbackAccount = defaultSourceAccount(profile, analysis.reference);
 
   if (profile.accounts.length === 0) {
@@ -157,6 +163,57 @@ export function AccountsScreen() {
               <div className="row-main">Encaissé sur {totals.expected.roundedToUnit.format()} attendus</div>
               <div className="row-amount amount positive">{totals.received.roundedToUnit.format()}</div>
               <span style={{ width: 90 }} />
+            </div>
+          </Card>
+        )}
+
+        {charges.length > 0 && (
+          <Card
+            title="Charges à pointer ce mois-ci"
+            action={
+              <span className="tertiary">
+                {charges.length - chargeSummary.pending} / {charges.length}
+              </span>
+            }
+          >
+            <p className="rationale" style={{ marginTop: 0 }}>
+              Cochez une charge quand elle est partie de votre compte : le solde baisse d’autant, tout de suite. La
+              liste se vide d’elle-même au changement de mois — elle se lit dans vos écritures, elle n’est stockée
+              nulle part.
+            </p>
+
+            <div
+              className="progress"
+              style={{ marginBottom: 6 }}
+              role="img"
+              aria-label={`${charges.length - chargeSummary.pending} charges pointées sur ${charges.length}`}
+            >
+              <div
+                className="progress-fill"
+                style={{ width: `${((charges.length - chargeSummary.pending) / charges.length) * 100}%` }}
+              />
+            </div>
+
+            {charges.map((entry) => (
+              <ChargeRow
+                key={entry.expense.id}
+                entry={entry}
+                fallbackAccountId={fallbackAccount?.id}
+                accountName={(id) => profile.accounts.find((candidate) => candidate.id === id)?.name}
+                showAccount={spendingAccounts(profile).length > 1}
+              />
+            ))}
+
+            <div className="row" style={{ borderTop: '1px solid var(--border)', fontWeight: 600 }}>
+              <div className="row-main">
+                {chargeSummary.pending === 0
+                  ? 'Tout est pointé pour ce mois-ci'
+                  : `Reste à partir sur ${chargeSummary.due.roundedToUnit.format()} prévus`}
+              </div>
+              <div className={`row-amount amount ${chargeSummary.pending === 0 ? 'positive' : ''}`}>
+                {chargeSummary.remaining.roundedToUnit.format()}
+              </div>
+              <span style={{ width: 108 }} />
             </div>
           </Card>
         )}
@@ -322,3 +379,119 @@ function MovementsCard({ summary }: { readonly summary: AccountSummary }) {
   );
 }
 
+
+/**
+ * Une ligne de la checklist.
+ *
+ * Cocher crée l'écriture et débite le compte ; décocher la supprime. Aucun état
+ * intermédiaire n'est conservé : la case reflète la présence de l'écriture, rien d'autre.
+ *
+ * Le montant reste modifiable avant de cocher, parce qu'une facture d'électricité n'est
+ * jamais exactement celle du mois dernier. C'est le seul champ ouvert de la carte : tout
+ * le reste se déduit.
+ */
+function ChargeRow({
+  entry,
+  fallbackAccountId,
+  accountName,
+  showAccount,
+}: {
+  entry: DueCharge;
+  fallbackAccountId?: string;
+  accountName: (id: string | undefined) => string | undefined;
+  /** Nommer le compte n'apprend quelque chose que s'il y en a plusieurs. */
+  showAccount: boolean;
+}) {
+  const { profile, period, analysis, addTransaction, removeTransaction } = useStore();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const target = accountName(entry.expense.accountId ?? fallbackAccountId);
+  const adjusted = editing ? parseAmount(draft, profile.currency) : null;
+  const amountToPost = adjusted ?? entry.due;
+
+  const check = (): void => {
+    const created = addTransaction(
+      chargeTransaction(entry, period, amountToPost, fallbackAccountId, analysis.reference),
+    );
+    setEditing(false);
+    setDraft('');
+    toast({
+      message: `${amountToPost.roundedToUnit.format()} retirés de ${target ?? 'aucun compte'}.`,
+      action: { label: 'Annuler', run: () => removeTransaction(created) },
+    });
+  };
+
+  const uncheck = (): void => {
+    for (const payment of entry.payments) removeTransaction(payment.id);
+    toast({ message: `« ${entry.expense.name} » remis à pointer.` });
+  };
+
+  return (
+    <div className={`row check-row${entry.paid ? ' is-checked' : ''}`}>
+      <input
+        type="checkbox"
+        className="check-box"
+        checked={entry.paid}
+        onChange={() => (entry.paid ? uncheck() : check())}
+        aria-label={
+          entry.paid
+            ? `Annuler le pointage de ${entry.expense.name}`
+            : `Pointer ${entry.expense.name} comme prélevé de ${amountToPost.roundedToUnit.format()}`
+        }
+      />
+
+      <div className="row-main">
+        <div className="row-title">{entry.expense.name}</div>
+        <div className="row-subtitle">
+          {entry.paid ? 'Prélevé' : 'Prévu'} le {formatDay(entry.date)}
+          {/*
+            Le compte n'est nommé que s'il y a un choix à faire. Avec un seul compte
+            courant, « sur Compte courant » se répétait sur chaque ligne sans rien
+            apprendre.
+          */}
+          {showAccount && (target ? ` · sur ${target}` : ' · aucun compte à débiter')}
+          {entry.unassigned && ' · pointé, mais aucun solde n’a bougé'}
+          {/*
+            L'inverse de ce qu'on attendrait : c'est « à venir » qui est signalé, pas
+            « en retard ». La plupart des charges tombent en début de mois et la liste se
+            consulte plus tard — marquer les retards aurait étiqueté les sept lignes, ce
+            qui n'informe plus personne. Une échéance encore à venir, elle, dit qu'il n'y
+            a rien à faire tout de suite.
+          */}
+          {!entry.paid && !entry.overdue && ' · à venir'}
+        </div>
+      </div>
+
+      {entry.paid ? (
+        <div className="row-amount amount">
+          {entry.amount!.roundedToUnit.format()}
+          {!entry.difference.isZero && (
+            <span className="tertiary" style={{ fontWeight: 400 }}>
+              {' '}
+              ({entry.difference.isPositive ? '+' : '−'}
+              {entry.difference.absolute.roundedToUnit.format()})
+            </span>
+          )}
+        </div>
+      ) : editing ? (
+        <div style={{ width: 130 }}>
+          <MoneyInput value={draft} currency={profile.currency} onChange={setDraft} autoFocus />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="row-amount amount amount-button"
+          onClick={() => {
+            setDraft(entry.due.roundedTo(2).units.toFixed(2).replace('.', ','));
+            setEditing(true);
+          }}
+          title="Corriger le montant réellement prélevé"
+        >
+          {entry.due.roundedToUnit.format()}
+        </button>
+      )}
+    </div>
+  );
+}

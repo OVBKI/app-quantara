@@ -402,6 +402,56 @@ textarea {
   white-space: nowrap;
 }
 
+/* --- Pointage des charges --- */
+
+.check-row {
+  gap: 14px;
+}
+
+/* Une charge pointée s'efface sans disparaître : ce qui reste à faire doit ressortir,
+   ce qui est fait doit rester lisible et reste annulable. */
+.check-row.is-checked .row-title,
+.check-row.is-checked .row-amount {
+  color: var(--text-secondary);
+}
+
+.check-box {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check-box:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Le montant prévu est cliquable — une facture d'électricité n'est jamais exactement
+   celle du mois dernier. Le pointillé le dit sans ajouter un bouton de plus. */
+.amount-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border-strong, var(--border));
+}
+
+.amount-button:hover {
+  color: var(--accent);
+}
+
+.amount-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
 /* --- Contrôles --- */
 
 .button {

@@ -261,6 +261,7 @@ function normalise(input: unknown): FinancialProfile {
       dayOfMonth: Math.min(Math.max(num(entry.dayOfMonth, 1), 1), 31),
       subscription: bool(entry.subscription, false),
       ...(entry.essentialOverride !== undefined ? { essentialOverride: bool(entry.essentialOverride, false) } : {}),
+      ...(typeof entry.accountId === 'string' ? { accountId: entry.accountId } : {}),
       ...(typeof entry.startDate === 'string' ? { startDate: entry.startDate } : {}),
       ...(typeof entry.endDate === 'string' ? { endDate: entry.endDate } : {}),
       active: bool(entry.active, true),

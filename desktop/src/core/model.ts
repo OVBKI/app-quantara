@@ -82,6 +82,9 @@ export interface RecurringExpense {
   readonly subscription: boolean;
   /** Force le caractère essentiel, quand la catégorie ne suffit pas à trancher. */
   readonly essentialOverride?: boolean;
+  /** Compte d'où part le prélèvement. Sans lui, pointer la charge comme payée crée bien
+   *  l'écriture — elle compte dans le budget — mais aucun solde ne bouge. */
+  readonly accountId?: string;
   readonly startDate?: string;
   readonly endDate?: string;
   readonly active: boolean;

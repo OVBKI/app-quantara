@@ -28,6 +28,7 @@ import {
 import { ApplyAllocationButton } from './ApplyAllocation';
 import { EnvelopesCard } from './EnvelopesCard';
 import { IncomeRangeCard } from './IncomeRangeCard';
+import { chargeTotals, dueCharges } from '../core/engine/charges';
 import { formatDay } from './dates';
 
 export function BudgetScreen() {
@@ -188,6 +189,7 @@ export function BudgetScreen() {
                 <div className="row-amount amount">{summary.fixedExpenses.roundedTo(2).format()}</div>
                 <span style={{ width: 33 }} />
               </div>
+              <ChargeChecklistLink />
             </>
           )}
         </Card>
@@ -700,6 +702,35 @@ function DeclarationForm({
   );
 }
 
+/**
+ * Rappel du pointage, là où les charges se paramètrent.
+ *
+ * La checklist elle-même vit sur l'écran Comptes, avec le reste de ce qui bouge
+ * réellement. Cette ligne existe pour qu'on la trouve depuis ici, où l'on vient de
+ * déclarer ses charges — sans dupliquer l'outil à deux endroits.
+ */
+function ChargeChecklistLink() {
+  const { profile, period, analysis } = useStore();
+  const charges = useMemo(
+    () => dueCharges(profile, period, analysis.reference),
+    [profile, period, analysis.reference],
+  );
+  if (charges.length === 0) return null;
+
+  const { pending } = chargeTotals(charges, profile.currency);
+  const done = charges.length - pending;
+
+  return (
+    <p className="rationale" style={{ marginBottom: 0 }}>
+      {pending === 0
+        ? `Les ${charges.length} charges du mois sont pointées.`
+        : `${done} charge${done > 1 ? 's' : ''} sur ${charges.length} pointée${done > 1 ? 's' : ''} ce mois-ci.`}{' '}
+      Cocher une charge la retire de votre compte —{' '}
+      <a href="#/accounts">c’est sur l’écran Comptes</a>.
+    </p>
+  );
+}
+
 /** Rappel de la période de validité dans la liste : une charge close doit se voir close,
  *  faute de quoi elle a l'air d'avoir disparu des mois où elle ne compte plus. */
 function validityNote(entry: { startDate?: string; endDate?: string }): string {
@@ -948,10 +979,12 @@ function ExpenseForm({
   onSubmit: (expense: Omit<RecurringExpense, 'id'>) => void;
   currency: Money['currency'];
 }) {
+  const { profile } = useStore();
   const [name, setName] = useState(initial?.name ?? '');
   const [amount, setAmount] = useState(editable(initial?.amount));
   const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? 'monthly');
   const [category, setCategory] = useState<ExpenseCategoryId>(initial?.category ?? 'fixed.rent');
+  const [accountId, setAccountId] = useState(initial?.accountId ?? '');
   const [day, setDay] = useState(String(initial?.dayOfMonth ?? 5));
   const [subscription, setSubscription] = useState(initial?.subscription ?? false);
   const [startDate, setStartDate] = useState(initial?.startDate ?? '');
@@ -1010,6 +1043,24 @@ function ExpenseForm({
           )}
         </Field>
       </div>
+      {spendingAccounts(profile).length > 0 && (
+        <Field
+          label="Prélevé sur quel compte ?"
+          hint="Sert au pointage : cocher la charge comme payée débitera ce compte"
+        >
+          {(id) => (
+            <select id={id} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+              <option value="">Aucun compte précisé</option>
+              {spendingAccounts(profile).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
+
       <label className="inline" style={{ marginBottom: 8 }}>
         <input
           type="checkbox"
@@ -1053,6 +1104,7 @@ function ExpenseForm({
               dayOfMonth: Math.min(Math.max(Number(day) || 1, 1), 31),
               subscription,
               active: initial?.active ?? true,
+              ...(accountId ? { accountId } : {}),
               ...(startDate ? { startDate } : {}),
               ...(endDate ? { endDate } : {}),
             });
