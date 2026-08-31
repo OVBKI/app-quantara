@@ -58,6 +58,22 @@ export function AccountsScreen() {
   const chargeSummary = chargeTotals(charges, profile.currency);
   const fallbackAccount = defaultSourceAccount(profile, analysis.reference);
 
+  /*
+   * Le relevé de tous les comptes est-il postérieur aux échéances du mois ?
+   *
+   * C'est la situation de la mise en route : on installe l'application le 31, on saisit
+   * le solde du jour, et les charges du 5 sont déjà dedans. Cocher ne fera alors rien
+   * bouger — et il vaut mieux l'annoncer avant que le constater.
+   */
+  const statementCovers =
+    charges.length > 0 &&
+    charges.every((entry) => {
+      const account = profile.accounts.find(
+        (candidate) => candidate.id === (entry.expense.accountId ?? fallbackAccount?.id),
+      );
+      return account !== undefined && parseDate(account.balanceDate) >= entry.date;
+    });
+
   if (profile.accounts.length === 0) {
     return (
       <>
@@ -177,9 +193,17 @@ export function AccountsScreen() {
             }
           >
             <p className="rationale" style={{ marginTop: 0 }}>
-              Cochez une charge quand elle est partie de votre compte : le solde baisse d’autant, tout de suite. La
-              liste se vide d’elle-même au changement de mois — elle se lit dans vos écritures, elle n’est stockée
-              nulle part.
+              Cochez une charge quand elle est partie de votre compte. La liste se vide d’elle-même au changement de
+              mois — elle se lit dans vos écritures, elle n’est stockée nulle part.
+              {statementCovers ? (
+                <>
+                  {' '}
+                  Le solde de vos comptes, lui, ne bougera pas pour les prélèvements antérieurs à la date du relevé
+                  que vous avez saisie : votre banque les avait déjà retirés à ce moment-là.
+                </>
+              ) : (
+                ' Le solde du compte baisse d’autant, tout de suite.'
+              )}
             </p>
 
             <div
@@ -308,13 +332,33 @@ function AccountCard({
         </span>
       </div>
 
+      {/*
+        Le mois et le solde ne se recomposent pas par une soustraction quand le relevé a
+        été saisi en cours de mois. Le dire évite de chercher l'erreur : il n'y en a pas.
+      */}
+      {/* Seulement quand le mois est à cheval : si tout le précède, la ligne du bas
+          en bas de carte le dit déjà, et le répéter n'ajoute rien. */}
+      {summary.beforeStatement.isPositive && movementCount > 0 && (
+        <p className="tertiary" style={{ marginTop: 8, fontSize: 12 }}>
+          Dont {summary.beforeStatement.roundedToUnit.format()} avant le relevé du{' '}
+          {formatFullDay(account.balanceDate)} — déjà compris dans le solde ci-dessus.
+        </p>
+      )}
+
       <div className="inline" style={{ justifyContent: 'space-between', marginTop: 12 }}>
         <span className="tertiary">
+          {/*
+            « Aucun mouvement » était faux dès que le relevé avait été saisi après les
+            prélèvements du mois : il y en avait, ils étaient simplement tous compris dans
+            le solde de départ. La ligne le dit maintenant plutôt que de les nier.
+          */}
           {valuedByHoldings
             ? 'Valeur des lignes de portefeuille'
             : movementCount === 0
-              ? 'Aucun mouvement ce mois-ci'
-              : `${movementCount} mouvement${movementCount > 1 ? 's' : ''} · relevé du ${formatFullDay(account.balanceDate)}`}
+              ? summary.beforeStatement.isPositive
+                ? `Tout le mois est antérieur au relevé du ${formatFullDay(account.balanceDate)}`
+                : 'Aucun mouvement ce mois-ci'
+              : `${movementCount} mouvement${movementCount > 1 ? 's' : ''} depuis le relevé du ${formatFullDay(account.balanceDate)}`}
         </span>
         <button type="button" className="button button-small" onClick={onToggle} disabled={movementCount === 0}>
           {open ? 'Masquer' : 'Voir le détail'}
@@ -412,13 +456,23 @@ function ChargeRow({
   const amountToPost = adjusted ?? entry.due;
 
   const check = (): void => {
-    const created = addTransaction(
-      chargeTransaction(entry, period, amountToPost, fallbackAccountId, analysis.reference),
-    );
+    const draftTransaction = chargeTransaction(entry, period, amountToPost, fallbackAccountId, analysis.reference);
+    const created = addTransaction(draftTransaction);
     setEditing(false);
     setDraft('');
+
+    /*
+     * Le message doit décrire ce qui vient de se passer, pas ce qu'on aimerait.
+     * « 72,00 € retirés » sur un prélèvement antérieur au relevé serait faux : le solde
+     * n'a pas bougé d'un centime, parce qu'il les contenait déjà.
+     */
+    const account = profile.accounts.find((candidate) => candidate.id === draftTransaction.accountId);
+    const alreadyCounted = account !== undefined && draftTransaction.date <= account.balanceDate;
+
     toast({
-      message: `${amountToPost.roundedToUnit.format()} retirés de ${target ?? 'aucun compte'}.`,
+      message: alreadyCounted
+        ? `${entry.expense.name} pointé. Le solde ne bouge pas : ces ${amountToPost.roundedToUnit.format()} étaient déjà compris dans le relevé du ${formatFullDay(account!.balanceDate)}.`
+        : `${amountToPost.roundedToUnit.format()} retirés de ${target ?? 'aucun compte'}.`,
       action: { label: 'Annuler', run: () => removeTransaction(created) },
     });
   };
@@ -453,6 +507,12 @@ function ChargeRow({
           */}
           {showAccount && (target ? ` · sur ${target}` : ' · aucun compte à débiter')}
           {entry.unassigned && ' · pointé, mais aucun solde n’a bougé'}
+          {/*
+            Dit franchement pourquoi le solde n'a pas bougé. Sans cette ligne, cocher six
+            charges sans rien voir changer passe pour une panne — alors que le montant
+            saisi comme solde les contenait déjà.
+          */}
+          {entry.alreadyInStatement && ' · déjà compris dans le solde que vous avez saisi'}
           {/*
             L'inverse de ce qu'on attendrait : c'est « à venir » qui est signalé, pas
             « en retard ». La plupart des charges tombent en début de mois et la liste se

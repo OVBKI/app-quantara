@@ -3,6 +3,7 @@ import { Money } from '../money';
 import { accountBalance, type Transaction } from '../model';
 import { addMonths } from '../yearMonth';
 import { MARCH_2026, account, fixedExpense, income, referenceDate, standardProfile } from '../testing/fixtures';
+import { summariseAccount } from './accounts';
 import { analyse } from './analysis';
 import { chargeTotals, chargeTransaction, dueCharges } from './charges';
 
@@ -190,6 +191,104 @@ describe('Pointer ne change rien au budget', () => {
     // Et la trésorerie ne resoustrait pas l'échéance du 3, déjà passée sur le compte.
     expect(summary.cashFlow.points.find((point) => point.day === 20)!.balance.equals(Money.of(2200))).toBe(true);
     expect(summary.cashFlow.projectedOverdraft).toBe(false);
+  });
+});
+
+describe('Quand le solde de départ contient déjà la charge', () => {
+  /*
+   * Le cas de la mise en route, et donc le cas le plus fréquent : on installe
+   * l'application le 31, on saisit « le solde d'aujourd'hui », puis on pointe les charges
+   * du mois. Elles sont datées du 5 — antérieures au relevé — donc déjà comprises dans le
+   * montant saisi. Les soustraire une seconde fois ferait afficher moins d'argent que la
+   * banque n'en montre.
+   *
+   * L'arithmétique était juste, mais l'écran promettait « le solde baisse d'autant » et
+   * annonçait ensuite « Sorti −0,00 € » sur un mois où 1 780 € étaient sortis. C'était le
+   * compte rendu qui mentait, pas le calcul.
+   */
+  function pointedProfile() {
+    const courant = account('Compte courant', 3447, 'checking', '2026-03-31');
+    const charges = [
+      { name: 'appartement', amount: 1088 },
+      { name: 'basic-fit', amount: 35 },
+      { name: 'voiture', amount: 295 },
+      { name: 'engie', amount: 72 },
+      { name: 'assurance', amount: 43 },
+      { name: 'proximus', amount: 247 },
+    ].map((entry) => ({
+      ...fixedExpense(entry.name, entry.amount, 'fixed.otherFixed', { dayOfMonth: 5 }),
+      accountId: courant.id,
+    }));
+
+    const transactions: Transaction[] = charges.map((expense, index) => ({
+      id: `pointé-${index}`,
+      amount: expense.amount,
+      date: '2026-03-05',
+      kind: 'expense',
+      label: expense.name,
+      category: 'fixed.otherFixed',
+      accountId: courant.id,
+      recurringExpenseId: expense.id,
+    }));
+
+    return {
+      courant,
+      profile: standardProfile({
+        accounts: [courant],
+        incomes: [income('Salaire', 3000)],
+        recurringExpenses: charges,
+        transactions,
+      }),
+    };
+  }
+
+  it('ne soustrait pas une deuxième fois ce que le relevé contenait déjà', () => {
+    const { courant, profile } = pointedProfile();
+    // 3 447 € saisis le 31 : c'est ce que la banque affiche, loyer déjà parti.
+    expect(accountBalance(profile, courant, referenceDate(31)).equals(Money.of(3447))).toBe(true);
+  });
+
+  it('dit quand même ce qui est sorti du mois', () => {
+    const { courant, profile } = pointedProfile();
+    const summary = summariseAccount(profile, courant, MARCH_2026, referenceDate(31));
+
+    // 1 088 + 35 + 295 + 72 + 43 + 247 : le mois a bien vu partir cet argent.
+    expect(summary.debited.equals(Money.of(1780))).toBe(true);
+    // Et la carte peut expliquer pourquoi le solde n'a pas bougé pour autant.
+    expect(summary.beforeStatement.equals(Money.of(1780))).toBe(true);
+  });
+
+  it('marque la charge comme déjà comprise dans le solde', () => {
+    const { profile } = pointedProfile();
+    const charges = dueCharges(profile, MARCH_2026, referenceDate(31));
+
+    expect(charges.every((entry) => entry.paid)).toBe(true);
+    expect(charges.every((entry) => entry.alreadyInStatement)).toBe(true);
+  });
+
+  it('ne le dit pas quand le pointage a réellement bougé le solde', () => {
+    const courant = account('Compte courant', 3447, 'checking', '2026-02-28');
+    const loyer = { ...fixedExpense('Loyer', 800, 'fixed.rent', { dayOfMonth: 5 }), accountId: courant.id };
+    const profile = standardProfile({
+      accounts: [courant],
+      recurringExpenses: [loyer],
+      transactions: [
+        {
+          id: 'pointé',
+          amount: Money.of(800),
+          date: '2026-03-05',
+          kind: 'expense',
+          label: 'Loyer',
+          category: 'fixed.rent',
+          accountId: courant.id,
+          recurringExpenseId: loyer.id,
+        },
+      ],
+    });
+
+    expect(dueCharges(profile, MARCH_2026, referenceDate(20))[0]!.alreadyInStatement).toBe(false);
+    expect(accountBalance(profile, courant, referenceDate(20)).equals(Money.of(2647))).toBe(true);
+    expect(summariseAccount(profile, courant, MARCH_2026, referenceDate(20)).beforeStatement.isZero).toBe(true);
   });
 });
 

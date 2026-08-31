@@ -1,5 +1,12 @@
 import { Money } from '../money';
-import { accountBalance, movementOn, type Account, type FinancialProfile, type Transaction } from '../model';
+import {
+  accountBalance,
+  movementOn,
+  transactionsIn,
+  type Account,
+  type FinancialProfile,
+  type Transaction,
+} from '../model';
 import { containsDate, daysInMonth, dateOf, parseDate, type YearMonth } from '../yearMonth';
 
 /**
@@ -111,11 +118,29 @@ export interface AccountSummary {
   readonly balance: Money;
   /** Le solde vient des lignes de portefeuille, pas des mouvements du compte. */
   readonly valuedByHoldings: boolean;
+  /*
+   * Deux questions, deux réponses, et il faut les distinguer.
+   *
+   * `balance` est un **stock** : ce qu'il y a maintenant. Il part du montant saisi à la
+   * date de relevé et n'ajoute que ce qui a suivi.
+   *
+   * `credited` / `debited` sont des **flux** : ce qui a bougé pendant le mois, tout le
+   * mois. Les borner à la date de relevé faisait afficher « Sorti −0,00 € » sur un mois
+   * où 1 780 € étaient manifestement partis — parce que le relevé avait été saisi après
+   * eux. Un compte rendu du mois doit décrire le mois.
+   *
+   * Les deux ne se recomposent donc pas par une soustraction, et c'est normal :
+   * `beforeStatement` dit exactement quelle part des flux du mois était déjà comprise
+   * dans le solde saisi.
+   */
   /** Ce qui est entré sur la période. */
   readonly credited: Money;
   /** Ce qui en est sorti, en valeur absolue. */
   readonly debited: Money;
   readonly net: Money;
+  /** Part des mouvements du mois déjà comprise dans le solde de relevé, en valeur
+   *  absolue. Zéro quand le relevé précède le mois — le cas courant à l'usage. */
+  readonly beforeStatement: Money;
   readonly movementCount: number;
   readonly daily: readonly AccountDay[];
 }
@@ -154,12 +179,22 @@ export function summariseAccount(
   const movements = accountMovements(profile, account, period);
   const value = accountValue(profile, account, reference);
 
+  // Les flux couvrent le mois entier, relevé ou pas : c'est ce que le mois a vu passer.
+  const statementDate = parseDate(account.balanceDate);
+  const monthly = transactionsIn(profile, period)
+    .map((transaction) => ({ date: parseDate(transaction.date), amount: movementOn(account.id, transaction) }))
+    .filter((entry): entry is { date: Date; amount: Money } => entry.amount !== null);
+
   const credited = Money.sum(
-    movements.filter((entry) => entry.amount.isPositive).map((entry) => entry.amount),
+    monthly.filter((entry) => entry.amount.isPositive).map((entry) => entry.amount),
     currency,
   );
   const debited = Money.sum(
-    movements.filter((entry) => entry.amount.isNegative).map((entry) => Money.zero(currency).minus(entry.amount)),
+    monthly.filter((entry) => entry.amount.isNegative).map((entry) => Money.zero(currency).minus(entry.amount)),
+    currency,
+  );
+  const beforeStatement = Money.sum(
+    monthly.filter((entry) => entry.date <= statementDate).map((entry) => entry.amount.absolute),
     currency,
   );
 
@@ -170,6 +205,7 @@ export function summariseAccount(
     credited,
     debited,
     net: credited.minus(debited),
+    beforeStatement,
     movementCount: movements.length,
     daily: accountDailyBalances(profile, account, period),
   };

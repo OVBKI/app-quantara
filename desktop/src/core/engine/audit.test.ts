@@ -194,7 +194,16 @@ describe('Relevé de compte — un seul solde par compte', () => {
     expect(movements.at(-1)!.balanceAfter.equals(summary.balance)).toBe(true);
     // La dépense antérieure au relevé est déjà comprise dedans : elle n'est pas rejouée.
     expect(movements.map((entry) => entry.transaction.id)).toEqual(['apres']);
-    expect(summary.debited.equals(Money.of(50))).toBe(true);
+
+    /*
+     * Le **solde** s'arrête au relevé ; le **compte rendu du mois**, non. Les deux
+     * dépenses ont eu lieu en mars, et le mois doit les annoncer toutes les deux — borner
+     * ce total au relevé faisait afficher « Sorti −0,00 € » sur un mois où l'argent était
+     * manifestement parti, dès lors que le solde avait été saisi après coup. C'est
+     * `beforeStatement` qui explique l'écart, plutôt qu'un chiffre muet.
+     */
+    expect(summary.debited.equals(Money.of(150))).toBe(true);
+    expect(summary.beforeStatement.equals(Money.of(100))).toBe(true);
   });
 });
 

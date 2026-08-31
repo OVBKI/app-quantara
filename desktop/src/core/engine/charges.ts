@@ -1,7 +1,15 @@
 import { Money } from '../money';
 import { monthlyEquivalent, occurrencesPerYear } from '../frequency';
 import { recurringExpensesFor, transactionsIn, type FinancialProfile, type RecurringExpense, type Transaction } from '../model';
-import { addMonths, containsDate, dateOf, daysInMonth, startOfDay, type YearMonth } from '../yearMonth';
+import {
+  addMonths,
+  containsDate,
+  dateOf,
+  daysInMonth,
+  parseDate,
+  startOfDay,
+  type YearMonth,
+} from '../yearMonth';
 
 /**
  * Pointage des charges fixes.
@@ -45,6 +53,19 @@ export interface DueCharge {
   readonly paid: boolean;
   /** Pointé, mais sans compte débité : le solde ne bouge pas, il faut le dire. */
   readonly unassigned: boolean;
+  /**
+   * Pointé, mais le solde n'a pas bougé — et c'est normal.
+   *
+   * Le solde d'un compte se déduit du montant saisi à sa date de relevé, plus ce qui a
+   * suivi. Une charge prélevée le 5, pointée sur un compte dont le relevé date du 31, est
+   * **déjà comprise** dans ce montant : la banque l'avait déjà retirée quand l'utilisateur
+   * a lu son solde. La soustraire une seconde fois ferait afficher moins d'argent que la
+   * banque n'en montre.
+   *
+   * C'est le cas de la mise en route, donc le plus fréquent — et il faut le dire, sans
+   * quoi cocher six charges sans voir le solde bouger passe pour une panne.
+   */
+  readonly alreadyInStatement: boolean;
   /** L'échéance est passée et rien n'est pointé. */
   readonly overdue: boolean;
 }
@@ -88,6 +109,19 @@ function settledForItsPeriod(profile: FinancialProfile, expense: RecurringExpens
   return false;
 }
 
+/**
+ * L'écriture est-elle antérieure au relevé du compte qu'elle débite ?
+ *
+ * Si oui, le solde saisi la contenait déjà, et le pointage ne le fait pas bouger. Une
+ * écriture sans compte ne change aucun solde non plus, mais pour une autre raison — elle
+ * est signalée séparément par `unassigned`.
+ */
+function coveredByStatement(profile: FinancialProfile, payment: Transaction): boolean {
+  const account = profile.accounts.find((candidate) => candidate.id === payment.accountId);
+  if (!account) return false;
+  return parseDate(payment.date) <= parseDate(account.balanceDate);
+}
+
 export function dueCharges(
   profile: FinancialProfile,
   period: YearMonth,
@@ -114,6 +148,7 @@ export function dueCharges(
         difference: amount === null ? Money.zero(profile.currency) : amount.minus(due),
         paid: payments.length > 0,
         unassigned: payments.some((entry) => entry.accountId === undefined),
+        alreadyInStatement: payments.length > 0 && payments.every((entry) => coveredByStatement(profile, entry)),
         overdue: payments.length === 0 && date <= today,
       };
     });
